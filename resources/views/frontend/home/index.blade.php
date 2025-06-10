@@ -1,8 +1,9 @@
 @extends('frontend.layouts.main')
+
 @section('main-content')
 <main>
-    <!--? slider Area Start-->
-    <div class="slider-area position-relative">
+    <!--? Slider Area Start -->
+    <div id="slider-area" class="slider-area position-relative">
         <div class="slider-active">
             <!-- Single Slider -->
             <div class="single-slider slider-height d-flex align-items-center">
@@ -11,8 +12,7 @@
                         <div class="col-xl-9 col-lg-9 col-md-10">
                             <div class="hero__caption">
                                 <span data-animation="fadeInLeft" data-delay="0.1s">Order your medicine with Pharma</span>
-                                <h1 data-animation="fadeInLeft" data-delay="0.4s" style="font-size: 50px;">Pharma Pharmacy </h1>
-                                
+                                <h1 data-animation="fadeInLeft" data-delay="0.4s" style="font-size: 50px;">Pharma Pharmacy</h1>
                             </div>
                         </div>
                     </div>
@@ -20,8 +20,29 @@
             </div>
         </div>
     </div>
-    <!-- slider Area End-->
-    
+    <!-- Slider Area End -->
+</main>
+
+<!-- 🔁 Auto Looping Background Script -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const slider = document.getElementById('slider-area');
+
+        const images = [
+            "{{ asset('assets/img/pharmacy/pharmacy.jpg') }}",
+            "{{ asset('assets/img/pharmacy/pharmacy2.jpg') }}",
+            "{{ asset('assets/img/pharmacy/pharmacy3.jpg') }}"
+        ];
+
+        let currentIndex = 0;
+
+        setInterval(() => {
+            currentIndex = (currentIndex + 1) % images.length; // Loops back to 0 automatically
+            slider.style.backgroundImage = `url('${images[currentIndex]}')`;
+        }, 5000); // 5 seconds interval
+    });
+</script>
+<hr class="header-divider">
     <!-- Products section start -->
     <section class="product-section white-bg section-padding30">
     <div class="container">

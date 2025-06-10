@@ -54,7 +54,7 @@
   }
 
   .checkout-container .payment-box:hover {
-    border-color: #28a745;
+    border-color: teal;
     box-shadow: 0 0 10px rgba(40, 167, 69, 0.2);
     background-color: #e9fbe9;
   }
@@ -67,7 +67,7 @@
   .checkout-container .place-order-btn {
     width: 100%;
     padding: 15px;
-    background-color: #28a745;
+    background-color:teal;
     color: white;
     font-weight: bold;
     font-size: 18px;
@@ -78,7 +78,8 @@
   }
 
   .checkout-container .place-order-btn:hover {
-    background-color: #218838;
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
   }
 
   @media (max-width: 768px) {

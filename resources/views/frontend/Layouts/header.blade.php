@@ -27,10 +27,11 @@
                                 />
 
                                 <!-- Combined Advanced + Search Icon Button -->
-                                <button type="submit" class="combined-search-btn">
-                                    <span class="advanced-label">Advanced Search</span>
-                                    <span class="search-icon">🔍</span>
-                                </button>
+<a href="{{route('advanced')}}" class="combined-search-btn">
+    <span class="advanced-label">Advanced Search</span>
+    <span class="search-icon">🔍</span>
+</a>
+
                             </form>
                         </div>
 

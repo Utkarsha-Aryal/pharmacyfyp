@@ -3397,7 +3397,6 @@ hr {
 }
 
 
-/* line 37, C:/Users/HP/Desktop/July-HTML/292 Health coach/assets/scss/_h1-hero.scss */
 .slider-area {
   margin-top: -1px;
   background-image: url('../img/pharmacy/pharmacy.jpg');
@@ -3407,9 +3406,19 @@ hr {
   background-attachment: fixed;
   height: 500px;
   position: relative;
-
-  overflow: hidden; /* optional: clip background to border */
+  overflow: hidden;
+  transition: background-image 1s ease-in-out; 
 }
+.slider-area {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+.product-section {
+    margin-top: 0 !important;
+    padding-top: 10px !important; /* or reduce further as needed */
+}
+
 
 /* line 44, C:/Users/HP/Desktop/July-HTML/292 Health coach/assets/scss/_h1-hero.scss */
 .slider-area .hero__caption {
@@ -3550,12 +3559,6 @@ hr {
   bottom: 160px;
 }
 
-@media only screen and (min-width: 992px) and (max-width: 1199px) {
-  /* line 117, C:/Users/HP/Desktop/July-HTML/292 Health coach/assets/scss/_h1-hero.scss */
-  .slider-area .video-icon {
-    right: 48px;
-  }
-}
 
 @media only screen and (min-width: 768px) and (max-width: 991px) {
   /* line 117, C:/Users/HP/Desktop/July-HTML/292 Health coach/assets/scss/_h1-hero.scss */
@@ -3617,41 +3620,6 @@ hr {
   /* End Animated */
 }
 
-/* line 158, C:/Users/HP/Desktop/July-HTML/292 Health coach/assets/scss/_h1-hero.scss */
-.slider-area .video-icon a.btn-icon::before {
-  content: '';
-  display: inline-block;
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  bottom: -2px;
-  right: -2px;
-  border-radius: inherit;
-  border: 1px solid #ff1313;
-  -webkit-animation: btnIconRipple 2s cubic-bezier(0.23, 1, 0.32, 1) both infinite;
-  animation: btnIconRipple 2s cubic-bezier(0.23, 1, 0.32, 1) both infinite;
-}
-
-@-webkit-keyframes btnIconRipple {
-  0% {
-    border-width: 4px;
-    -webkit-transform: scale(1);
-    transform: scale(1);
-  }
-  50% {
-    border-width: 1px;
-    -webkit-transform: scale(1.5);
-    transform: scale(1.5);
-  }
-  80% {
-    border-width: 1px;
-    -webkit-transform: scale(1.9);
-    transform: scale(1.9);
-  }
-  100% {
-    opacity: 0;
-  }
-}
 
 /* line 190, C:/Users/HP/Desktop/July-HTML/292 Health coach/assets/scss/_h1-hero.scss */
 .slider-area .video-icon a.btn-icon:hover {
@@ -6346,9 +6314,9 @@ del {
 
 /* Logo */
 .logo img {
-    max-width: 100px;
+    max-width: 80px;
     height: auto;
-    border-radius: 100%;
+    border-radius: 50%;
     transition: all 0.3s ease;
 }
 
@@ -6688,6 +6656,7 @@ del {
   border-radius: 10px;
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
   padding: 20px;
+  
   margin-bottom: 30px;
   text-align: center;
   transition: transform 0.3s ease;

@@ -41,7 +41,7 @@
         <p><span>Delivery Charge</span><span id="delivery">Rs. 90</span></p>
         <hr>
         <p><strong><span>Total</span><span id="total">  Rs. 390</span></strong></p>
-<a href="#" class="btn-confirm">Confirm Order</a>
+<a href="{{route('checkout')}}" class="btn-confirm">Confirm Order</a>
 <a href="{{ route('home') }}" class="btn-continue">Continue Shopping</a>
 
     </div>
