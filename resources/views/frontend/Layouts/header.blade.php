@@ -1,12 +1,37 @@
-<header>
-    <!-- Header Start -->
+<header class="header-area">
+    <!-- Wrapper -->
     <div class="header-area header-transparent">
         <div class="main-header header-sticky">
             <div class="container-fluid">
-                <!-- Top Section: Logo, Search, Buttons -->
-                <div class="top-header d-flex align-items-center justify-content-between flex-wrap">
-                    
-                    <!-- LEFT SIDE: Logo + Search Bar + Buttons -->
+
+<!-- 🔹 Mobile Top Bar with Icons -->
+<div class="d-flex justify-content-between align-items-center d-lg-none py-1">
+    <!-- Logo -->
+    <div class="logo d-flex align-items-center">
+        <a href="{{ route('home') }}">
+            <img src="{{ asset('assets/img/logo/pharmacy.png') }}" alt="Logo">
+        </a>
+    </div>
+
+    <!-- Action Icons: Login, Register, Account, Cart -->
+    <div class="mobile-icons d-flex align-items-center gap-2">
+        <div class="auth-links d-flex align-items-center gap-1">
+            <a href="{{ route('login') }}" class="simple-link">Login</a>
+            <span>/</span>
+            <a href="#" class="simple-link">Register</a>
+        </div>
+        <a href="#" class="icon-btn" aria-label="User Account"><i class="fas fa-user"></i></a>
+        <a href="{{route('carts')}}" class="icon-btn" aria-label="Shopping Cart"><i class="fas fa-shopping-cart"></i></a>
+    </div>
+
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-toggle-btn d-lg-none" id="mobileToggleBtn" aria-label="Toggle Menu">
+        <i class="fas fa-bars fa-2x"></i>
+    </button>
+</div>
+
+                <!-- 🔹 Desktop Header (left-section) -->
+                <div class="top-header d-none d-lg-flex align-items-center justify-content-between flex-wrap" id="topHeader">
                     <div class="left-section d-flex align-items-center flex-wrap">
                         <!-- Logo -->
                         <div class="logo me-3">
@@ -15,113 +40,168 @@
                             </a>
                         </div>
 
-                        <!-- Search Bar Section -->
+                        <!-- Search Bar -->
                         <div class="search-bar-wrapper">
                             <form class="search-bar-form">
-                                <!-- Search Input -->
-                                <input
-                                    type="text"
-                                    name="query"
-                                    class="search-input"
-                                    placeholder="Search for medicine / Beauty products"
-                                />
-
-                                <!-- Combined Advanced + Search Icon Button -->
-<a href="{{route('advanced')}}" class="combined-search-btn">
-    <span class="advanced-label">Advanced Search</span>
-    <span class="search-icon">🔍</span>
-</a>
-
+                                <input type="text" name="query" class="search-input" placeholder="Search for medicine / Beauty products" />
+                                <a href="{{route('advanced')}}" class="combined-search-btn">
+                                    <span class="advanced-label">Advanced Search</span>
+                                    <span class="search-icon">🔍</span>
+                                </a>
                             </form>
                         </div>
 
-                        <!-- Upload Prescription Button -->
+                        <!-- Upload Button -->
                         <div class="upload-prescription ms-3">
                             <button class="upload-btn">
                                 <i class="fa fa-camera"></i> Upload Prescription
                             </button>
                         </div>
 
-                        <!-- Account and Cart Icons -->
+                        <!-- Icons -->
                         <div class="icon-buttons d-flex align-items-center gap-3 ms-3">
-                            <!-- Account -->
-                            <a href="#" class="icon-btn" aria-label="User Account">
-                                <i class="fas fa-user"></i>
-                            </a>
-
-                            <!-- Cart -->
-                            <a href="{{route('carts')}}" class="icon-btn" aria-label="Shopping Cart">
-                                <i class="fas fa-shopping-cart"></i>
-                            </a>
+                            <div class="auth-links d-flex align-items-center gap-2">
+                                <a href="{{ route('login') }}" class="simple-link">Login</a>
+                                <h2>/</h2>
+                                <a href="#" class="simple-link">Register</a>
+                            </div>
+                            <a href="#" class="icon-btn" aria-label="User Account"><i class="fas fa-user"></i></a>
+                            <a href="{{route('carts')}}" class="icon-btn" aria-label="Shopping Cart"><i class="fas fa-shopping-cart"></i></a>
                         </div>
                     </div>
                 </div>
-<hr class="header-divider">
-                <!-- Navigation Section -->
-                <div class="main-menu mt-3 d-none d-lg-block text-center">
-                    <nav>
-                        <ul id="navigation" class="d-flex justify-content-center flex-wrap gap-4">
-                            <li>
-                                <a href="{{ route('home') }}" class="nav-img-item text-center">
-                                    <img src="{{ asset('assets/img/Navigation/surgical.png') }}" alt="Surgical Appliances" class="nav-icon-img">
-                                    <div class="nav-label">SURGICAL APPLIANCES</div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('home') }}" class="nav-img-item text-center">
-                                    <img src="{{ asset('assets/img/Navigation/surgical.png') }}" alt="Vaccine" class="nav-icon-img">
-                                    <div class="nav-label">VACCINE, ANTISERA, & IMMUNOLOGICALS</div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('home') }}" class="nav-img-item text-center">
-                                    <img src="{{ asset('assets/img/Navigation/insulin.png') }}" alt="Insulins" class="nav-icon-img">
-                                    <div class="nav-label">INSULINS</div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('home') }}" class="nav-img-item text-center">
-                                    <img src="{{ asset('assets/img/Navigation/OTC.png') }}" alt="OTC" class="nav-icon-img">
-                                    <div class="nav-label">OTC</div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('home') }}" class="nav-img-item text-center">
-                                    <img src="{{ asset('assets/img/Navigation/Medicaldevice.png') }}" alt="Medical Devices" class="nav-icon-img">
-                                    <div class="nav-label">MEDICAL DEVICES</div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('home') }}" class="nav-img-item text-center">
-                                    <img src="{{ asset('assets/img/Navigation/Cosmetic.png') }}" alt="Cosmetics" class="nav-icon-img">
-                                    <div class="nav-label">COSMETICS</div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('home') }}" class="nav-img-item text-center">
-                                    <img src="{{ asset('assets/img/Navigation/Ayurbedic.png') }}" alt="Ayurvedic" class="nav-icon-img">
-                                    <div class="nav-label">AYURVEDIC & HERBALS</div>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('home') }}" class="nav-img-item text-center">
-                                    <img src="{{ asset('assets/img/Navigation/surgical.png') }}" alt="More" class="nav-icon-img">
-                                    <div class="nav-label">MORE +</div>
-                                </a>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
 
-                
+                <!-- 🔹 Mobile Expandable Section -->
+                <div class="mobile-expand-area d-lg-none mt-3" id="mobileExpandArea">
+                    <div class="left-section flex-column">
+                        <!-- Search Bar -->
+                        <div class="search-bar-wrapper w-100 mb-3">
+                            <form class="search-bar-form d-flex">
+                                <input type="text" name="query" class="search-input" placeholder="Search for medicine / Beauty products" />
+                                <a href="{{route('advanced')}}" class="combined-search-btn">
+                                    <span class="advanced-label">Advanced Search</span>
+                                    <span class="search-icon">🔍</span>
+                                </a>
+                            </form>
+                        </div>
 
-                <!-- Mobile Menu -->
-                <div class="col-12">
-                    <div class="mobile_menu d-block d-lg-none"></div>
+                        <!-- Upload Button -->
+                        <div class="upload-prescription w-100 mb-3">
+                            <button class="upload-btn w-100">
+                                <i class="fa fa-camera"></i> Upload Prescription
+                            </button>
+                        </div>
+
+
+                    </div>
                 </div>
+<!-- 🔹 Navigation Section -->
+<hr class="header-divider d-none d-lg-block">
+<div class="main-menu mt-3 text-center" id="mobileNavigation">
+    <nav>
+        <!-- ✅ Scrollable container wrapper -->
+        <div class="scrollable-nav-wrapper">
+            <ul id="navigation" class="d-flex justify-content-start flex-nowrap">
+                <li>
+                    <a href="{{ route('home') }}" class="nav-img-item">
+                        <img src="{{ asset('assets/img/Navigation/surgical.png') }}" alt="Surgical Appliances" class="nav-icon-img">
+                        <div class="nav-label">SURGICAL APPLIANCES</div>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('home') }}" class="nav-img-item">
+                        <img src="{{ asset('assets/img/Navigation/surgical.png') }}" alt="Vaccine" class="nav-icon-img">
+                        <div class="nav-label">VACCINE, ANTISERA, & IMMUNOLOGICALS</div>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('home') }}" class="nav-img-item">
+                        <img src="{{ asset('assets/img/Navigation/insulin.png') }}" alt="Insulins" class="nav-icon-img">
+                        <div class="nav-label">INSULINS</div>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('home') }}" class="nav-img-item">
+                        <img src="{{ asset('assets/img/Navigation/OTC.png') }}" alt="OTC" class="nav-icon-img">
+                        <div class="nav-label">OTC</div>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('home') }}" class="nav-img-item">
+                        <img src="{{ asset('assets/img/Navigation/Medicaldevice.png') }}" alt="Medical Devices" class="nav-icon-img">
+                        <div class="nav-label">MEDICAL DEVICES</div>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('home') }}" class="nav-img-item">
+                        <img src="{{ asset('assets/img/Navigation/Cosmetic.png') }}" alt="Cosmetics" class="nav-icon-img">
+                        <div class="nav-label">COSMETICS</div>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('home') }}" class="nav-img-item">
+                        <img src="{{ asset('assets/img/Navigation/Ayurbedic.png') }}" alt="Ayurvedic" class="nav-icon-img">
+                        <div class="nav-label">AYURVEDIC & HERBALS</div>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('home') }}" class="nav-img-item">
+                        <img src="{{ asset('assets/img/Navigation/surgical.png') }}" alt="More" class="nav-icon-img">
+                        <div class="nav-label">MORE +</div>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+                <hr class="header-divider">
 
             </div>
         </div>
-        <hr class="header-divider">
     </div>
+    <script>
+    const toggleBtn = document.getElementById("mobileToggleBtn");
+    const expandArea = document.getElementById("mobileExpandArea");
+    const mobileNav = document.getElementById("mobileNavigation");
+
+    toggleBtn.addEventListener("click", function () {
+        const isShown = expandArea.style.display === "block";
+        expandArea.style.display = isShown ? "none" : "block";
+        mobileNav.style.display = isShown ? "block" : "none";
+    });
+</script>
+<style>
+@media (max-width: 991.98px) {
+  .scrollable-nav-wrapper {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+
+  .nav-img-item {
+    display: inline-block;
+    text-align: center;
+    width: 80px; /* Adjust width for mobile */
+  }
+
+  .nav-icon-img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+  }
+
+  .nav-label {
+    display: block;
+    font-size: 10px;
+    line-height: 1.2;
+    margin-top: 4px;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%; /* essential */
+  }
+}
+</style>
+
 </header>
