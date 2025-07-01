@@ -11,8 +11,7 @@
                     <div class="row">
                         <div class="col-xl-9 col-lg-9 col-md-10">
                             <div class="hero__caption">
-                                <span data-animation="fadeInLeft" data-delay="0.1s">Order your medicine with Pharma</span>
-                                <h1 data-animation="fadeInLeft" data-delay="0.4s" style="font-size: 50px;">Pharma Pharmacy</h1>
+                                
                             </div>
                         </div>
                     </div>

@@ -10,7 +10,7 @@ use App\Http\Controllers\frontend\AdvancedController;
 use App\Http\Controllers\BackPanel\DashboardController;
 use App\Http\Controllers\BackPanel\CategoryController;
 use App\Http\Controllers\BackPanel\ProductController;
-
+use App\Http\Controllers\frontend\AccountController;
 
 
 
@@ -25,6 +25,10 @@ Route::get('/carts', [CartsController::class, 'index'])->name('carts');
 Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
 Route::get('/description', [description::class, 'index'])->name('description');
 Route::get('/Advanced', [AdvancedController::class, 'index'])->name('advanced');
+
+Route::get('/login', [AccountController::class, 'login'])->name('login');
+Route::get('/register', [AccountController::class, 'register'])->name('register');
+
 
 
 // backend
