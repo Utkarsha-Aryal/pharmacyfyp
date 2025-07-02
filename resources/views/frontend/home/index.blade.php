@@ -3,44 +3,89 @@
 @section('main-content')
 <main>
     <!--? Slider Area Start -->
-    <div id="slider-area" class="slider-area position-relative">
-        <div class="slider-active">
-            <!-- Single Slider -->
-            <div class="single-slider slider-height d-flex align-items-center">
-                <div class="container">
-                    <div class="row">
-                        <div class="col-xl-9 col-lg-9 col-md-10">
-                            <div class="hero__caption">
-                                
-                            </div>
-                        </div>
-                    </div>
-                </div>          
-            </div>
-        </div>
+    <div id="slider-area" class="slider-area position-relative overflow-hidden slider-height">
+    <div class="slider-wrapper">
+        <img src="{{ asset('assets/img/pharmacy/pharmacy.jpg') }}" class="slider-img active" />
+        <img src="{{ asset('assets/img/pharmacy/pharmacy2.jpg') }}" class="slider-img" />
+        <img src="{{ asset('assets/img/pharmacy/pharmacy3.jpg') }}" class="slider-img" />
+        <img src="{{ asset('assets/img/pharmacy/pharmacy2.jpg') }}" class="slider-img" />
+        <img src="{{ asset('assets/img/pharmacy/pharmacy3.jpg') }}" class="slider-img" />
     </div>
+    <!-- ⬅️ Prev / ➡️ Next buttons -->
+    <button class="slider-btn prev-btn">&#10094;</button>
+    <button class="slider-btn next-btn">&#10095;</button>
+</div>
+
     <!-- Slider Area End -->
 </main>
 
 <!-- 🔁 Auto Looping Background Script -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const slider = document.getElementById('slider-area');
-
-        const images = [
-            "{{ asset('assets/img/pharmacy/pharmacy.jpg') }}",
-            "{{ asset('assets/img/pharmacy/pharmacy2.jpg') }}",
-            "{{ asset('assets/img/pharmacy/pharmacy3.jpg') }}"
-        ];
-
-        let currentIndex = 0;
+        const images = document.querySelectorAll('.slider-img');
+        let current = 0;
 
         setInterval(() => {
-            currentIndex = (currentIndex + 1) % images.length; // Loops back to 0 automatically
-            slider.style.backgroundImage = `url('${images[currentIndex]}')`;
-        }, 5000); // 5 seconds interval
+            const next = (current + 1) % images.length;
+
+            // Remove classes
+            images.forEach((img, i) => {
+                img.classList.remove('active', 'previous');
+                if (i === current) img.classList.add('previous');
+            });
+
+            // Slide in next image
+            images[next].classList.add('active');
+
+            current = next;
+        }, 5000);
     });
 </script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const images = document.querySelectorAll('.slider-img');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+
+        let current = 0;
+        let autoSlide = setInterval(nextSlide, 5000); // Auto-loop every 5 sec
+
+        function showSlide(next) {
+            images.forEach((img, i) => {
+                img.classList.remove('active', 'previous');
+                if (i === current) img.classList.add('previous');
+            });
+            images[next].classList.add('active');
+            current = next;
+        }
+
+        function nextSlide() {
+            let next = (current + 1) % images.length;
+            showSlide(next);
+        }
+
+        function prevSlide() {
+            let prev = (current - 1 + images.length) % images.length;
+            showSlide(prev);
+        }
+
+        nextBtn.addEventListener('click', () => {
+            nextSlide();
+            resetAutoSlide();
+        });
+
+        prevBtn.addEventListener('click', () => {
+            prevSlide();
+            resetAutoSlide();
+        });
+
+        function resetAutoSlide() {
+            clearInterval(autoSlide);
+            autoSlide = setInterval(nextSlide, 5000);
+        }
+    });
+</script>
+
 <hr class="header-divider">
     <!-- Products section start -->
     <section class="product-section white-bg section-padding30">

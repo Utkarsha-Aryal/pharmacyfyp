@@ -2,16 +2,16 @@
 @section('main-content')
    
 <style>
-    .form-select {
-        padding: 12px;
-        border-radius: 5px;
-        width: 100%;
-        font-size:10px;
-    }
+.form-select {
+    padding: 12px;
+    border-radius: 5px;
+    width: 100%;
+    font-size: 16px; /* Increase font size here */
+}
     .form-control {
         padding: 19px;
         border-radius: 5%;
-        font-size:10px;
+        font-size:16px;
 
     }
         .category-title {
@@ -267,7 +267,7 @@
                     <option value="Amoxicillin">Amoxicillin</option>
                     <option value="Ibuprofen">Ibuprofen</option>
                 </select>
-                <span class="search-icon-advanced">🔍</span>
+                <span class="search-icon-advanced">Search</span>
             </div>
             
             <div id="product-listing" class="row">
