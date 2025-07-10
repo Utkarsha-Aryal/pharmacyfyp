@@ -7,10 +7,11 @@ use App\Http\Controllers\frontend\CartsController;
 use App\Http\Controllers\frontend\CheckoutController;
 use App\Http\Controllers\frontend\description;
 use App\Http\Controllers\frontend\AdvancedController;
+use App\Http\Controllers\frontend\AccountController;
 use App\Http\Controllers\BackPanel\DashboardController;
 use App\Http\Controllers\BackPanel\CategoryController;
 use App\Http\Controllers\BackPanel\ProductController;
-use App\Http\Controllers\frontend\AccountController;
+use App\Http\Controllers\BackPanel\ProductBatchesController;
 
 
 
@@ -55,3 +56,13 @@ Route::group(['prefix'=>'product'],function(){
     Route::post('/restore', [ProductController::class, 'restore'])->name('product.restore');
     Route::post('/view', [ProductController::class, 'view'])->name('product.view');
 });
+
+ Route::group(['prefix'=>'batch'],function(){
+        Route::get('/{slug}', [ProductBatchesController::class, 'index'])->name('batch');
+        Route::post('/save', [ProductBatchesController::class, 'save'])->name('batch.save');
+        Route::post('/list', [ProductBatchesController::class, 'list'])->name('batch.list');
+        Route::post('/delete', [ProductBatchesController::class, 'delete'])->name('batch.delete');
+        Route::post('/restore', [ProductBatchesController::class, 'restore'])->name('batch.restore');
+
+    });
+
