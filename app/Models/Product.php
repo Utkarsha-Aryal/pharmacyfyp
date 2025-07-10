@@ -98,7 +98,7 @@ class Product extends Model
 
             $query = Product::with('category_name')
                 ->selectRaw("(SELECT COUNT(*) FROM products WHERE {$cond}) 
-               AS totalrecs, id, product_name, description,mrp,discount, image, category_id,keywords,order_number,generic_name,display_price,manufacturer")->whereRaw($cond);
+               AS totalrecs, id, product_name, description,mrp,discount,slug, image, category_id,keywords,order_number,generic_name,display_price,manufacturer")->whereRaw($cond);
             if ($limit > -1) {
                 $result = $query->orderByRaw($orderby)->offset($offset)->limit($limit)->get();
             } else {

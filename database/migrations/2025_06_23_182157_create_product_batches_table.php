@@ -15,9 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->string('batch_no')->nullabe();
-            $table->date('expiry_date')->nullable();
+            $table->string('expiry_date')->nullable();
             $table->integer('quantity')->default(0);
             $table->decimal('purchase_price', 8, 2)->nullable();
+            $table->enum('status', ['Y', 'N'])->default('Y');
             $table->timestamps();
         });
     }
