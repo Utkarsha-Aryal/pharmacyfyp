@@ -21,6 +21,34 @@ class ProductController extends Controller
         return view('backend.product.index');
     }
 
+
+public function globalSearch(Request $request)
+{
+    $query = $request->input('query');
+
+    $products = Product::where('product_name', 'like', '%' . $query . '%')
+        ->limit(10)
+        ->get();
+
+    $html = '';
+
+    foreach ($products as $product) {
+        $imageUrl = asset('storage/' . $product->image); // Adjust path if needed
+
+        $imageUrl = asset('storage/product/' . $product->image);
+        $slug = $product->slug;
+
+        $html .= '<a href="' . route('product',$slug) . '" class="list-group-item list-group-item-action d-flex align-items-center">'
+            . '<img src="' . $imageUrl . '" alt="' . e($product->product_name) . '" class="me-2" style="width: 40px; height: 40px; object-fit: cover; border-radius: 5px;">'
+            . '<span>' . e($product->product_name) . '</span>'
+            . '</a>';
+
+    }
+
+    return response()->json(['html' => $html]);
+}
+
+
    public function form(Request $request)
 {
     try {
@@ -111,7 +139,7 @@ class ProductController extends Controller
 
                 $array[$i]['sno'] = $i + 1;
                 $array[$i]['product_name'] = $row->product_name;
-                $array[$i]['category'] = $row->category_name->name;
+                $array[$i]['category'] = $row->category->name;
                 $array[$i]['generic_name'] = $row->generic_name;
                 $array[$i]['description'] = $row->description;
                 $array[$i]['keywords'] = Str::limit($row->keywords, 25, '...');
@@ -131,9 +159,9 @@ class ProductController extends Controller
                     $action .= '<span style="margin-left: 10px;"></span>';
                     $action .= '|';
                     $action .= '<span style="margin-right: 10px;"></span>';
-                    $action .= '<a href="javascript:;" class="editNews" title="Edit Data" data-id="' . $row->id . '" data-name="' . $row->name . '" ><i class="fa-solid fa-pen-to-square text-primary"></i></a> |';
+                    $action .= '<a href="javascript:;" class="editNews" title="Edit Data" data-id="' . $row->id . '" data-name="' . $row->product_name . '" ><i class="fa-solid fa-pen-to-square text-primary"></i></a> |';
                     $action .= '<span style="margin-right: 10px;"></span>';
-                    $action .= '<a href="' . route('batch', $row->slug) . '" class="addBatch" title="Add Batch"><i class="fa-solid fa-plus"></i></a> |';
+                    $action .= '<a href="' . route('admin.batch', $row->slug) . '" class="addBatch" title="Add Batch"><i class="fa-solid fa-plus"></i></a> |';
                     // $row->slug
 
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
@@ -165,6 +193,7 @@ class ProductController extends Controller
         }
         return response()->json(['recordsFiltered' => $filtereddata, 'recordsTotal' => $totalrecs, 'data' => $array]);
     }
+
 
     public function view(Request $request)
     {

@@ -95,7 +95,7 @@
 
             $('.addProductBtn').on('click', function(e) {
                 e.preventDefault();
-                var url = '{{route('product.form')}}';
+                var url = '{{route('admin.product.form')}}';
                 $.get(url, function(response) {
                     $('#productModal .modal-content').html(response);
                     $('#productModal').modal('show');
@@ -155,7 +155,7 @@
                     },
                 ],
                 "ajax": {
-                    "url": '{{route('product.list')}}',
+                    "url": '{{route('admin.product.list')}}',
                     "type": "POST",
                     "data": function(d) {
                         var type = $('#trashed_file').is(':checked') == true ? 'trashed' :
@@ -187,7 +187,7 @@
             $(document).off('click', '.editNews');
             $(document).on('click', '.editNews', function() {
                 var id = $(this).data('id');
-                var url = '{{route('product.form')}}';
+                var url = '{{route('admin.product.form')}}';
                 var data = {
                     id: id
                 };
@@ -230,7 +230,7 @@
                             id: id,
                             type: type,
                         };
-                        var url = '{{route('product.delete')}}';
+                        var url = '{{route('admin.product.delete')}}';
                         $.post(url, data, function(response) {
                             if (response) {
                                 if (response.type === 'success') {
@@ -265,7 +265,7 @@
                             id: id,
                             type: 'restore'
                         };
-                        var url = '{{route('product.restore')}}';
+                        var url = '{{route('admin.product.restore')}}';
                         $.post(url, data, function(response) {
                             if (response) {
                                 if (response.type === 'success') {
@@ -286,7 +286,7 @@
             $(document).off('click', '.viewProduct');
             $(document).on('click', '.viewProduct', function() {
                 var id = $(this).data('id');
-                var url = '{{route('product.view')}}';
+                var url = '{{route('admin.product.view')}}';
                 var data = {
                     id: id
                 };

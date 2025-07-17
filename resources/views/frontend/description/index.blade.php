@@ -25,13 +25,13 @@
                             <img src="{{ asset('assets/img/product/hotbag.png') }}" class="img-fluid rounded" alt="Hot Water Bag">
                         </div>
                         <div class="col-md-7">
-                            <h3 class="product-title">HOT WATER BAG</h3>
-                            <p><strong>Composition:</strong> HOT WATER BAG</p>
-                            <p><strong>Group Name:</strong> HOT AND COLD PACK</p>
-                            <p><strong>Manufacturer:</strong> CORONATION</p>
+                            <h3 class="product-title">{{@$product->product_name}}</h3>
+                            <p><strong>Composition:</strong>{{@$product->composition}}</p>
+                            <p><strong>Group Name:</strong> {{@$product->group_name}}</p>
+                            <p><strong>Manufacturer:</strong> {{@$product->manufacturer}}</p>
                             <p class="product-price">
-                                <span class="old-price">Rs 399.00</span>
-                                <span class="text-success fs-5 fw-bold ms-2">Rs 300.00</span>
+                                <span class="old-price">Rs{{@$product->previous_price}}</span>
+                                <span class="text-success fs-5 fw-bold ms-2">Rs {{@$product->actualprice}}</span>
                             </p>
                             <button class="add-to-cart-btn">Add to Cart</button>
 
@@ -39,13 +39,7 @@
                     </div>
                     <div class="mt-4 product-description">
                         <h3 class="text-dark">Product Description:</h3>
-                        <ul>
-                            <li>Runs on electricity – no hassles of heating water on gas or heaters.</li>
-                            <li>You can keep it inside the quilt to heat up the quilt or use it for massaging body parts.</li>
-                            <li>Very useful product for the winters.</li>
-                            <li>Sustainable insulation charge: 6-10 minutes, 2-5 hours of warmth.</li>
-                            <li>Electric hot water bag contains pre-filled solution, no need to refill.</li>
-                        </ul>
+                        {!! @$product->description  !!}
                     </div>
                 </div>
             </div>
