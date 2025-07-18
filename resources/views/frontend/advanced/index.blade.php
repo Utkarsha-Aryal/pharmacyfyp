@@ -181,254 +181,109 @@
         <!-- Sidebar with Categories -->
         <div class="col-lg-3 col-md-4">
             <h3 class="category-title">Categories</h3>
-            <div class="category-list">
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="SURGICAL_APPLIANCES" class="category-checkbox"> SURGICAL/APPLIANCES
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="LV_FLUIDS" class="category-checkbox"> LV. FLUIDS
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="CARDIAC_DRUGS" class="category-checkbox"> CARDIAC DRUGS
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="ANTI_MICROBIALS" class="category-checkbox"> ANTI-MICROBIALS
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="VACCINES_ANTISERA" class="category-checkbox"> VACCINES, ANTISERA & IMMUNOLOGICALS
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="INSULIN" class="category-checkbox"> INSULIN
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="GTC" class="category-checkbox"> GTC
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="MEDICAL_DEVICES" class="category-checkbox"> MEDICAL DEVICES
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="COSMETICS" class="category-checkbox"> COSMETICS
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="AVURVEIUC_HERBAL" class="category-checkbox"> AVURVEIUC & HERBAL ITEMS
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="NEUTRACEUTICALS" class="category-checkbox"> NEUTRACEUTICALS
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="TOILETRIES" class="category-checkbox"> TOILETRIES
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="ANAESTHETICS" class="category-checkbox"> ANAESTHETICS
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="PSYCHOTROPIC" class="category-checkbox"> PSYCHOTROPIC SCHEDULE III/V
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="ONCO_MEDICINE" class="category-checkbox"> ONCO MEDICINE
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="OPTHALMICS" class="category-checkbox"> OPTHALMICS
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="HORMONES" class="category-checkbox"> HORMONES
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="ANTIDOTE" class="category-checkbox"> ANTIDOTE
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="NEURO_MEDICINE" class="category-checkbox"> NEURO MEDICINE
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="CONTRACT_MEDIA" class="category-checkbox"> CONTRACT MEDIA
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="ANTI_DIABETIC_ANTI_VIRAL" class="category-checkbox"> ANTI-DIABETIC ANTI-VIRAL
-                </label>
-                <label class="d-block">
-                    <input type="checkbox" name="categories[]" value="VITAMINS_MINERALS" class="category-checkbox"> VITAMINS AND MINERALS
-                </label>
-            </div>
+           <div class="category-list">
+    @foreach ($categories as $category)
+        <label class="d-block">
+            <input type="checkbox" name="categories[]" value="{{ strtoupper(str_replace(' ', '_', $category->id)) }}" class="category-checkbox">
+            {{ strtoupper($category->name) }}
+        </label>
+    @endforeach
+</div>
+
         </div>
 
         <!-- Product Listing -->
         <div class="col-lg-9 col-md-8">
             <div class="search-filters mb-4 p-3 bg-light rounded">
                 <input type="text" id="product_name" class="form-control" placeholder="Product Name">
-                <select id="company_name" class="form-select">
-                    <option value="">Select Company</option>
-                    <option value="W">W</option>
-                    <option value="Pfizer">Pfizer</option>
-                    <option value="Cipla">Cipla</option>
-                </select>
+              <select id="company_name" class="form-select">
+    <option value="">Select Any Company</option>
+    @foreach($manufacturers as $manufacturer)
+        <option value="{{ $manufacturer }}">{{ $manufacturer }}</option>
+    @endforeach
+</select>
+
                 <select id="composition" class="form-select">
-                    <option value="">Select Composition</option>
-                    <option value="Paracetamol">Paracetamol</option>
-                    <option value="Amoxicillin">Amoxicillin</option>
-                    <option value="Ibuprofen">Ibuprofen</option>
+                        <option value="">Select any compostion</option>
+
+                       @foreach($compositions as $composition)
+        <option value="{{ $composition }}">{{ $composition }}</option>
+    @endforeach
                 </select>
                 <span class="search-icon-advanced">Search</span>
             </div>
             
             <div id="product-listing" class="row">
                 <!-- Product cards -->
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-                
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 mb-4">
-                    <div class="product-card">
-                        <img src="{{ asset('assets/img/product/hotbag.png') }}" alt="Product" class="product-img">
-                        <h4 class="product-title">HOT BAG</h4>
-                        <p class="product-description">Heating Bag Electric, Heating Gel Pad Heat Pouch Hot Water Bottle Bag.</p>
-                        <div class="price-section">
-                            <span class="old-price">Rs 399.00</span>
-                            <span class="new-price">Rs 300.00</span>
-                        </div>
-                        <button class="add-to-cart-btn">Add to Cart</button>
-                    </div>
-                </div>
+               
             </div>
         </div>
     </div>
 </div>
+<script>
+    $(document).ready(function () {
+        // Function to fetch products via AJAX
+        function fetchProducts() {
+            let selectedCategories = [];
+
+            // Gather all checked categories
+            $('.category-checkbox:checked').each(function () {
+                selectedCategories.push($(this).val());
+            });
+
+            let productName = $('#product_name').val();
+            let companyName = $('#company_name').val();
+            let composition = $('#composition').val();
+
+            // AJAX request to fetch filtered products
+            $.ajax({
+                url: "{{ route('advanced.selection') }}",
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    categories: selectedCategories,
+                    product_name: productName,
+                    company_name: companyName,
+                    composition: composition
+                },
+                success: function (response) {
+                    $('#product-listing').html(response.html);
+                },
+                error: function (xhr) {
+                    console.error(xhr.responseText);
+                }
+            });
+        }
+
+        // 🔁 1. Trigger when checkbox is changed
+        $('.category-checkbox').on('change', function () {
+            fetchProducts();
+        });
+
+        // 🔁 2. Trigger when search button is clicked
+        $('.search-icon-advanced').on('click', function () {
+            fetchProducts();
+        });
+
+        // 🔁 3. Trigger when dropdowns are changed
+        $('#company_name, #composition').on('change', function () {
+            fetchProducts();
+        });
+
+        // 🔁 4. Trigger on typing with debounce
+        let typingTimer;
+        $('#product_name').on('input', function () {
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(function () {
+                fetchProducts();
+            }, 200); // 300ms delay after last keystroke
+        });
+
+        // 🔁 5. Fire on initial page load
+        fetchProducts();
+    });
+</script>
+
+
+
 @endsection

@@ -81,35 +81,18 @@
                             <a href="javascript:void(0);">Product</a>
                         </li>
                         <li class="slide" id="childMenu">
-                            <a href="" class="side-menu__item">Category</a>
+                            <a href="{{route('admin.category')}}" class="side-menu__item">Category</a>
                         </li>
                         <li class="slide">
-                            <a href="" class="side-menu__item">Add product</a>
+                            <a href="{{route('admin.product')}}" class="side-menu__item">Add product</a>
                         </li>
                         <li class="slide">
                             <a href="" class="side-menu__item">Order</a>
-                        </li>
-                        <li class="slide">
-                            <a href="" class="side-menu__item">Q&A</a>
                         </li>
                     </ul>
                 </li>
 
 
-                {{-- branch start here --}}
-                <li class="slide">
-                    <a href="" class="side-menu__item">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16"
-                            fill="currentColor" class="bi bi-stack" viewBox="0 0 16 16">
-                            <path
-                                d="m14.12 10.163 1.715.858c.22.11.22.424 0 .534L8.267 15.34a.6.6 0 0 1-.534 0L.165 11.555a.299.299 0 0 1 0-.534l1.716-.858 5.317 2.659c.505.252 1.1.252 1.604 0l5.317-2.66zM7.733.063a.6.6 0 0 1 .534 0l7.568 3.784a.3.3 0 0 1 0 .535L8.267 8.165a.6.6 0 0 1-.534 0L.165 4.382a.299.299 0 0 1 0-.535z" />
-                            <path
-                                d="m14.12 6.576 1.715.858c.22.11.22.424 0 .534l-7.568 3.784a.6.6 0 0 1-.534 0L.165 7.968a.299.299 0 0 1 0-.534l1.716-.858 5.317 2.659c.505.252 1.1.252 1.604 0z" />
-                        </svg>
-                        <span class="side-menu__label">Branch/Dealer</span>
-                    </a>
-                </li>
-                {{-- branch end here --}}
 
                 {{-- contact start here --}}
                 <li class="slide has-sub" id="mainMenu">
@@ -188,97 +171,6 @@
                     </ul>
                 </li>
                 {{-- FAQ end here  --}}
-
-                {{-- gallery start here --}}
-                <li class="slide has-sub" id="mainMenu">
-                    <a href="javascript:void(0);" class="side-menu__item">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16"
-                            height="16" fill="currentColor" class="bi bi-card-image" viewBox="0 0 16 16">
-                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" />
-                            <path
-                                d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2zm13 1a.5.5 0 0 1 .5.5v6l-3.775-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12v.54L1 12.5v-9a.5.5 0 0 1 .5-.5z" />
-                        </svg>
-                        <span class="side-menu__label">Gallery</span>
-                        <i class="fe fe-chevron-right side-menu__angle"></i>
-                    </a>
-                    <ul class="slide-menu child1">
-                        <li class="slide side-menu__label1">
-                            <a href="javascript:void(0);">Gallery</a>
-                        </li>
-                        <li class="slide" id="childMenu">
-                            <a href="" class="side-menu__item">Photo</a>
-                        </li>
-                        <li class="slide">
-                            <a href="" class="side-menu__item">Video</a>
-                        </li>
-                    </ul>
-                </li>
-                {{-- gallery end here --}}
-
-
-                {{-- service start here --}}
-                <li class="slide">
-                    <a href="" class="side-menu__item">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16"
-                            height="16" fill="currentColor" class="bi bi-award" viewBox="0 0 16 16">
-                            <path
-                                d="M9.669.864 8 0 6.331.864l-1.858.282-.842 1.68-1.337 1.32L2.6 6l-.306 1.854 1.337 1.32.842 1.68 1.858.282L8 12l1.669-.864 1.858-.282.842-1.68 1.337-1.32L13.4 6l.306-1.854-1.337-1.32-.842-1.68zm1.196 1.193.684 1.365 1.086 1.072L12.387 6l.248 1.506-1.086 1.072-.684 1.365-1.51.229L8 10.874l-1.355-.702-1.51-.229-.684-1.365-1.086-1.072L3.614 6l-.25-1.506 1.087-1.072.684-1.365 1.51-.229L8 1.126l1.356.702z" />
-                            <path d="M4 11.794V16l4-1 4 1v-4.206l-2.018.306L8 13.126 6.018 12.1z" />
-                        </svg>
-                        <span class="side-menu__label">Our Services</span>
-                    </a>
-                </li>
-                {{-- service end here --}}
-
-                {{-- our team start here --}}
-                <li class="slide has-sub" id="mainMenu">
-                    <a href="javascript:void(0);" class="side-menu__item">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16"
-                            height="16" fill="currentColor" class="bi bi-people-fill" viewBox="0 0 16 16">
-                            <path
-                                d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
-                        </svg>
-                        <span class="side-menu__label">Our Team</span>
-                        <i class="fe fe-chevron-right side-menu__angle"></i>
-                    </a>
-                    <ul class="slide-menu child1">
-                        <li class="slide side-menu__label1">
-                            <a href="javascript:void(0);">Our Team</a>
-                        </li>
-                        <li class="slide" id="childMenu">
-                            <a href="" class="side-menu__item">Group</a>
-                        </li>
-                        <li class="slide">
-                            <a href="" class="side-menu__item">Team</a>
-                        </li>
-                    </ul>
-                </li>
-                {{-- our team end here --}}
-
-                {{-- post start here --}}
-                <li class="slide">
-                    <a href="" class="side-menu__item">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16"
-                            height="16" viewBox="0 0 24 24">
-                            <path fill="currentColor"
-                                d="M5 21q-.825 0-1.412-.587T3 19V5q0-.825.588-1.412T5 3h8q.425 0 .713.288T14 4t-.288.713T13 5H5v14h14v-8q0-.425.288-.712T20 10t.713.288T21 11v8q0 .825-.587 1.413T19 21zm4-4q-.425 0-.712-.288T8 16t.288-.712T9 15h6q.425 0 .713.288T16 16t-.288.713T15 17zm0-3q-.425 0-.712-.288T8 13t.288-.712T9 12h6q.425 0 .713.288T16 13t-.288.713T15 14zm0-3q-.425 0-.712-.288T8 10t.288-.712T9 9h6q.425 0 .713.288T16 10t-.288.713T15 11zm9-2q-.425 0-.712-.288T17 8V7h-1q-.425 0-.712-.288T15 6t.288-.712T16 5h1V4q0-.425.288-.712T18 3t.713.288T19 4v1h1q.425 0 .713.288T21 6t-.288.713T20 7h-1v1q0 .425-.288.713T18 9" />
-                        </svg>
-                        <span class="side-menu__label">News/Blogs</span>
-                    </a>
-                </li>
-                {{-- post end here --}} 
-                {{-- testimonial start here --}}
-                <li class="slide" data-id="testimonial">
-                    <a href="" class="side-menu__item">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16"
-                            height="16" fill="currentColor" class="bi bi-bank" viewBox="0 0 16 16">
-                            <path
-                                d="M13 2.5a1.5 1.5 0 0 1 3 0v11a1.5 1.5 0 0 1-3 0v-.214c-2.162-1.241-4.49-1.843-6.912-2.083l.405 2.712A1 1 0 0 1 5.51 15.1h-.548a1 1 0 0 1-.916-.599l-1.85-3.49-.202-.003A2.014 2.014 0 0 1 0 9V7a2.02 2.02 0 0 1 1.992-2.013 75 75 0 0 0 2.483-.075c3.043-.154 6.148-.849 8.525-2.199zm1 0v11a.5.5 0 0 0 1 0v-11a.5.5 0 0 0-1 0m-1 1.35c-2.344 1.205-5.209 1.842-8 2.033v4.233q.27.015.537.036c2.568.189 5.093.744 7.463 1.993zm-9 6.215v-4.13a95 95 0 0 1-1.992.052A1.02 1.02 0 0 0 1 7v2c0 .55.448 1.002 1.006 1.009A61 61 0 0 1 4 10.065m-.657.975 1.609 3.037.01.024h.548l-.002-.014-.443-2.966a68 68 0 0 0-1.722-.082z" />
-                        </svg>
-                        <span class="side-menu__label">Testimonial</span>
-                    </a>
-                </li>
-                {{-- testimonial end here --}}
 
             </ul>
             <div class="slide-right" id="slide-right"><svg xmlns="http://www.w3.org/2000/svg" fill="#7b8191"

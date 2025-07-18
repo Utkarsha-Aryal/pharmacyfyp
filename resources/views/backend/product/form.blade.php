@@ -70,7 +70,7 @@
 </div>
 
 <div class="modal-body">
-    <form action="{{ route('product.save') }}" method="POST" id="productForm" enctype="multipart/form-data">
+    <form action="{{ route('admin.product.save') }}" method="POST" id="productForm" enctype="multipart/form-data">
         @csrf
         <input type="hidden" name="id" id="id" value="{{ $prevPost->id ?? '' }}">
 

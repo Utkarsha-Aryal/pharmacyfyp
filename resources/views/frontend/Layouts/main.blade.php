@@ -41,5 +41,45 @@
     @include('frontend.layouts.header')
     @yield('main-content')
     @include('frontend.layouts.footer')
+    <script>
+    function setupGlobalSearch() {
+        let debounce;
+
+        $('#global-search-input').on('input', function () {
+            clearTimeout(debounce);
+            const query = $(this).val().trim();
+
+            if (query.length > 1) {
+                debounce = setTimeout(() => {
+                    $.ajax({
+                        url: '{{ route("admin.global.search") }}',
+                        method: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            query: query
+                        },
+                        success: function (response) {
+                            $('#global-search-results').html(response.html).show();
+                        }
+                    });
+                }, 300); // Debounce delay
+            } else {
+                $('#global-search-results').hide();
+            }
+        });
+
+        // Hide results when clicking outside
+        $(document).on('click', function (e) {
+            if (!$(e.target).closest('.search-container').length) {
+                $('#global-search-results').hide();
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        setupGlobalSearch();
+    });
+</script>
+
 </body>
 </html>

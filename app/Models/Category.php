@@ -14,10 +14,11 @@ class Category extends Model
 {
         use HasFactory;
 
-        public function category_name()
-    {
-        return $this->belongsTo(Category::class, 'category_id');
-    }
+    public function products()
+{
+    return $this->hasMany(Product::class, 'category_id');
+}
+
     
          public static function saveData($post)
     {

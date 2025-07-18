@@ -41,7 +41,7 @@
     <div class="row">
         <div class="col-xl-4">
             <div class="card custom-card">
-                <form action="{{ route('category.save')}}" method="POST" id="categoryForm" enctype="multipart/form-data">
+                <form action="{{ route('admin.category.save')}}" method="POST" id="categoryForm" enctype="multipart/form-data">
                     <div class="card-body">
                         <div class="row gy-4">
 
@@ -179,7 +179,7 @@
                     },
                 ],
                 "ajax": {
-                    "url": "{{route('category.list')}}",
+                    "url": "{{route('admin.category.list')}}",
                     "type": "POST",
                     "data": function(d) {
                         var type = $('#trashed_file').is(':checked') == true ? 'trashed' :
@@ -353,7 +353,7 @@
                             id: id,
                             type: type,
                         };
-                        var url = "{{route('category.delete')}}";
+                        var url = "{{route('admin.category.delete')}}";
                         $.post(url, data, function(response) {
 
                             if (response) {
@@ -388,7 +388,7 @@
                             id: id,
                             type: 'restore'
                         };
-                        var url = "{{route('category.restore')}}";
+                        var url = "{{route('admin.category.restore')}}";
                         $.post(url, data, function(response) {
                             if (response) {
                                 if (response.type === 'success') {

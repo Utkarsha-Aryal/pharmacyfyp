@@ -17,7 +17,7 @@
         <!-- Form -->
         <div class="col-xl-4">
             <div class="card custom-card">
-                <form action="{{route('batch.save')}}" method="POST" id="batchForm">
+                <form action="{{route('admin.batch.save')}}" method="POST" id="batchForm">
                     <div class="card-body">
                         <div class="row gy-4">
                             <input type="hidden" value="" name="id" id="id">
@@ -139,7 +139,7 @@
                     },
                 ],
                 "ajax": {
-                    "url": "{{route('batch.list')}}",
+                    "url": "{{route('admin.batch.list')}}",
                     "type": "POST",
                     "data": function(d) {
                         var type = $('#trashed_file').is(':checked') == true ? 'trashed' :
@@ -260,7 +260,7 @@
                             id: id,
                             type: type,
                         };
-                        var url = "{{route('batch.delete')}}";
+                        var url = "{{route('admin.batch.delete')}}";
                         $.post(url, data, function(response) {
 
                             if (response) {
@@ -295,7 +295,7 @@
                             id: id,
                             type: 'restore'
                         };
-                        var url = "{{route('batch.restore')}}";
+                        var url = "{{route('admin.batch.restore')}}";
                         $.post(url, data, function(response) {
                             if (response) {
                                 if (response.type === 'success') {

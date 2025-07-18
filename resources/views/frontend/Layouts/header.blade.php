@@ -40,10 +40,13 @@
                             </a>
                         </div>
 
+
                         <!-- Search Bar -->
                         <div class="search-bar-wrapper">
                             <form class="search-bar-form">
-                                <input type="text" name="query" class="search-input" placeholder="Search for medicine / Beauty products" />
+                                <input type="text" name="query" id="global-search-input" class="search-input" placeholder="Search for medicine / Beauty products" />
+                                    <div id="global-search-results" class="list-group position-absolute w-100" style="z-index: 9999; display: none;"></div>
+
                                 <a href="{{route('advanced')}}" class="combined-search-btn">
                                     <span class="advanced-label">Advanced Search</span>
                                     <span class="search-icon">🔍</span>
@@ -100,58 +103,42 @@
 <div class="main-menu mt-3 text-center" id="mobileNavigation">
     <nav>
         <!-- ✅ Scrollable container wrapper -->
-        <div class="scrollable-nav-wrapper">
-            <ul id="navigation" class="d-flex justify-content-start flex-nowrap">
-                <li>
-                    <a href="{{ route('home') }}" class="nav-img-item">
-                        <img src="{{ asset('assets/img/Navigation/surgical.png') }}" alt="Surgical Appliances" class="nav-icon-img">
-                        <div class="nav-label">SURGICAL APPLIANCES</div>
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('home') }}" class="nav-img-item">
-                        <img src="{{ asset('assets/img/Navigation/surgical.png') }}" alt="Vaccine" class="nav-icon-img">
-                        <div class="nav-label">VACCINE, ANTISERA, & IMMUNOLOGICALS</div>
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('home') }}" class="nav-img-item">
-                        <img src="{{ asset('assets/img/Navigation/insulin.png') }}" alt="Insulins" class="nav-icon-img">
-                        <div class="nav-label">INSULINS</div>
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('home') }}" class="nav-img-item">
-                        <img src="{{ asset('assets/img/Navigation/OTC.png') }}" alt="OTC" class="nav-icon-img">
-                        <div class="nav-label">OTC</div>
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('home') }}" class="nav-img-item">
-                        <img src="{{ asset('assets/img/Navigation/Medicaldevice.png') }}" alt="Medical Devices" class="nav-icon-img">
-                        <div class="nav-label">MEDICAL DEVICES</div>
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('home') }}" class="nav-img-item">
-                        <img src="{{ asset('assets/img/Navigation/Cosmetic.png') }}" alt="Cosmetics" class="nav-icon-img">
-                        <div class="nav-label">COSMETICS</div>
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('home') }}" class="nav-img-item">
-                        <img src="{{ asset('assets/img/Navigation/Ayurbedic.png') }}" alt="Ayurvedic" class="nav-icon-img">
-                        <div class="nav-label">AYURVEDIC & HERBALS</div>
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('home') }}" class="nav-img-item">
-                        <img src="{{ asset('assets/img/Navigation/surgical.png') }}" alt="More" class="nav-icon-img">
-                        <div class="nav-label">MORE +</div>
-                    </a>
-                </li>
-            </ul>
-        </div>
+        @php
+    $visibleCategories = $categories->take(7);
+    $extraCategories = $categories->slice(7);
+@endphp
+
+<div class="scrollable-nav-wrapper">
+    <ul id="navigation" class="d-flex justify-content-start flex-nowrap">
+        @foreach($visibleCategories as $category)
+            <li>
+                <a href="" class="nav-img-item">
+                    <img src="{{ asset('/storage/category/' . $category->image) }}" alt="{{ $category->category_name }}" class="nav-icon-img">
+                    <div class="nav-label">{{ strtoupper($category->name) }}</div>
+                </a>
+            </li>
+        @endforeach
+
+        @if($extraCategories->count())
+            <li class="dropdown">
+                <a href="#" class="nav-img-item dropdown-toggle" data-bs-toggle="dropdown">
+                    <img src="{{ asset('assets/img/Navigation/more.png') }}" alt="More" class="nav-icon-img">
+                    <div class="nav-label">MORE +</div>
+                </a>
+                <ul class="dropdown-menu">
+                    @foreach($extraCategories as $category)
+                        <li>
+                            <a class="dropdown-item" href="">
+                                {{ $category->category_name }}
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            </li>
+        @endif
+    </ul>
+</div>
+
     </nav>
                 <hr class="header-divider">
 

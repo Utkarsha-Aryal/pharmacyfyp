@@ -13,7 +13,7 @@ use Carbon\Carbon;
 class Product extends Model
 {
 
-       public function category_name()
+       public function category()
     {
         return $this->belongsTo(Category::class, 'category_id');
     }
@@ -96,7 +96,7 @@ class Product extends Model
                 $offset = $get["start"];
             }
 
-            $query = Product::with('category_name')
+            $query = Product::with('category')
                 ->selectRaw("(SELECT COUNT(*) FROM products WHERE {$cond}) 
                AS totalrecs, id, product_name, description,mrp,discount,slug, image, category_id,keywords,order_number,generic_name,display_price,manufacturer")->whereRaw($cond);
             if ($limit > -1) {
