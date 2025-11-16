@@ -32,10 +32,13 @@ class Product extends Model
                 'previous_price' => $post['previous_price'],
                 'mrp'=>$post['mrp'],
                 'category_id' => $post['category_id'],
+                'sale_unit_id'=>$post['unit_sale_id'],
+                'purchase_unit_id'=>$post['unit_purchase_id'],
                 'slug' => Str::slug($post['product_name']) . '-' . Str::random(30) . '-' . time() . '-' . Str::slug($post['description']) . '-' . Str::random(30) . '-' . time(),
                 'keywords' => $post['keywords'],
                 'alert_quantity'=>$post['alert_quantity'],
                 'discount'=>$post['discount'],
+                'purchase_price'=>$post['purchase_price']
 
             ];
 

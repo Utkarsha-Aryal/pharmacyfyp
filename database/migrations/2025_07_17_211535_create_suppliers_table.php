@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('opening_balance')->nullable();
             $table->string('address')->nullable();
             $table->enum('type',['debit','credit'])->default('credit');
+            $table->enum('status', ['Y', 'N'])->default('Y');
             $table->timestamps();
         });
     }

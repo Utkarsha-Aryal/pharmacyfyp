@@ -90,6 +90,39 @@
                 </select>
             </div>
 
+
+            <div class="col-md-4">
+                <label class="form-label">Unit Sale <span class="text-danger">*</span></label>
+                <select class="form-select" name="unit_sale_id" required>
+                    <option disabled selected>Select Sale Unit</option>
+                    @foreach ($unit as $unitItem)
+                        <option value="{{ $unitItem->id }}"
+                            {{ @$prevPost->sale_unit_id == $unitItem->id ? 'selected' : '' }}>
+                            {{ $unitItem->unit_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Unit Purchase <span class="text-danger">*</span></label>
+                <select class="form-select" name="unit_purchase_id" required>
+                    <option disabled selected>Select Purchase Unit</option>
+                    @foreach ($unit as $unitItem)
+                        <option value="{{ $unitItem->id }}"
+                            {{ @$prevPost->purchase_unit_id == $unitItem->id ? 'selected' : '' }}>
+                            {{ $unitItem->unit_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Conversion</label>
+                <input type="number" step="0.01" name="conversion" id="conversion" class="form-control" placeholder="e.g. 10"
+                    value="{{ @$prevPost->conversion }}">
+            </div>
+
             <div class="col-md-4">
                 <label class="form-label">Product Name <span class="text-danger">*</span></label>
                 <input type="text" name="product_name" class="form-control" placeholder="e.g. Paracetamol 500mg"
@@ -167,6 +200,18 @@
                 <input type="number" step="0.01" name="display_price" id="display_price" class="form-control"
                     value="{{ old('display_price') }}" readonly>
             </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Profit</label>
+                <input type="number" step="0.01" name="profit" id="profit" class="form-control"
+                    value="{{ @$prevPost->profit }}" readonly>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Purchase Price</label>
+                <input type="number" step="0.01" name="purchase_price" class="form-control"
+                    value="{{ @$prevPost->purchase_price }}" >
+            </div>
         </div>
 
         {{-- Section 3: SEO --}}
@@ -218,14 +263,34 @@
 
 <script>
 
-    document.addEventListener('input', calcPrice);
-function calcPrice() {
-    const mrp = parseFloat(document.getElementById('mrp').value) || 0;
-    const disc = parseFloat(document.getElementById('discount').value) || 0;
-    const priceField = document.getElementById('display_price');
-    priceField.value = (mrp - (mrp * disc / 100)).toFixed(2);
-}
-calcPrice();
+   document.addEventListener('input', () => {
+        calcPrice();
+        calcProfit();
+    });
+
+    function calcPrice() {
+        const mrp = parseFloat(document.getElementById('mrp').value) || 0;
+        const disc = parseFloat(document.getElementById('discount').value) || 0;
+        const priceField = document.getElementById('display_price');
+        priceField.value = (mrp - (mrp * disc / 100)).toFixed(2);
+    }
+
+    function calcProfit() {
+        const displayPrice = parseFloat(document.getElementById('display_price').value) || 0;
+        const purchasePrice = parseFloat(document.querySelector('[name="purchase_price"]').value) || 0;
+        let conversion = parseFloat(document.getElementById('conversion').value);
+
+        if (!conversion || conversion <= 0) {
+            conversion = 1; // Default to 1 if invalid
+        }
+
+        const profit = displayPrice - (purchasePrice / conversion);
+        document.getElementById('profit').value = profit.toFixed(2);
+    }
+
+    // Initial call
+    calcPrice();
+    calcProfit();
 
     $(document).ready(function() {
 

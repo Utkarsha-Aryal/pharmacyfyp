@@ -13,6 +13,10 @@ use App\Http\Controllers\BackPanel\DashboardController;
 use App\Http\Controllers\BackPanel\CategoryController;
 use App\Http\Controllers\BackPanel\ProductController;
 use App\Http\Controllers\BackPanel\ProductBatchesController;
+use App\Http\Controllers\BackPanel\SupplierController;
+use App\Http\Controllers\BackPanel\PurchaseController;
+
+
 
 
 
@@ -77,6 +81,30 @@ Route::post('/global-search', [ProductController::class, 'globalSearch'])->name(
         Route::post('/restore', [ProductBatchesController::class, 'restore'])->name('batch.restore');
 
     });
+// supplier
+Route::group(['prefix'=>'supplier'],function(){
+    Route::get('/',[SupplierController::class,'index'])->name('supplier');
+    Route::post('/save',[SupplierController::class,'save'])->name('supplier.save');
+    Route::post('/list',[SupplierController::class,'list'])->name('supplier.list');
+    Route::post('/delete',[SupplierController::class,'delete'])->name('supplier.delete');
+    Route::post('/restore',[SupplierController::class,'restore'])->name('supplier.restore');
+});
+
+Route::group(['prefix'=>'unit'], function() {
+    Route::get('/', [\App\Http\Controllers\BackPanel\UnitController::class, 'index'])->name('unit');
+    Route::post('/save', [\App\Http\Controllers\BackPanel\UnitController::class, 'save'])->name('unit.save');
+    Route::post('/list', [\App\Http\Controllers\BackPanel\UnitController::class, 'list'])->name('unit.list');
+    Route::post('/delete', [\App\Http\Controllers\BackPanel\UnitController::class, 'delete'])->name('unit.delete');
+    Route::post('/restore', [\App\Http\Controllers\BackPanel\UnitController::class, 'restore'])->name('unit.restore');
+});
+
+Route::group(['prefix'=>'purchase'],function(){
+    Route::get('/', [PurchaseController::class, 'index'])->name('purchase');
+    Route::post('/list',[PurchaseController::class,'list'])->name('purchase.list');
+    Route::get('/addpurchase',[PurchaseController::class,'addpurchase'])->name('purchase.addpurchase');
+});
+
+
 });
 
 

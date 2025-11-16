@@ -38,6 +38,46 @@ class ProductBatch extends Model
             throw $e;
         }
     }
+public static function saveProductBatch($post)
+{
+    try {
+        // Expecting $post['items'] as an array of multiple products
+        if (!isset($post['items']) || !is_array($post['items'])) {
+            throw new Exception("No product items found", 1);
+        }
+
+        foreach ($post['items'] as $item) {
+            $dataArray = [
+                'product_id'     => $item['product_id'],
+                'batch_no'       => $item['batch_no'],
+                'expiry_date'    => $item['expiry_date'],
+                'quantity'       => $item['quantity'],
+                'purchase_price' => $item['purchase_price']
+            ];
+
+            if (!empty($item['id'])) {
+                // Update existing record
+                $dataArray['updated_at'] = Carbon::now();
+                if (!ProductBatch::where('id', $item['id'])->update($dataArray)) {
+                    throw new Exception("Couldn't update record with ID: " . $item['id'], 1);
+                }
+            } else {
+                // Insert new record
+                $dataArray['created_at'] = Carbon::now();
+                if (!ProductBatch::insert($dataArray)) {
+                    throw new Exception("Couldn't save record for product: " . $item['product_id'], 1);
+                }
+            }
+        }
+
+        return true;
+    } catch (Exception $e) {
+        throw $e;
+    }
+}
+
+
+
 
     public static function list($post)
 {

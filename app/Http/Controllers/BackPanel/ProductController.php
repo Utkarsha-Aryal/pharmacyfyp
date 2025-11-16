@@ -8,6 +8,7 @@ use App\Models\Category;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Common;
 use App\Models\Product;
+use App\Models\Unit;
 use Exception;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,7 @@ public function globalSearch(Request $request)
     try {
         $post = $request->all();
         $category = Category::all();
+        $unit = Unit::all();
         $prevPost = [];
 
         if (!empty($post['id'])) {
@@ -68,6 +70,7 @@ public function globalSearch(Request $request)
         $data = [
             'category' => $category,
             'prevPost' => $prevPost,
+            'unit'=>$unit,
         ];
 
         // Add image HTML based on existence
