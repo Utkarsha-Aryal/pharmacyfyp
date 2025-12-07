@@ -26,18 +26,9 @@ use App\Http\Controllers\BackPanel\PurchaseController;
 // });
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
-Route::get('/contacts', [ContactsController::class, 'index'])->name('contacts');
-Route::get('/carts', [CartsController::class, 'index'])->name('carts');
-Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
 Route::get('/login', [AccountController::class, 'login'])->name('login');
-Route::get('/register', [AccountController::class, 'register'])->name('register');
 
-Route::group(['prefix'=>'advanced'],function(){
-    Route::get('/',[AdvancedController::class,'index'])->name('advanced');
-    Route::post('/selection',[AdvancedController::class,'selection'])->name('advanced.selection');
-});
 
-Route::get('/description', [description::class, 'index'])->name('description');
 
 Route::group(['prefix'=>'product'],function(){
     Route::get('/{slug}',[Fproductcontroller::class,'index'])->name('product');
