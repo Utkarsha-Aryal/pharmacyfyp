@@ -1,1 +1,1 @@
-Pharmacy Fyp
+Pharmacy Management System
