@@ -10,9 +10,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>@yield('title')</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @if (!empty($siteSettings->img_favicon))
-        <link rel="icon" href="{{ asset('storage/setting') . '/' . $siteSettings->img_favicon }}" type="image/png">
-    @endif
+    <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
     <!-- Choices JS -->
     <script src="{{ asset('backpanel/assets/libs/choices.js/public/assets/scripts/choices.min.js') }}"></script>
 

@@ -12,13 +12,17 @@ use Carbon\Carbon;
 
 class Product extends Model
 {
-
-       public function category()
+    public function category()
     {
         return $this->belongsTo(Category::class, 'category_id');
     }
-    //save product
-     public static function saveData($post)
+
+    public function productBatches()
+    {
+        return $this->hasMany(ProductBatch::class, 'product_id');
+    }
+
+    public static function saveData($post)
     {
         try {
             $dataArray = [

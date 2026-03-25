@@ -3,14 +3,29 @@
         height: 40px !important;
         line-height: 2rem;
     }
+
+    .main-menu .slide.active>.side-menu__item,
+    .main-menu .slide-menu .slide.active>.side-menu__item {
+        color: var(--primary-color) !important;
+        font-weight: 600;
+    }
+
+    .main-menu .slide.active>.side-menu__item .side-menu__icon,
+    .main-menu .slide-menu .slide.active>.side-menu__item .side-menu__icon {
+        color: var(--primary-color) !important;
+        fill: var(--primary-color) !important;
+    }
 </style>
+@php
+    $imgPath = asset('assets/img/logo/pharmacy.png');
+    $isDashboard = request()->routeIs('admin.dashboard');
+    $isProductMenu = request()->routeIs('admin.category*') || request()->routeIs('admin.unit*') || request()->routeIs('admin.product*') || request()->routeIs('admin.batch*');
+    $isPurchaseMenu = request()->routeIs('admin.supplier*') || request()->routeIs('admin.purchase*');
+@endphp
 <aside class="app-sidebar sticky" id="sidebar">
     <!-- Start::main-sidebar-header -->
     <div class="main-sidebar-header">
-        <a href="" class="header-logo">
-            <?php
-            $imgPath = !empty($siteSettings->img_logo) && \Illuminate\Support\Facades\Storage::exists('public/setting/' . $siteSettings->img_logo) ? asset('storage/setting/' . $siteSettings->img_logo) : asset('no-image.jpg');
-            ?>
+        <a href="{{ route('admin.dashboard') }}" class="header-logo">
             <img src="{{ $imgPath }}" class="rounded-circle website_logo" alt="School Logo" width="37"
                 height="40">
         </a>
@@ -29,8 +44,8 @@
                 <li class="slide__category"><span class="category-name">Dashboard</span></li>
 
                 {{-- dashboard strat here --}}
-                <li class="slide" data-id="dashboard">
-                    <a href="" class="side-menu__item">
+                <li class="slide {{ $isDashboard ? 'active' : '' }}" data-id="dashboard">
+                    <a href="{{ route('admin.dashboard') }}" class="side-menu__item">
                         <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" viewBox="0 0 24 24">
                             <path d="M0 0h24v24H0V0z" fill="none" />
                             <path d="M5 5h4v6H5zm10 8h4v6h-4zM5 17h4v2H5zM15 5h4v2h-4z" opacity=".3" />
@@ -42,7 +57,7 @@
                 </li>
                 {{-- dashboard end here --}}
 
-                <li class="slide has-sub" id="mainMenu">
+                <li class="slide has-sub {{ $isProductMenu ? 'open active' : '' }}" id="mainMenu">
                     <a href="javascript:void(0);" class="side-menu__item">
                         <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16"
                             fill="currentColor" class="bi bi-gear-fill" viewBox="0 0 16 16">
@@ -80,13 +95,13 @@
                         <li class="slide side-menu__label1">
                             <a href="javascript:void(0);">Product</a>
                         </li>
-                        <li class="slide" id="childMenu">
+                        <li class="slide {{ request()->routeIs('admin.category*') ? 'active' : '' }}" id="childMenu">
                             <a href="{{route('admin.category')}}" class="side-menu__item">Category</a>
                         </li>
-                        <li class="slide">
+                        <li class="slide {{ request()->routeIs('admin.unit*') ? 'active' : '' }}">
                             <a href="{{route('admin.unit')}}" class="side-menu__item">Unit</a>
                         </li>
-                        <li class="slide">
+                        <li class="slide {{ request()->routeIs('admin.product*') || request()->routeIs('admin.batch*') ? 'active' : '' }}">
                             <a href="{{route('admin.product')}}" class="side-menu__item">Add product</a>
                         </li>
                     </ul>
@@ -95,7 +110,7 @@
 
 
                 {{-- contact start here --}}
-                <li class="slide has-sub" id="mainMenu">
+                <li class="slide has-sub {{ $isPurchaseMenu ? 'open active' : '' }}" id="mainMenu">
                     <a href="javascript:void(0);" class="side-menu__item">
                         <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16"
                             height="16" fill="currentColor" class="bi bi-person-lines-fill" viewBox="0 0 16 16">
@@ -106,10 +121,10 @@
                         <i class="fe fe-chevron-right side-menu__angle"></i>
                     </a>
                     <ul class="slide-menu child1">
-                        <li class="slide" id="childMenu">
+                        <li class="slide {{ request()->routeIs('admin.supplier*') ? 'active' : '' }}" id="childMenu">
                             <a href="{{route('admin.supplier')}}" class="side-menu__item">Supplier</a>
                         </li>
-                        <li class="slide">
+                        <li class="slide {{ request()->routeIs('admin.purchase*') ? 'active' : '' }}">
                             <a href="{{route('admin.purchase')}}" class="side-menu__item">Purchase</a>
                         </li>
                     </ul>
@@ -178,17 +193,3 @@
         </nav>
     </div>
 </aside>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-<script>
-    $(document).ready(function() {
-        const activeItem = localStorage.getItem('activeItem');
-        if (activeItem) {
-            $('li.slide').removeClass('active');
-            $(`li.slide[data-id="${activeItem}"]`).addClass('active');
-        }
-        $('li.slide a').on('click', function() {
-            const itemId = $(this).closest('li.slide').data('id');
-            localStorage.setItem('activeItem', itemId);
-        });
-    });
-</script>

@@ -26,7 +26,13 @@ use App\Http\Controllers\BackPanel\PurchaseController;
 // });
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
-Route::get('/login', [AccountController::class, 'login'])->name('login');
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AccountController::class, 'login'])->name('login');
+    Route::post('/login', [AccountController::class, 'authenticate'])->name('login.submit');
+});
+
+Route::post('/logout', [AccountController::class, 'logout'])->middleware('auth')->name('logout');
 
 
 
@@ -37,7 +43,9 @@ Route::group(['prefix'=>'product'],function(){
 
 
 // backend
-Route::prefix('admin')->name('admin.')->group(function(){
+Route::redirect('/admin', '/admin/dashboard');
+
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function(){
 
 Route::get('/dashboard',[DashboardController::class,'index'])->name('dashboard');
 
@@ -97,5 +105,4 @@ Route::group(['prefix'=>'purchase'],function(){
 
 
 });
-
 

@@ -1,3 +1,7 @@
+    @php
+        $currentUser = auth()->user();
+    @endphp
+
     <!-- app-header -->
     <header class="app-header">
 
@@ -10,15 +14,11 @@
                 <!-- Start::header-element -->
                 <div class="header-element">
                     <div class="horizontal-logo">
-                        <a href="index.html" class="header-logo">
-                            <img src="{{ asset('backpanel/assets/images/brand-logos/desktop-logo.png') }}" alt="logo"
-                                class="desktop-logo">
-                            <img src="{{ asset('backpanel/assets/images/brand-logos/toggle-logo.png') }}" alt="logo"
-                                class="toggle-logo">
-                            <img src="{{ asset('backpanel/assets/images/brand-logos/desktop-white.png') }}"
-                                alt="logo" class="desktop-white">
-                            <img src="{{ asset('backpanel/assets/images/brand-logos/toggle-white.png') }}"
-                                alt="logo" class="toggle-white">
+                        <a href="{{ route('admin.dashboard') }}" class="header-logo">
+                            <img src="{{ asset('assets/img/logo/pharmacy.png') }}" alt="logo" class="desktop-logo">
+                            <img src="{{ asset('assets/img/logo/pharmacy.png') }}" alt="logo" class="toggle-logo">
+                            <img src="{{ asset('assets/img/logo/pharmacy.png') }}" alt="logo" class="desktop-white">
+                            <img src="{{ asset('assets/img/logo/pharmacy.png') }}" alt="logo" class="toggle-white">
                         </a>
                     </div>
                 </div>
@@ -43,23 +43,13 @@
 
             <div class="header-element headerProfile-dropdown">
                 <div class="me-3">
-                    <span>Welcome! </span><a
-                        href=""><label></label></a>
+                    <span>Welcome! </span><a href="{{ route('admin.dashboard') }}"><label>{{ $currentUser?->name }}</label></a>
                 </div>
                 <!-- Start::header-link|dropdown-toggle -->
                 <div>
-                    <a href=""> <img
-                            src="@if (!empty($userProfile->image)) {{ asset('storage/profile') . '/' . $userProfile->image }} @else {{ asset('/no-user.jpg') }} @endif"
-                            class="rounded-circle" alt="School Logo "width="37" height="37"></a>
-{{-- 
-                    @if (!empty($userData['image']))
-                        <img alt="User Image"class='profile_image'
-                            src="{{ asset('/storage/profile') . '/' . $userData['image'] }}"
-                            style="width: 37; height: 37; border-radius: 50%">
-                    @else
-                        <img alt="No User"class='profile_image' src="{{ asset('/no-user.jpg') }}  style="width: 37;
-                            height: 37; border-radius: 50%"">
-                    @endif --}}
+                    <a href="{{ route('admin.dashboard') }}"> <img
+                            src="{{ asset('images/no-user.jpg') }}"
+                            class="rounded-circle" alt="User" width="37" height="37"></a>
                 </div>
                 <a href="javascript:void(0);" class="header-link dropdown-toggle" id="mainHeaderProfile"
                     data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -71,16 +61,22 @@
                     <li>
                         <div class="main-header-profile bg-primary menu-header-content text-fixed-white">
                             <div class="my-auto">
-                                <h6 class="mb-0 lh-1 text-fixed-white"></h6><span
-                                    class="fs-11 op-7 lh-1"></span>
+                                <h6 class="mb-0 lh-1 text-fixed-white">{{ $currentUser?->name }}</h6><span
+                                    class="fs-11 op-7 lh-1">{{ $currentUser?->role }}</span>
                             </div>
                         </div>
                     </li>
-                    <li><a class="dropdown-item d-flex" href=""><i
-                                class="bx bx-user-circle fs-18 me-2 op-7"></i>Profile</a></li>
+                    <li><a class="dropdown-item d-flex" href="{{ route('admin.dashboard') }}"><i
+                                class="bx bx-user-circle fs-18 me-2 op-7"></i>Dashboard</a></li>
 
-                    <li><a class="dropdown-item d-flex" href=""><i
-                                class="bx bx-log-out fs-18 me-2 op-7"></i>Sign Out</a></li>
+                    <li>
+                        <form action="{{ route('logout') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="dropdown-item d-flex border-0 bg-transparent w-100 text-start">
+                                <i class="bx bx-log-out fs-18 me-2 op-7"></i>Sign Out
+                            </button>
+                        </form>
+                    </li>
                 </ul>
             </div>
         </div>
