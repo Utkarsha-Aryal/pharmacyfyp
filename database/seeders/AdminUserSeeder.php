@@ -9,13 +9,14 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        User::updateOrCreate(
+        $user = User::updateOrCreate(
             ['email' => 'admin@pharmacy.com'],
             [
                 'name' => 'Admin User',
                 'password' => 'admin12345',
-                'role' => 'admin',
             ]
         );
+
+        $user->syncRoles(['admin']);
     }
 }

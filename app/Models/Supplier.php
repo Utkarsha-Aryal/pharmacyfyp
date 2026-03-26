@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
+use Exception;
 
 class Supplier extends Model
 {
@@ -83,6 +85,24 @@ class Supplier extends Model
             }
 
             return $ndata;
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
+    public static function restoreData($post)
+    {
+        try {
+            $updateArray = [
+                'status' => 'Y',
+                'updated_at' => Carbon::now(),
+            ];
+
+            if (!Supplier::where(['id' => $post['id']])->update($updateArray)) {
+                throw new Exception("Couldn't Restore Data. Please try again", 1);
+            }
+
+            return true;
         } catch (Exception $e) {
             throw $e;
         }

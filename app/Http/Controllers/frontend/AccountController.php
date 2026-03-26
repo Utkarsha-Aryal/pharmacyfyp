@@ -29,13 +29,13 @@ class AccountController extends Controller
 
         $request->session()->regenerate();
 
-        if (Auth::user()->role !== 'admin') {
+        if (!Auth::user()->hasAnyRole(['admin', 'staff'])) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
             throw ValidationException::withMessages([
-                'email' => 'Only admin login is ready right now.',
+                'email' => 'Only admin or staff can login here.',
             ]);
         }
 
@@ -49,10 +49,5 @@ class AccountController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login')->with('success', 'Logout done.');
-    }
-
-    public function register()
-    {
-        return view('frontend.account.register');
     }
 }

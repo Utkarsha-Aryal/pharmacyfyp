@@ -38,4 +38,7 @@ return array(
     'ce9671a430e4846b44e1c68c7611f9f5' => $vendorDir . '/mockery/mockery/library/Mockery.php',
     'a1cfe24d14977df6878b9bf804af2d1c' => $vendorDir . '/nunomaduro/collision/src/Adapters/Phpunit/Autoload.php',
     'ec07570ca5a812141189b1fa81503674' => $vendorDir . '/phpunit/phpunit/src/Framework/Assert/Functions.php',
+    'c379e2a4ec3735f6c4915556c8c81813' => $vendorDir . '/rap2hpoutre/fast-excel/src/functions/fastexcel.php',
+    '377b22b161c09ed6e5152de788ca020a' => $vendorDir . '/spatie/laravel-permission/src/helpers.php',
+    '8fde5feda9697fe0ee53a3938c839fb0' => $baseDir . '/app/Helpers/Helper.php',
 );

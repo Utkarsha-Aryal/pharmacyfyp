@@ -1,488 +1,653 @@
 (function () {
   "use strict";
 
-  /* page loader */
-  
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
   function hideLoader() {
-    const loader = document.getElementById("loader");
-    loader.classList.add("d-none")
-  }
-
-  window.addEventListener("load", hideLoader);
-  /* page loader */
-
-  /* tooltip */
-  const tooltipTriggerList = document.querySelectorAll(
-    '[data-bs-toggle="tooltip"]'
-  );
-  const tooltipList = [...tooltipTriggerList].map(
-    (tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl)
-  );
-
-  /* popover  */
-  const popoverTriggerList = document.querySelectorAll(
-    '[data-bs-toggle="popover"]'
-  );
-  const popoverList = [...popoverTriggerList].map(
-    (popoverTriggerEl) => new bootstrap.Popover(popoverTriggerEl)
-  );
-
-  //switcher color pickers
-  const pickrContainerPrimary = document.querySelector(
-    ".pickr-container-primary"
-  );
-  const themeContainerPrimary = document.querySelector(
-    ".theme-container-primary"
-  );
-  const pickrContainerBackground = document.querySelector(
-    ".pickr-container-background"
-  );
-  const themeContainerBackground = document.querySelector(
-    ".theme-container-background"
-  );
-
-  /* for theme primary */
-  const nanoThemes = [
-    [
-      "nano",
-      {
-        defaultRepresentation: "RGB",
-        components: {
-          preview: true,
-          opacity: false,
-          hue: true,
-
-          interaction: {
-            hex: false,
-            rgba: true,
-            hsva: false,
-            input: true,
-            clear: false,
-            save: false,
-          },
-        },
-      },
-    ],
-  ];
-  const nanoButtons = [];
-  let nanoPickr = null;
-  for (const [theme, config] of nanoThemes) {
-    const button = document.createElement("button");
-    button.innerHTML = theme;
-    nanoButtons.push(button);
-
-    button.addEventListener("click", () => {
-      const el = document.createElement("p");
-      pickrContainerPrimary.appendChild(el);
-
-      /* Delete previous instance */
-      if (nanoPickr) {
-        nanoPickr.destroyAndRemove();
-      }
-
-      /* Apply active class */
-      for (const btn of nanoButtons) {
-        btn.classList[btn === button ? "add" : "remove"]("active");
-      }
-
-      /* Create fresh instance */
-      nanoPickr = new Pickr(
-        Object.assign(
-          {
-            el,
-            theme,
-            default: "#0162e8",
-          },
-          config
-        )
-      );
-
-      /* Set events */
-      nanoPickr.on("changestop", (source, instance) => {
-        let color = instance.getColor().toRGBA();
-        let html = document.querySelector("html");
-        html.style.setProperty(
-          "--primary-rgb",
-          `${Math.floor(color[0])}, ${Math.floor(color[1])}, ${Math.floor(
-            color[2]
-          )}`
-        );
-        /* theme color picker */
-        localStorage.setItem(
-          "primaryRGB",
-          `${Math.floor(color[0])}, ${Math.floor(color[1])}, ${Math.floor(
-            color[2]
-          )}`
-        );
-        updateColors();
-      });
-    });
-
-    themeContainerPrimary.appendChild(button);
-  }
-  nanoButtons[0].click();
-  /* for theme primary */
-
-  /* for theme background */
-  const nanoThemes1 = [
-    [
-      "nano",
-      {
-        defaultRepresentation: "RGB",
-        components: {
-          preview: true,
-          opacity: false,
-          hue: true,
-
-          interaction: {
-            hex: false,
-            rgba: true,
-            hsva: false,
-            input: true,
-            clear: false,
-            save: false,
-          },
-        },
-      },
-    ],
-  ];
-  const nanoButtons1 = [];
-  let nanoPickr1 = null;
-  for (const [theme, config] of nanoThemes) {
-    const button = document.createElement("button");
-    button.innerHTML = theme;
-    nanoButtons1.push(button);
-
-    button.addEventListener("click", () => {
-      const el = document.createElement("p");
-      pickrContainerBackground.appendChild(el);
-
-      /* Delete previous instance */
-      if (nanoPickr1) {
-        nanoPickr1.destroyAndRemove();
-      }
-
-      /* Apply active class */
-      for (const btn of nanoButtons) {
-        btn.classList[btn === button ? "add" : "remove"]("active");
-      }
-
-      /* Create fresh instance */
-      nanoPickr1 = new Pickr(
-        Object.assign(
-          {
-            el,
-            theme,
-            default: "#0162e8",
-          },
-          config
-        )
-      );
-
-      /* Set events */
-      nanoPickr1.on("changestop", (source, instance) => {
-        let color = instance.getColor().toRGBA();
-        let html = document.querySelector("html");
-        html.style.setProperty(
-          "--body-bg-rgb",
-          `${color[0]}, ${color[1]}, ${color[2]}`
-        );
-        document
-          .querySelector("html")
-          .style.setProperty(
-            "--light-rgb",
-            `${color[0] + 14}, ${color[1] + 14}, ${color[2] + 14}`
-          );
-        document
-          .querySelector("html")
-          .style.setProperty(
-            "--form-control-bg",
-            `rgb(${color[0] + 14}, ${color[1] + 14}, ${color[2] + 14})`
-          );
-        localStorage.removeItem("bgtheme");
-        updateColors();
-        html.setAttribute("data-theme-mode", "dark");
-        html.setAttribute("data-menu-styles", "dark");
-        html.setAttribute("data-header-styles", "dark");
-        document.querySelector("#switcher-dark-theme").checked = true;
-        localStorage.setItem(
-          "bodyBgRGB",
-          `${color[0]}, ${color[1]}, ${color[2]}`
-        );
-        localStorage.setItem(
-          "bodylightRGB",
-          `${color[0] + 14}, ${color[1] + 14}, ${color[2] + 14}`
-        );
-      });
-    });
-    themeContainerBackground.appendChild(button);
-  }
-  nanoButtons1[0].click();
-  /* for theme background */
-
-  /* header theme toggle */
-  function toggleTheme() {
-    let html = document.querySelector("html");
-    if (html.getAttribute("data-theme-mode") === "dark") {
-      html.setAttribute("data-theme-mode", "light");
-      html.setAttribute("data-header-styles", "light");
-      html.setAttribute("data-menu-styles", "light");
-      if (!localStorage.getItem("primaryRGB")) {
-        html.setAttribute("style", "");
-      }
-      html.removeAttribute("data-bg-theme");
-      document.querySelector("#switcher-light-theme").checked = true;
-      document.querySelector("#switcher-menu-light").checked = true;
-      document
-        .querySelector("html")
-        .style.removeProperty("--body-bg-rgb", localStorage.bodyBgRGB);
-      checkOptions();
-      html.style.removeProperty("--light-rgb");	
-      html.style.removeProperty("--form-control-bg");	
-      html.style.removeProperty("--input-border");
-      document.querySelector("#switcher-header-light").checked = true;
-      document.querySelector("#switcher-menu-light").checked = true;
-      document.querySelector("#switcher-light-theme").checked = true;
-      document.querySelector("#switcher-background4").checked = false;
-      document.querySelector("#switcher-background3").checked = false;
-      document.querySelector("#switcher-background2").checked = false;
-      document.querySelector("#switcher-background1").checked = false;
-      document.querySelector("#switcher-background").checked = false;
-      localStorage.removeItem("valexdarktheme");
-      localStorage.removeItem("valexMenu");
-      localStorage.removeItem("valexHeader");
-      localStorage.removeItem("bodylightRGB");
-      localStorage.removeItem("bodyBgRGB");
-      if (localStorage.getItem("valexlayout") != "horizontal") {
-        html.setAttribute("data-menu-styles", "light  ");
-      }
-      html.setAttribute("data-header-styles", "light");
-    } else {
-      html.setAttribute("data-theme-mode", "dark");
-      html.setAttribute("data-header-styles", "dark");
-      if (!localStorage.getItem("primaryRGB")) {
-        html.setAttribute("style", "");
-      }
-      html.setAttribute("data-menu-styles", "dark");
-      document.querySelector("#switcher-dark-theme").checked = true;
-      document.querySelector("#switcher-menu-dark").checked = true;
-      document.querySelector("#switcher-header-dark").checked = true;
-      checkOptions();
-      document.querySelector("#switcher-menu-dark").checked = true;
-      document.querySelector("#switcher-header-dark").checked = true;
-      document.querySelector("#switcher-dark-theme").checked = true;
-      document.querySelector("#switcher-background4").checked = false;
-      document.querySelector("#switcher-background3").checked = false;
-      document.querySelector("#switcher-background2").checked = false;
-      document.querySelector("#switcher-background1").checked = false;
-      document.querySelector("#switcher-background").checked = false;
-      localStorage.setItem("valexdarktheme", "true");
-      localStorage.setItem("valexMenu", "dark");
-      localStorage.setItem("valexHeader", "dark");
-      localStorage.removeItem("bodylightRGB");
-      localStorage.removeItem("bodyBgRGB");
+    var loader = byId("loadingOverlay");
+    if (loader) {
+      loader.style.display = "none";
     }
   }
-  let layoutSetting = document.querySelector(".layout-setting");
-  layoutSetting.addEventListener("click", toggleTheme);
-  /* header theme toggle */
 
-  /* Choices JS */
-  document.addEventListener("DOMContentLoaded", function () {
-    var genericExamples = document.querySelectorAll("[data-trigger]");
-    for (let i = 0; i < genericExamples.length; ++i) {
-      var element = genericExamples[i];
+  function showLoader() {
+    var loader = byId("loadingOverlay");
+    if (loader) {
+      loader.style.display = "block";
+    }
+  }
+
+  function showNotification(message, type) {
+    var notification = byId("customNotification");
+    if (!notification) {
+      return;
+    }
+
+    notification.textContent = message || "Something happened.";
+    notification.classList.remove("notification-success", "notification-error");
+    notification.classList.add(type === "success" ? "notification-success" : "notification-error");
+    notification.style.display = "block";
+
+    window.setTimeout(function () {
+      notification.style.display = "none";
+    }, 3200);
+  }
+
+  function initBootstrapUi() {
+    if (typeof bootstrap === "undefined") {
+      return;
+    }
+
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (element) {
+      if (!bootstrap.Tooltip.getInstance(element)) {
+        new bootstrap.Tooltip(element);
+      }
+    });
+
+    document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (element) {
+      if (!bootstrap.Popover.getInstance(element)) {
+        new bootstrap.Popover(element);
+      }
+    });
+  }
+
+  function resolveDropdownParent($element) {
+    var $parent = $element.closest(".modal, .card, .main-content, .page");
+    return $parent.length ? $parent : $(document.body);
+  }
+
+  function initEnhancedSelects(context) {
+    if (!window.jQuery || !$.fn.select2) {
+      return;
+    }
+
+    var $context = context ? $(context) : $(document);
+
+    $context.find(".js-select2").each(function () {
+      var $element = $(this);
+
+      if ($element.hasClass("select2-hidden-accessible")) {
+        return;
+      }
+
+      $element.select2({
+        width: "100%",
+        dropdownParent: resolveDropdownParent($element),
+        placeholder: $element.data("placeholder") || "Select option",
+        allowClear: $element.is("[data-allow-clear]"),
+      });
+    });
+
+    $context.find(".js-select2-ajax").each(function () {
+      var $element = $(this);
+      var ajaxUrl = $element.data("ajax-url");
+
+      if (!ajaxUrl || $element.hasClass("select2-hidden-accessible")) {
+        return;
+      }
+
+      // ajax select is easier to manage when product and supplier list becomes large
+      $element.select2({
+        width: "100%",
+        dropdownParent: resolveDropdownParent($element),
+        placeholder: $element.data("placeholder") || "Search item",
+        allowClear: true,
+        minimumInputLength: 0,
+        ajax: {
+          url: ajaxUrl,
+          dataType: "json",
+          delay: 250,
+          data: function (params) {
+            return {
+              q: params.term || "",
+              page: params.page || 1,
+            };
+          },
+          processResults: function (data) {
+            return data;
+          },
+          cache: true,
+        },
+      });
+    });
+  }
+
+  function initChoices() {
+    if (typeof Choices === "undefined") {
+      return;
+    }
+
+    document.querySelectorAll("[data-trigger]").forEach(function (element) {
+      if (element.dataset.choiceReady === "true") {
+        return;
+      }
+
       new Choices(element, {
         allowHTML: true,
-        placeholderValue: "This is a placeholder set in the config",
         searchPlaceholderValue: "Search",
       });
-    }
-  });
-  /* Choices JS */
 
-  /* footer year */
-  document.getElementById("year").innerHTML = new Date().getFullYear();
-  /* footer year */
-
-  /* node waves */
-  Waves.attach(".btn-wave", ["waves-light"]);
-  Waves.init();
-  /* node waves */
-
-  /* card with close button */
-  let DIV_CARD = ".card";
-  let cardRemoveBtn = document.querySelectorAll(
-    '[data-bs-toggle="card-remove"]'
-  );
-  cardRemoveBtn.forEach((ele) => {
-    ele.addEventListener("click", function (e) {
-      e.preventDefault();
-      let $this = this;
-      let card = $this.closest(DIV_CARD);
-      card.remove();
-      return false;
+      element.dataset.choiceReady = "true";
     });
-  });
-  /* card with close button */
-
-  /* card with fullscreen */
-  let cardFullscreenBtn = document.querySelectorAll(
-    '[data-bs-toggle="card-fullscreen"]'
-  );
-  cardFullscreenBtn.forEach((ele) => {
-    ele.addEventListener("click", function (e) {
-      let $this = this;
-      let card = $this.closest(DIV_CARD);
-      card.classList.toggle("card-fullscreen");
-      card.classList.remove("card-collapsed");
-      e.preventDefault();
-      return false;
-    });
-  });
-  /* card with fullscreen */
-
-  /* count-up */
-  var i = 1;
-  setInterval(() => {
-    document.querySelectorAll(".count-up").forEach((ele) => {
-      if (ele.getAttribute("data-count") >= i) {
-        i = i + 1;
-        ele.innerText = i;
-      }
-    });
-  }, 10);
-  /* count-up */
-
-  /* back to top */
-  const scrollToTop = document.querySelector(".scrollToTop");
-  const $rootElement = document.documentElement;
-  const $body = document.body;
-  window.onscroll = () => {
-    const scrollTop = window.scrollY || window.pageYOffset;
-    const clientHt = $rootElement.scrollHeight - $rootElement.clientHeight;
-    if (window.scrollY > 100) {
-      scrollToTop.style.display = "flex";
-    } else {
-      scrollToTop.style.display = "none";
-    }
-  };
-  scrollToTop.onclick = () => {
-    window.scrollTo(0, 0);
-  };
-  /* back to top */
-
-  /* header dropdowns scroll */
-    
-
-  var myHeadernotification = document.getElementById(
-    "header-notification-scroll"
-  );
-  new SimpleBar(myHeadernotification, { autoHide: true });
-
-  var myHeaderCart = document.getElementById("header-cart-items-scroll");
-  new SimpleBar(myHeaderCart, { autoHide: true });
-  /* header dropdowns scroll */
-})();
-
-/* full screen */
-var elem = document.documentElement;
-function openFullscreen() {
-  let open = document.querySelector(".full-screen-open");
-  let close = document.querySelector(".full-screen-close");
-
-  if (
-    !document.fullscreenElement &&
-    !document.webkitFullscreenElement &&
-    !document.msFullscreenElement
-  ) {
-    if (elem.requestFullscreen) {
-      elem.requestFullscreen();
-    } else if (elem.webkitRequestFullscreen) {
-      /* Safari */
-      elem.webkitRequestFullscreen();
-    } else if (elem.msRequestFullscreen) {
-      /* IE11 */
-      elem.msRequestFullscreen();
-    }
-    close.classList.add("d-block");
-    close.classList.remove("d-none");
-    open.classList.add("d-none");
-  } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      /* Safari */
-      document.webkitExitFullscreen();
-      console.log("working");
-    } else if (document.msExitFullscreen) {
-      /* IE11 */
-      document.msExitFullscreen();
-    }
-    close.classList.remove("d-block");
-    open.classList.remove("d-none");
-    close.classList.add("d-none");
-    open.classList.add("d-block");
   }
-}
-/* full screen */
 
-/* toggle switches */
-let customSwitch = document.querySelectorAll(".toggle");
-customSwitch.forEach((e) =>
-  e.addEventListener("click", () => {
-    e.classList.toggle("on");
-  })
-);
-/* toggle switches */
-
-/* header dropdown close button */
-
-/* for cart dropdown */
-const headerbtn = document.querySelectorAll(".dropdown-item-close");
-headerbtn.forEach((button) => {
-  button.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    button.parentNode.parentNode.parentNode.parentNode.parentNode.remove();
-    document.getElementById("cart-data").innerText = `${
-      document.querySelectorAll(".dropdown-item-close").length
-    } Items`;
-    document.getElementById("cart-icon-badge").innerText = `${
-      document.querySelectorAll(".dropdown-item-close").length
-    }`;
-    console.log(
-      document.getElementById("header-cart-items-scroll").children.length
-    );
-    if (document.querySelectorAll(".dropdown-item-close").length == 0) {
-      let elementHide = document.querySelector(".empty-header-item");
-      let elementShow = document.querySelector(".empty-item");
-      elementHide.classList.add("d-none");
-      elementShow.classList.remove("d-none");
+  function initWaves() {
+    if (typeof Waves === "undefined") {
+      return;
     }
-  });
-});
-/* for cart dropdown */
 
-/* for notifications dropdown */
-const headerbtn1 = document.querySelectorAll(".dropdown-item-close1");
-headerbtn1.forEach((button) => {
-  button.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    button.parentNode.parentNode.parentNode.parentNode.remove();
-    document.getElementById("notifiation-data").innerText = `${
-      document.querySelectorAll(".dropdown-item-close1").length
-    } Unread`;
-    document.getElementById("notification-icon-badge").innerText = `${
-      document.querySelectorAll(".dropdown-item-close1").length
-    }`;
-    if (document.querySelectorAll(".dropdown-item-close1").length == 0) {
-      let elementHide1 = document.querySelector(".empty-header-item1");
-      let elementShow1 = document.querySelector(".empty-item1");
-      elementHide1.classList.add("d-none");
-      elementShow1.classList.remove("d-none");
+    Waves.attach(".btn-wave", ["waves-light"]);
+    Waves.init();
+  }
+
+  function initFooterYear() {
+    var footerYear = byId("year");
+    if (footerYear) {
+      footerYear.textContent = new Date().getFullYear();
     }
+  }
+
+  function initScrollToTop() {
+    var scrollToTop = document.querySelector(".scrollToTop");
+    if (!scrollToTop) {
+      return;
+    }
+
+    function toggleButton() {
+      scrollToTop.style.display = window.scrollY > 100 ? "flex" : "none";
+    }
+
+    toggleButton();
+    window.addEventListener("scroll", toggleButton);
+
+    scrollToTop.addEventListener("click", function () {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    });
+  }
+
+  function initHeaderScroll() {
+    if (typeof SimpleBar === "undefined") {
+      return;
+    }
+
+    ["header-notification-scroll", "header-cart-items-scroll"].forEach(function (id) {
+      var element = byId(id);
+
+      if (!element || element.dataset.simplebarReady === "true" || element.dataset.nativeScroll === "true") {
+        return;
+      }
+
+      new SimpleBar(element, { autoHide: true });
+      element.dataset.simplebarReady = "true";
+    });
+  }
+
+  function initImagePreviewInput() {
+    document.querySelectorAll("[data-image-preview-input]").forEach(function (input) {
+      if (input.dataset.previewReady === "true") {
+        return;
+      }
+
+      input.addEventListener("change", function (event) {
+        var selectedFile = event.target.files[0];
+        var previewSelector = input.getAttribute("data-image-preview-input");
+        var previewImage = previewSelector ? document.querySelector(previewSelector) : null;
+
+        if (!selectedFile || !previewImage) {
+          return;
+        }
+
+        previewImage.src = URL.createObjectURL(selectedFile);
+      });
+
+      input.dataset.previewReady = "true";
+    });
+  }
+
+  function initRememberedTabs() {
+    if (typeof bootstrap === "undefined") {
+      return;
+    }
+
+    ["settingsTab", "roleAccessTab", "dashboardTab"].forEach(function (tabId) {
+      var tabList = byId(tabId);
+      if (!tabList || tabList.dataset.rememberReady === "true") {
+        return;
+      }
+
+      var storageKey = "tab:" + tabId;
+      var savedTarget = window.localStorage.getItem(storageKey);
+
+      if (savedTarget) {
+        var targetTab = tabList.querySelector('[data-bs-target="' + savedTarget + '"]');
+        if (targetTab) {
+          bootstrap.Tab.getOrCreateInstance(targetTab).show();
+        }
+      }
+
+      tabList.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (button) {
+        button.addEventListener("shown.bs.tab", function (event) {
+          var currentTarget = event.target.getAttribute("data-bs-target");
+          if (currentTarget) {
+            window.localStorage.setItem(storageKey, currentTarget);
+          }
+        });
+      });
+
+      tabList.dataset.rememberReady = "true";
+    });
+  }
+
+  function initNotificationLoadMore() {
+    var loadMoreButton = byId("notificationLoadMore");
+    if (!loadMoreButton || loadMoreButton.dataset.bound === "true") {
+      return;
+    }
+
+    var scrollBox = byId("header-notification-scroll");
+
+    function updateButtonLabel() {
+      var remainingCount = document.querySelectorAll(".notification-more.d-none").length;
+
+      if (remainingCount <= 0) {
+        loadMoreButton.classList.add("d-none");
+        return;
+      }
+
+      var step = Math.min(4, remainingCount);
+      loadMoreButton.textContent = "Load more (" + step + ")";
+      loadMoreButton.classList.remove("d-none");
+    }
+
+    loadMoreButton.addEventListener("click", function (event) {
+      // keep the dropdown open while revealing more rows
+      event.preventDefault();
+      event.stopPropagation();
+
+      var hiddenItems = Array.from(document.querySelectorAll(".notification-more.d-none"));
+
+      hiddenItems.slice(0, 4).forEach(function (item) {
+        item.classList.remove("d-none");
+      });
+
+      if (scrollBox) {
+        window.requestAnimationFrame(function () {
+          scrollBox.scrollTop = scrollBox.scrollHeight;
+        });
+      }
+
+      updateButtonLabel();
+    });
+
+    loadMoreButton.dataset.bound = "true";
+    updateButtonLabel();
+  }
+
+  function initConfirmForms() {
+    if (!window.jQuery || typeof Swal === "undefined") {
+      return;
+    }
+
+    $(document).off("submit.confirm", ".js-confirm-submit");
+    $(document).on("submit.confirm", ".js-confirm-submit", function (event) {
+      event.preventDefault();
+
+      var form = this;
+      var title = form.dataset.confirmTitle || "Are you sure?";
+      var text = form.dataset.confirmText || "This action cannot be undone.";
+      var buttonText = form.dataset.confirmButton || "Yes, continue";
+
+      Swal.fire({
+        title: title,
+        text: text,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#DB1F48",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: buttonText,
+      }).then(function (result) {
+        if (result.isConfirmed) {
+          form.submit();
+        }
+      });
+    });
+  }
+
+  function addColumnSearch(api, columns) {
+    columns.forEach(function (index) {
+      api.columns(index).every(function () {
+        var column = this;
+        var columnHeader = column.header();
+        var columnName = columnHeader.innerText.trim();
+        var input = document.createElement("input");
+
+        $(input)
+          .appendTo($(columnHeader).empty())
+          .attr("placeholder", columnName)
+          .css("width", "100%")
+          .addClass("search-input-highlight")
+          .on("keyup change", function () {
+            column.search(this.value).draw();
+          });
+      });
+    });
+  }
+
+  function initPurchaseTable() {
+    var tableElement = byId("purchaseTable");
+
+    if (!tableElement || !window.jQuery || !$.fn.DataTable || $.fn.DataTable.isDataTable(tableElement)) {
+      return;
+    }
+
+    $("#purchaseTable").DataTable({
+      sPaginationType: "full_numbers",
+      bSearchable: false,
+      lengthMenu: [
+        [5, 10, 15, 20, 25, -1],
+        [5, 10, 15, 20, 25, "All"],
+      ],
+      iDisplayLength: 15,
+      sDom: "ltipr",
+      bAutoWidth: false,
+      aaSorting: [[0, "desc"]],
+      bSort: false,
+      bProcessing: true,
+      bServerSide: true,
+      oLanguage: {
+        sEmptyTable: "<p class='no_data_message'>No data available.</p>",
+      },
+      aoColumns: [
+        { data: "sno" },
+        { data: "reference_no" },
+        { data: "invoice_no" },
+        { data: "supplier" },
+        { data: "items_count" },
+        { data: "g_total" },
+        { data: "paid" },
+        { data: "due" },
+        { data: "order_status" },
+        { data: "added_date" },
+      ],
+      ajax: {
+        url: tableElement.dataset.listUrl,
+        type: "POST",
+        data: function (request) {
+          request.supplier_id = byId("current_supplier_id") ? byId("current_supplier_id").value : "";
+          request.order_status = byId("current_order_status") ? byId("current_order_status").value : "";
+        },
+      },
+      initComplete: function () {
+        addColumnSearch(this.api(), [1, 3]);
+      },
+    });
+  }
+
+  function updatePurchaseRow(row) {
+    var qty = parseFloat($(row).find(".qty-input").val()) || 0;
+    var price = parseFloat($(row).find(".price-input").val()) || 0;
+    $(row).find(".subtotal-input").val((qty * price).toFixed(2));
+  }
+
+  function updatePurchaseTotal() {
+    var total = 0;
+
+    $("#purchaseItemsTable .subtotal-input").each(function () {
+      total += parseFloat($(this).val()) || 0;
+    });
+
+    $("#grandTotal").val(total.toFixed(2));
+  }
+
+  function initPurchaseForm() {
+    var form = byId("purchaseForm");
+    var tableBody = document.querySelector("#purchaseItemsTable tbody");
+    var template = byId("purchaseItemTemplate");
+
+    if (!form || !tableBody || !template || !window.jQuery || form.dataset.purchaseReady === "true") {
+      return;
+    }
+
+    updatePurchaseRow($("#purchaseItemsTable tbody tr").first());
+    updatePurchaseTotal();
+
+    $(document).off("click.purchase", "#addPurchaseRow");
+    $(document).on("click.purchase", "#addPurchaseRow", function () {
+      var nextIndex = parseInt(tableBody.dataset.nextIndex || "1", 10);
+      var html = template.innerHTML.replace(/__INDEX__/g, nextIndex);
+
+      $(tableBody).append(html);
+      tableBody.dataset.nextIndex = String(nextIndex + 1);
+      initEnhancedSelects($(tableBody).find("tr:last"));
+      updatePurchaseTotal();
+    });
+
+    $(document).off("click.purchase", ".removePurchaseRow");
+    $(document).on("click.purchase", ".removePurchaseRow", function () {
+      var row = $(this).closest("tr");
+
+      if ($("#purchaseItemsTable tbody tr").length === 1) {
+        row.find("input").val("");
+        row.find(".qty-input").val(1);
+        row.find(".price-input").val(0);
+        row.find(".subtotal-input").val("0.00");
+        row.find("select").val("");
+      } else {
+        row.remove();
+      }
+
+      updatePurchaseTotal();
+    });
+
+    $(document).off("input.purchase", "#purchaseItemsTable .qty-input, #purchaseItemsTable .price-input");
+    $(document).on("input.purchase", "#purchaseItemsTable .qty-input, #purchaseItemsTable .price-input", function () {
+      updatePurchaseRow($(this).closest("tr"));
+      updatePurchaseTotal();
+    });
+
+    $(form).off("submit.purchase");
+    $(form).on("submit.purchase", function (event) {
+      event.preventDefault();
+      showLoader();
+
+      if (typeof $(form).ajaxSubmit !== "function") {
+        form.submit();
+        return;
+      }
+
+      $(form).ajaxSubmit({
+        success: function (response) {
+          showNotification(response.message, response.type);
+          hideLoader();
+
+          if (response.type === "success" && response.redirect) {
+            window.setTimeout(function () {
+              window.location.href = response.redirect;
+            }, 700);
+          }
+        },
+        error: function (xhr) {
+          var response = xhr.responseJSON || {};
+          showNotification(response.message || "Could not save purchase.", "error");
+          hideLoader();
+        },
+      });
+    });
+
+    form.dataset.purchaseReady = "true";
+  }
+
+  function initBatchHistoryTable() {
+    var tableElement = byId("batchHistoryTable");
+
+    if (!tableElement || !window.jQuery || !$.fn.DataTable || $.fn.DataTable.isDataTable(tableElement)) {
+      return;
+    }
+
+    $("#batchHistoryTable").DataTable({
+      sPaginationType: "full_numbers",
+      bSearchable: false,
+      lengthMenu: [
+        [5, 10, 15, 20, 25, -1],
+        [5, 10, 15, 20, 25, "All"],
+      ],
+      iDisplayLength: 15,
+      sDom: "ltipr",
+      bAutoWidth: false,
+      aaSorting: [[0, "desc"]],
+      bSort: false,
+      bProcessing: true,
+      bServerSide: true,
+      oLanguage: {
+        sEmptyTable: "<p class='no_data_message'>No data available.</p>",
+      },
+      aoColumns: [
+        { data: "sno" },
+        { data: "batch_no" },
+        { data: "reference_no" },
+        { data: "supplier" },
+        { data: "purchase_date" },
+        { data: "expiry_date" },
+        { data: "quantity" },
+        { data: "purchase_price" },
+        { data: "subtotal" },
+      ],
+      ajax: {
+        url: tableElement.dataset.listUrl,
+        type: "POST",
+        data: function (request) {
+          request.product_id = byId("batch_product_id") ? byId("batch_product_id").value : "";
+        },
+      },
+      initComplete: function () {
+        addColumnSearch(this.api(), [1]);
+      },
+    });
+  }
+
+  function createChart(canvas, config) {
+    if (!canvas || typeof Chart === "undefined") {
+      return;
+    }
+
+    if (canvas._chartInstance) {
+      canvas._chartInstance.destroy();
+    }
+
+    canvas._chartInstance = new Chart(canvas, config);
+  }
+
+  function initDashboardCharts() {
+    var purchaseTrendChart = byId("purchaseTrendChart");
+    if (purchaseTrendChart) {
+      createChart(purchaseTrendChart, {
+        type: "line",
+        data: {
+          labels: JSON.parse(purchaseTrendChart.dataset.labels || "[]"),
+          datasets: [
+            {
+              label: "Purchase Amount",
+              data: JSON.parse(purchaseTrendChart.dataset.values || "[]"),
+              borderColor: "#0f62fe",
+              backgroundColor: "rgba(15, 98, 254, 0.12)",
+              pointBackgroundColor: "#0f62fe",
+              pointRadius: 4,
+              fill: true,
+              tension: 0.35,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: "rgba(148, 163, 184, 0.15)",
+              },
+            },
+            x: {
+              grid: {
+                display: false,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    var stockCategoryChart = byId("stockCategoryChart");
+    if (stockCategoryChart) {
+      createChart(stockCategoryChart, {
+        type: "doughnut",
+        data: {
+          labels: JSON.parse(stockCategoryChart.dataset.labels || "[]"),
+          datasets: [
+            {
+              data: JSON.parse(stockCategoryChart.dataset.values || "[]"),
+              backgroundColor: ["#0f62fe", "#22c55e", "#f97316", "#8b5cf6", "#ef4444", "#14b8a6"],
+              borderWidth: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: "62%",
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                boxWidth: 10,
+                usePointStyle: true,
+              },
+            },
+          },
+        },
+      });
+    }
+  }
+
+  window.showLoader = showLoader;
+  window.hideLoader = hideLoader;
+  window.showNotification = showNotification;
+  window.initEnhancedSelects = initEnhancedSelects;
+  window.showDatePicker = function () {
+    if (window.jQuery && $("#nepali-datepicker").length && $("#nepali-datepicker").nepaliDatePicker) {
+      $("#nepali-datepicker").nepaliDatePicker({
+        container: ".datepick",
+      });
+    }
+  };
+
+  document.addEventListener("DOMContentLoaded", function () {
+    initBootstrapUi();
+    initChoices();
+    initFooterYear();
+    initScrollToTop();
+    initHeaderScroll();
+    initImagePreviewInput();
+    initNotificationLoadMore();
+    initRememberedTabs();
+    initEnhancedSelects(document);
+    initConfirmForms();
   });
-});
-/* for notifications dropdown */
+
+  window.addEventListener("load", function () {
+    hideLoader();
+    initWaves();
+    initPurchaseTable();
+    initPurchaseForm();
+    initBatchHistoryTable();
+    initDashboardCharts();
+  });
+})();

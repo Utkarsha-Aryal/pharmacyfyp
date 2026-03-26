@@ -4,25 +4,16 @@
     Supplier
 @endsection
 
-@section('styles')
-    <style>
-        .iconpicker-popover.popover.bottom {
-            opacity: 1;
-        }
-
-        label#file_input-error {
-            position: absolute;
-            top: 8.3rem !important;
-            left: 1rem;
-        }
-    </style>
-@endsection
-
 @section('main-content')
     <!-- Page Header -->
     <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
         <div class="my-auto">
             <h5 class="page-title fs-21 mb-1">Add Supplier </h5>
+        </div>
+        <div class="d-flex gap-2 mt-3 mt-md-0">
+            <a href="{{ route('admin.export.supplier') }}" class="btn btn-outline-primary">
+                <i class="fa fa-download"></i> Excel
+            </a>
         </div>
     </div>
 
@@ -296,6 +287,7 @@
             $(document).on('click', '.saveData', function(e) {
                 e.preventDefault();
                 if ($('#supplierForm').valid()) {
+                    showLoader();
                     var form = $('#supplierForm')[0];
                     var formData = new FormData(form);
                     $.ajax({
@@ -335,20 +327,27 @@
                 }
             });
 
-            // update category
-            $(document).off('click', '.editCategory');
-            $(document).on('click', '.editCategory', function() {
+            // keep edit on same page to match existing supplier pattern
+            $(document).off('click', '.editSupplier');
+            $(document).on('click', '.editSupplier', function() {
                 var id = $(this).data('id');
-                var name = $(this).data('name');
-                var keywords = $(this).data('keywords');
-                var designation = $(this).data('designation');
-                var order_number = $(this).data('order_number');
-                var image = $(this).data('image');
+                var supplier_name = $(this).data('supplier_name');
+                var contact_person = $(this).data('contact_person');
+                var phone_number = $(this).data('phone_number');
+                var email = $(this).data('email');
+                var pan_number = $(this).data('pan_number');
+                var opening_balance = $(this).data('opening_balance');
+                var address = $(this).data('address');
+                var type = $(this).data('type');
                 $('#supplierForm input[name = "id"]').val(id);
-                $('#supplierForm input[name = "name"]').val(name);
-                $('#supplierForm textarea[name = "keywords"]').val(keywords);
-                $('#supplierForm input[name = "order_number"]').val(order_number);
-                $('#supplierForm ._image').attr('src', image);
+                $('#supplierForm input[name = "supplier_name"]').val(supplier_name);
+                $('#supplierForm input[name = "contact_person"]').val(contact_person);
+                $('#supplierForm input[name = "phone_number"]').val(phone_number);
+                $('#supplierForm input[name = "email"]').val(email);
+                $('#supplierForm input[name = "pan_number"]').val(pan_number);
+                $('#supplierForm input[name = "opening_balance"]').val(opening_balance);
+                $('#supplierForm input[name = "address"]').val(address);
+                $('#supplierForm select[name = "type"]').val(type);
                 $('.saveData').html('<i class="fa fa-save"></i> Update');
             });
 
@@ -361,8 +360,7 @@
             // view trashed items-ends
 
 
-            // Delete Category
-            $(document).on('click', '.deletecategory', function(e) {
+            $(document).on('click', '.deleteSupplier', function(e) {
                 e.preventDefault();
 
                 var type = $('#trashed_file').is(':checked') == true ? 'trashed' :
@@ -383,7 +381,7 @@
                             id: id,
                             type: type,
                         };
-                        var url = "{{route('admin.category.delete')}}";
+                        var url = "{{ route('admin.supplier.delete') }}";
                         $.post(url, data, function(response) {
 
                             if (response) {
@@ -399,12 +397,11 @@
                 });
             });
 
-            // Restore category
-            $(document).off('click', '.restoreCategory');
-            $(document).on('click', '.restoreCategory', function() {
+            $(document).off('click', '.restoreSupplier');
+            $(document).on('click', '.restoreSupplier', function() {
                 Swal.fire({
-                    title: "Are you sure you want to restore Category?",
-                    text: "This will restore the Category.",
+                    title: "Are you sure you want to restore Supplier?",
+                    text: "This will restore the Supplier.",
                     icon: "warning",
                     showCancelButton: true,
                     confirmButtonColor: "#28a745",
@@ -418,7 +415,7 @@
                             id: id,
                             type: 'restore'
                         };
-                        var url = "{{route('admin.category.restore')}}";
+                        var url = "{{ route('admin.supplier.restore') }}";
                         $.post(url, data, function(response) {
                             if (response) {
                                 if (response.type === 'success') {

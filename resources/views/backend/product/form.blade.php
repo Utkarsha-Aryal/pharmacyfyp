@@ -79,7 +79,7 @@
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label">Category <span class="text-danger">*</span></label>
-                <select class="form-select" name="category_id" required>
+                <select class="form-select js-select2" name="category_id" data-placeholder="Select Category" required>
                     <option disabled selected>Select Category</option>
                     @foreach ($category as $categoryProduct)
                         <option value="{{ $categoryProduct->id }}" 
@@ -93,7 +93,7 @@
 
             <div class="col-md-4">
                 <label class="form-label">Unit Sale <span class="text-danger">*</span></label>
-                <select class="form-select" name="unit_sale_id" required>
+                <select class="form-select js-select2" name="unit_sale_id" data-placeholder="Select Sale Unit" required>
                     <option disabled selected>Select Sale Unit</option>
                     @foreach ($unit as $unitItem)
                         <option value="{{ $unitItem->id }}"
@@ -106,7 +106,7 @@
 
             <div class="col-md-4">
                 <label class="form-label">Unit Purchase <span class="text-danger">*</span></label>
-                <select class="form-select" name="unit_purchase_id" required>
+                <select class="form-select js-select2" name="unit_purchase_id" data-placeholder="Select Purchase Unit" required>
                     <option disabled selected>Select Purchase Unit</option>
                     @foreach ($unit as $unitItem)
                         <option value="{{ $unitItem->id }}"
@@ -155,9 +155,9 @@
 
             <div class="col-md-4">
                 <label class="form-label">Product Status</label>
-                <select class="form-select" name="product_status">
-                    <option value="instock" @selected(old('product_status', $product->product_status ?? '') == 'instock')>In Stock</option>
-                    <option value="stockout" @selected(old('product_status', $product->product_status ?? '') == 'stockout')>Stock Out</option>
+                <select class="form-select js-select2" name="product_status" data-placeholder="Select status">
+                    <option value="instock" @selected(old('product_status', $prevPost->product_status ?? '') == 'instock')>In Stock</option>
+                    <option value="stockout" @selected(old('product_status', $prevPost->product_status ?? '') == 'stockout')>Stock Out</option>
                 </select>
             </div>
 
@@ -329,12 +329,11 @@
             rules: {
                 category_id: "required",
                 product_name: "required",
-                stock_quantity: "required",
+                unit_sale_id: "required",
+                unit_purchase_id: "required",
                 description: "required",
                 order_number: "required",
-                price: "required",
-                type: "required",
-                // keywords: "required",
+                mrp: "required",
                 image: {
                     required: function() {
                         return $('#id').val() === '';
@@ -345,8 +344,11 @@
                 category_id: {
                     required: "Category is required."
                 },
-                type: {
-                    required: "Type is required."
+                unit_sale_id: {
+                    required: "Sale unit is required."
+                },
+                unit_purchase_id: {
+                    required: "Purchase unit is required."
                 },
                 product_name: {
                     required: "Product name is required."
@@ -354,24 +356,15 @@
                 order_number: {
                     required: "Order is required."
                 },
-                stock_quantity: {
-                    required: "Stock quantity is required."
-                },
                 image: {
                     required: "Thumbnail image is required."
                 },
-                price: {
-                    required: "Pirce is required."
+                mrp: {
+                    required: "MRP is required."
                 },
                 description: {
                     required: "Description is required."
                 },
-                image: {
-                    required: "Image Field is required"
-                },
-                // keywords: {
-                //     required: "keywords Field is required"
-                // }
             },
             highlight: function(element) {
                 $(element).addClass('border-danger');
@@ -394,7 +387,11 @@
                             $('#productForm')[0].reset();
                             $('.img-rectangle img').attr('src',
                                 '{{ asset('/no-image.jpg') }}');
-                            $('#productModal').modal('hide');
+                            var modalElement = document.getElementById('productModal');
+                            var modalInstance = modalElement ? bootstrap.Modal.getInstance(modalElement) : null;
+                            if (modalInstance) {
+                                modalInstance.hide();
+                            }
                         } else {
                             showNotification(response.message, 'error');
                         }

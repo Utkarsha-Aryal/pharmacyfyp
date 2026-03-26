@@ -38,6 +38,7 @@ class Product extends Model
                 'category_id' => $post['category_id'],
                 'sale_unit_id'=>$post['unit_sale_id'],
                 'purchase_unit_id'=>$post['unit_purchase_id'],
+                'product_status' => $post['product_status'] ?? 'stockout',
                 'slug' => Str::slug($post['product_name']) . '-' . Str::random(30) . '-' . time() . '-' . Str::slug($post['description']) . '-' . Str::random(30) . '-' . time(),
                 'keywords' => $post['keywords'],
                 'alert_quantity'=>$post['alert_quantity'],
@@ -103,7 +104,12 @@ class Product extends Model
                 $offset = $get["start"];
             }
 
-            $query = Product::with('category')
+            $query = Product::with([
+                'category',
+                'productBatches' => function ($batchQuery) {
+                    $batchQuery->where('status', 'Y');
+                },
+            ])
                 ->selectRaw("(SELECT COUNT(*) FROM products WHERE {$cond}) 
                AS totalrecs, id, product_name, description,mrp,discount,slug, image, category_id,keywords,order_number,generic_name,display_price,manufacturer")->whereRaw($cond);
             if ($limit > -1) {

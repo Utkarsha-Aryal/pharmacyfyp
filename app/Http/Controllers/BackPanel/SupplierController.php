@@ -98,4 +98,56 @@ class SupplierController extends Controller
         }
         return response()->json(array("recordsFiltered" => $filtereddata, "recordsTotal" => $totalrecs, "data" => $array));
     }
+
+    public function delete(Request $request)
+    {
+        try {
+            $type = 'success';
+            $message = 'Supplier deleted successfully';
+            $post = $request->all();
+            $class = new Supplier();
+            $directory = null;
+            DB::beginTransaction();
+            $result = Common::deleteSingleData($post, $class, $directory);
+            if (!$result) {
+                throw new Exception("Couldn't delete supplier", 1);
+            }
+            DB::commit();
+        } catch (QueryException $e) {
+            DB::rollBack();
+            $type = 'error';
+            $message = 'Database error';
+        } catch (Exception $e) {
+            DB::rollBack();
+            $type = 'error';
+            $message = $e->getMessage();
+        }
+
+        return response()->json(['type' => $type, 'message' => $message]);
+    }
+
+    public function restore(Request $request)
+    {
+        try {
+            $post = $request->all();
+            $type = 'success';
+            $message = 'Supplier restored successfully';
+            DB::beginTransaction();
+            $result = Supplier::restoreData($post);
+            if (!$result) {
+                throw new Exception("Could not restore supplier. Please try again.", 1);
+            }
+            DB::commit();
+        } catch (QueryException $e) {
+            DB::rollBack();
+            $type = 'error';
+            $message = 'Database error';
+        } catch (Exception $e) {
+            DB::rollBack();
+            $type = 'error';
+            $message = $e->getMessage();
+        }
+
+        return response()->json(['type' => $type, 'message' => $message]);
+    }
 }

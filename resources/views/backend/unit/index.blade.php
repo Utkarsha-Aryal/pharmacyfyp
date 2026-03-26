@@ -4,24 +4,16 @@
     Unit
 @endsection
 
-@section('styles')
-    <style>
-        .iconpicker-popover.popover.bottom {
-            opacity: 1;
-        }
-        label#file_input-error {
-            position: absolute;
-            top: 8.3rem !important;
-            left: 1rem;
-        }
-    </style>
-@endsection
-
 @section('main-content')
     <!-- Page Header -->
     <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
         <div class="my-auto">
             <h5 class="page-title fs-21 mb-1">Unit</h5>
+        </div>
+        <div class="d-flex gap-2 mt-3 mt-md-0">
+            <a href="{{ route('admin.export.unit') }}" class="btn btn-outline-primary">
+                <i class="fa fa-download"></i> Excel
+            </a>
         </div>
     </div>
 

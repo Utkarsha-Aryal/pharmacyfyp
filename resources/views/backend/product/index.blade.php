@@ -3,11 +3,6 @@
 @section('title')
     Product
 @endsection
-<style>
-    input#trashed_file {
-        border: 1px solid rgb(0, 99, 198) !important
-    }
-</style>
 @section('main-content')
     <!-- Page Header -->
     <div class="row ms-0">
@@ -19,9 +14,11 @@
             <h5 class="page-title fs-21 mb-1">Product</h5>
         </div>
         <div class="d-flex my-xl-auto right-content">
-            <div class="pe-1 mb-xl-0">
-                <button type="button" class="btn btn-primary addProductBtn" data-bs-toggle="modal"
-                    data-bs-target="#productModal"><i class="fa fa-add"></i> Add</button>
+            <div class="pe-1 mb-xl-0 d-flex gap-2">
+                <a href="{{ route('admin.export.product') }}" class="btn btn-outline-primary">
+                    <i class="fa fa-download"></i> Excel
+                </a>
+                <button type="button" class="btn btn-primary addProductBtn"><i class="fa fa-add"></i> Add</button>
             </div>
         </div>
     </div>
@@ -66,6 +63,7 @@
                                                     <th>S.No</th>
                                                     <th>Product Name</th>
                                                     <th>Category</th>
+                                                    <th>Stock Qty</th>
                                                     <th>Order</th>
                                                     <th>Generic Name</th>
                                                     <th>Price</th>
@@ -92,13 +90,20 @@
     <script>
         var productTable;
         $(document).ready(function() {
+            var productModalElement = document.getElementById('productModal');
+            var productModal = productModalElement ? new bootstrap.Modal(productModalElement) : null;
 
             $('.addProductBtn').on('click', function(e) {
                 e.preventDefault();
                 var url = '{{route('admin.product.form')}}';
                 $.get(url, function(response) {
                     $('#productModal .modal-content').html(response);
-                    $('#productModal').modal('show');
+                    if (window.initEnhancedSelects) {
+                        window.initEnhancedSelects(document.getElementById('productModal'));
+                    }
+                    if (productModal) {
+                        productModal.show();
+                    }
                 });
             });
 
@@ -134,6 +139,9 @@
                     },
                     {
                         "data": "category"
+                    },
+                    {
+                        "data": "stock_quantity"
                     },
                     {
                         "data": "order_number"
@@ -193,7 +201,12 @@
                 };
                 $.post(url, data, function(response) {
                     $('#productModal .modal-content').html(response);
-                    $('#productModal').modal('show');
+                    if (window.initEnhancedSelects) {
+                        window.initEnhancedSelects(document.getElementById('productModal'));
+                    }
+                    if (productModal) {
+                        productModal.show();
+                    }
                 });
             });
             //edit news -end
@@ -292,7 +305,12 @@
                 };
                 $.post(url, data, function(response) {
                     $('#productModal .modal-content').html(response);
-                    $('#productModal').modal('show');
+                    if (window.initEnhancedSelects) {
+                        window.initEnhancedSelects(document.getElementById('productModal'));
+                    }
+                    if (productModal) {
+                        productModal.show();
+                    }
                 });
             });
 

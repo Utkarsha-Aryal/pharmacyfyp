@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Database\Eloquent\Model;
 
 class ProductBatch extends Model
 {
+    protected $guarded = [];
+
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');
@@ -18,136 +20,109 @@ class ProductBatch extends Model
         return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 
-    public static function saveData($post)
+    public function reference()
+    {
+        return $this->belongsTo(PurchaseReference::class, 'reference_id');
+    }
+
+    public function purchase()
+    {
+        return $this->belongsTo(Purchase::class, 'reference_id', 'reference_id');
+    }
+
+    public static function savePurchaseItems($post)
     {
         try {
-            $dataArray = [
-                'product_id' => $post['product_id'],
-                'batch_no' => $post['batch_no'],
-                'expiry_date' => $post['expiry_date'],
-                'quantity'=> $post['quantity'],
-                'purchase_price'=>$post['purchase_price']
-
-            ];
-            if (!empty($post['id'])) {
-                $dataArray['updated_at'] = Carbon::now();
-                if (!ProductBatch::where('id', $post['id'])->update($dataArray)) {
-                    throw new Exception("Couldn't update Records", 1);
-                }
-            } else {
-                $dataArray['created_at'] = Carbon::now();
-                if (!ProductBatch::insert($dataArray)) {
-                    throw new Exception("Couldn't Save Records", 1);
-                }
+            if (!isset($post['items']) || !is_array($post['items'])) {
+                throw new Exception('No purchase items found.', 1);
             }
+
+            foreach ($post['items'] as $item) {
+                $subtotal = round(((float) $item['quantity']) * ((float) $item['purchase_price']), 2);
+
+                ProductBatch::create([
+                    'product_id' => $item['product_id'],
+                    'batch_no' => $item['batch_no'] ?? null,
+                    'expiry_date' => $item['expiry_date'],
+                    'quantity' => $item['quantity'],
+                    'purchase_price' => $item['purchase_price'],
+                    'subtotal' => $subtotal,
+                    'supplier_id' => $post['supplier_id'],
+                    'reference_id' => $post['reference_id'],
+                ]);
+
+                // keep latest purchase side data on master product
+                Product::where('id', $item['product_id'])->update([
+                    'product_status' => 'instock',
+                    'purchase_price' => $item['purchase_price'],
+                    'updated_at' => Carbon::now(),
+                ]);
+            }
+
             return true;
         } catch (Exception $e) {
             throw $e;
         }
     }
-public static function saveProductBatch($post)
-{
-    try {
-        // Expecting $post['items'] as an array of multiple products
-        if (!isset($post['items']) || !is_array($post['items'])) {
-            throw new Exception("No product items found", 1);
-        }
-
-        foreach ($post['items'] as $item) {
-            $dataArray = [
-                'product_id'     => $item['product_id'],
-                'batch_no'       => $item['batch_no'],
-                'expiry_date'    => $item['expiry_date'],
-                'quantity'       => $item['quantity'],
-                'purchase_price' => $item['purchase_price']
-            ];
-
-            if (!empty($item['id'])) {
-                // Update existing record
-                $dataArray['updated_at'] = Carbon::now();
-                if (!ProductBatch::where('id', $item['id'])->update($dataArray)) {
-                    throw new Exception("Couldn't update record with ID: " . $item['id'], 1);
-                }
-            } else {
-                // Insert new record
-                $dataArray['created_at'] = Carbon::now();
-                if (!ProductBatch::insert($dataArray)) {
-                    throw new Exception("Couldn't save record for product: " . $item['product_id'], 1);
-                }
-            }
-        }
-
-        return true;
-    } catch (Exception $e) {
-        throw $e;
-    }
-}
-
-
-
 
     public static function list($post)
-{
-    try {
-        $get = $post;
-
-        $cond = " status = 'Y'";
-        // intval pervents sql injection
-        $cond .= " AND product_id = " . intval($post['product_id']);
-
-        if (!empty($post['type']) && $post['type'] === "trashed") {
-            $cond = " status = 'N'";
-        }
-
-        if (!empty($get['columns'][1]['search']['value'])) {
-            $cond .= " and lower(batch_no) like '%" . strtolower(trim($get['columns'][1]['search']['value'])) . "%'";
-        }
-
-        $limit = 15;
-        $offset = 0;
-        if (!empty($get["length"])) {
-            $limit = $get['length'];
-            $offset = $get["start"];
-        }
-
-        $query = ProductBatch::selectRaw("(SELECT count(*) FROM product_batches WHERE {$cond}) AS totalrecs, product_id, batch_no, expiry_date, quantity, purchase_price, id")
-            ->whereRaw($cond);
-
-        if ($limit > -1) {
-            $result = $query->offset($offset)->limit($limit)->get();
-        } else {
-            $result = $query->get();
-        }
-
-        if ($result) {
-            $ndata = $result;
-            $ndata['totalrecs'] = $result[0]->totalrecs ?? 0;
-            $ndata['totalfilteredrecs'] = $result[0]->totalrecs ?? 0;
-        } else {
-            $ndata = [];
-        }
-
-        return $ndata;
-    } catch (Exception $e) {
-        throw $e;
-    }
-}
-
- public static function restoreData($post)
     {
         try {
-            $updateArray = [
-                'status' => 'Y',
-                'updated_at' => Carbon::now(),
-            ];
-            if (!ProductBatch::where(['id' => $post['id']])->update($updateArray)) {
-                throw new Exception("Couldn't Restore Data. Please try again", 1);
+            $get = $post;
+
+            $query = ProductBatch::with(['supplier', 'reference', 'purchase'])
+                ->where('status', 'Y')
+                ->where('product_id', $post['product_id']);
+
+            if (!empty($get['columns'][1]['search']['value'])) {
+                $search = strtolower(trim($get['columns'][1]['search']['value']));
+                $query->whereRaw('lower(batch_no) like ?', ['%' . $search . '%']);
             }
-            return true;
+
+            $totalrecs = (clone $query)->count();
+
+            $limit = 15;
+            $offset = 0;
+            if (!empty($get['length'])) {
+                $limit = $get['length'];
+                $offset = $get['start'];
+            }
+
+            $result = $query
+                ->orderByDesc('id')
+                ->offset($offset)
+                ->limit($limit)
+                ->get();
+
+            if ($result->isNotEmpty()) {
+                $result['totalrecs'] = $totalrecs;
+                $result['totalfilteredrecs'] = $totalrecs;
+            } else {
+                $result = collect();
+                $result['totalrecs'] = 0;
+                $result['totalfilteredrecs'] = 0;
+            }
+
+            return $result;
         } catch (Exception $e) {
             throw $e;
         }
     }
 
+    public static function makeExpiryDate(?string $value): ?Carbon
+    {
+        if (!$value) {
+            return null;
+        }
 
+        try {
+            if (preg_match('/^\d{4}-\d{2}$/', $value)) {
+                return Carbon::createFromFormat('Y-m', $value)->endOfMonth();
+            }
+
+            return Carbon::parse($value);
+        } catch (Exception $e) {
+            return null;
+        }
+    }
 }

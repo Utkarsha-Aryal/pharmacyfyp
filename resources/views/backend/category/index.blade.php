@@ -4,25 +4,16 @@
     Category
 @endsection
 
-@section('styles')
-    <style>
-        .iconpicker-popover.popover.bottom {
-            opacity: 1;
-        }
-
-        label#file_input-error {
-            position: absolute;
-            top: 8.3rem !important;
-            left: 1rem;
-        }
-    </style>
-@endsection
-
 @section('main-content')
     <!-- Page Header -->
     <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
         <div class="my-auto">
             <h5 class="page-title fs-21 mb-1">Category</h5>
+        </div>
+        <div class="d-flex gap-2 mt-3 mt-md-0">
+            <a href="{{ route('admin.export.category') }}" class="btn btn-outline-primary">
+                <i class="fa fa-download"></i> Excel
+            </a>
         </div>
     </div>
 
@@ -237,32 +228,22 @@
                 rules: {
                     name: "required",
                     order_number: "required",
-                    rating: "required",
-                    designation: "required",
                     image: {
                         required: function() {
                             return $('#id').val() === '';
                         }
                     }
                 },
-                message: {
+                messages: {
                     name: {
-                        required: "This field is required."
-                    },
-                    designation: {
                         required: "This field is required."
                     },
                     order_number: {
                         required: "This field is required."
                     },
-                    rating: {
-                        required: "This field is required."
-                    },
                     image: {
                         required: "This field is required."
                     },
-
-
                 },
                 highlight: function(element) {
                     $(element).addClass('border-danger')
@@ -310,13 +291,10 @@
             $(document).on('click', '.editCategory', function() {
                 var id = $(this).data('id');
                 var name = $(this).data('name');
-                var keywords = $(this).data('keywords');
-                var designation = $(this).data('designation');
                 var order_number = $(this).data('order_number');
                 var image = $(this).data('image');
                 $('#categoryForm input[name = "id"]').val(id);
                 $('#categoryForm input[name = "name"]').val(name);
-                $('#categoryForm textarea[name = "keywords"]').val(keywords);
                 $('#categoryForm input[name = "order_number"]').val(order_number);
                 $('#categoryForm ._image').attr('src', image);
                 $('.saveData').html('<i class="fa fa-save"></i> Update');

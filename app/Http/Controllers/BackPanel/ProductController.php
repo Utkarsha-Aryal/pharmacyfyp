@@ -135,14 +135,15 @@ public function globalSearch(Request $request)
             unset($data['totalfilteredrecs']);
             unset($data['totalrecs']);
             foreach ($data as $row) {
-                $discount = $row->discount;
                 $mrp = $row->mrp;
                 $discount = $row->discount;
                 $price = round($mrp - ($mrp * $discount / 100), 2);
+                $currentStock = $row->productBatches->sum('quantity');
 
                 $array[$i]['sno'] = $i + 1;
                 $array[$i]['product_name'] = $row->product_name;
                 $array[$i]['category'] = $row->category->name;
+                $array[$i]['stock_quantity'] = $currentStock;
                 $array[$i]['generic_name'] = $row->generic_name;
                 $array[$i]['description'] = $row->description;
                 $array[$i]['keywords'] = Str::limit($row->keywords, 25, '...');
@@ -164,8 +165,7 @@ public function globalSearch(Request $request)
                     $action .= '<span style="margin-right: 10px;"></span>';
                     $action .= '<a href="javascript:;" class="editNews" title="Edit Data" data-id="' . $row->id . '" data-name="' . $row->product_name . '" ><i class="fa-solid fa-pen-to-square text-primary"></i></a> |';
                     $action .= '<span style="margin-right: 10px;"></span>';
-                    $action .= '<a href="' . route('admin.batch', $row->slug) . '" class="addBatch" title="Add Batch"><i class="fa-solid fa-plus"></i></a> |';
-                    // $row->slug
+                    $action .= '<a href="' . route('admin.batch', $row->slug) . '" class="addBatch" title="Batch History"><i class="fa-solid fa-boxes-stacked text-info"></i></a> |';
 
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
                     $action .= '<a href="javascript:;" class="restoreProduct" title="Restore Data" data-id="' . $row->id . '"><i class="fa-solid fa-undo text-success"></i></a> ';
