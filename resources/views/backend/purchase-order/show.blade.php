@@ -72,9 +72,10 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="10" data-searchable="false">
+                    <table class="table table-bordered align-middle js-datatable" data-page-length="10">
                         <thead>
                             <tr>
+                                <th style="width: 70px;">S.No</th>
                                 <th>Product</th>
                                 <th>Qty Ordered</th>
                                 <th>Qty Received</th>
@@ -85,14 +86,15 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($order->items as $item)
+                            @foreach ($order->items as $index => $item)
                                 <tr>
+                                    <td>{{ $index + 1 }}</td>
                                     <td>{{ $item->product?->display_name ?? '-' }}</td>
                                     <td>{{ $item->quantity_ordered }}</td>
                                     <td>{{ $item->quantity_received }}</td>
                                     <td>{{ number_format((float) $item->unit_price, 2) }}</td>
                                     <td>{{ $item->batch_number ?: '-' }}</td>
-                                    <td>{{ $item->expiry_date ?: '-' }}</td>
+                                    <td>{{ $item->expiry_date ? \Carbon\Carbon::parse($item->expiry_date)->format('M j, Y') : '-' }}</td>
                                     <td>{{ number_format((float) $item->subtotal, 2) }}</td>
                                 </tr>
                             @endforeach

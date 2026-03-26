@@ -13,7 +13,7 @@
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.export.supplier-performance') }}" class="btn btn-outline-primary">
-                    <i class="fa fa-download"></i> Excel
+                    <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
             </div>
         </div>
@@ -27,6 +27,7 @@
                     <table class="table table-bordered align-middle js-datatable" data-page-length="10">
                         <thead>
                             <tr>
+                                <th style="width: 70px;">S.No</th>
                                 <th>Supplier</th>
                                 <th>Total Orders</th>
                                 <th>Total Value</th>
@@ -34,8 +35,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($suppliers as $supplier)
+                            @forelse ($suppliers as $index => $supplier)
                                 <tr>
+                                    <td>{{ $index + 1 }}</td>
                                     <td>{{ $supplier->supplier_name }}</td>
                                     <td>{{ $supplier->total_orders }}</td>
                                     <td>{{ number_format((float) $supplier->total_value, 2) }}</td>
@@ -49,7 +51,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="text-center text-muted py-4">No supplier data found.</td>
+                                    <td colspan="5" class="text-center text-muted py-4">No supplier data found.</td>
                                 </tr>
                             @endforelse
                         </tbody>

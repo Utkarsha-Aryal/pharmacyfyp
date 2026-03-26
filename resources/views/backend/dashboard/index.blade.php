@@ -29,14 +29,14 @@
                         <i class="fa fa-plus"></i> Create Order
                     </a>
                     <a href="{{ route('admin.export.purchase-orders') }}" class="btn btn-outline-primary">
-                        <i class="fa fa-download"></i> Purchase Excel
+                        <i class="fa-solid fa-file-excel"></i> Purchase Excel
                     </a>
                 @elseif ($canInventoryView)
                     <a href="{{ route('admin.inventory.products.index') }}" class="btn btn-primary">
                         <i class="fa-solid fa-capsules"></i> Open Products
                     </a>
                     <a href="{{ route('admin.export.inventory-products') }}" class="btn btn-outline-primary">
-                        <i class="fa fa-download"></i> Inventory Excel
+                        <i class="fa-solid fa-file-excel"></i> Inventory Excel
                     </a>
                 @elseif ($canUserManage)
                     <a href="{{ route('admin.user.index') }}" class="btn btn-primary">
@@ -315,14 +315,15 @@
                                         <div class="card-header justify-content-between">
                                             <div class="card-title">Top Suppliers</div>
                                             <a href="{{ route('admin.export.supplier-performance') }}" class="btn btn-sm btn-outline-primary">
-                                                <i class="fa fa-download"></i> Excel
+                                                <i class="fa-solid fa-file-excel"></i> Excel
                                             </a>
                                         </div>
                                         <div class="card-body">
                                             <div class="table-responsive dashboard-table-wrap">
-                                                <table class="table table-striped summary-table mb-0">
+                                                <table class="table table-striped summary-table mb-0 js-datatable" data-page-length="5">
                                                     <thead>
                                                         <tr>
+                                                            <th style="width: 70px;">S.No</th>
                                                             <th>Supplier</th>
                                                             <th>Bills</th>
                                                             <th>Total Amount</th>
@@ -330,8 +331,9 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        @forelse ($topSuppliers as $supplier)
+                                                        @forelse ($topSuppliers as $index => $supplier)
                                                             <tr>
+                                                                <td>{{ $index + 1 }}</td>
                                                                 <td>{{ $supplier->supplier_name }}</td>
                                                                 <td>{{ $supplier->total_bill }}</td>
                                                                 <td>{{ number_format((float) $supplier->total_amount, 2) }}</td>
@@ -347,7 +349,7 @@
                                                             </tr>
                                                         @empty
                                                             <tr>
-                                                                <td colspan="4" class="summary-empty">No supplier purchase data yet.</td>
+                                                                <td colspan="5" class="summary-empty">No supplier purchase data yet.</td>
                                                             </tr>
                                                         @endforelse
                                                     </tbody>
@@ -376,14 +378,15 @@
                                                 </div>
                                             </div>
                                             <a href="{{ route('admin.export.purchase-orders') }}" class="btn btn-sm btn-outline-primary">
-                                                <i class="fa fa-download"></i> Excel
+                                                <i class="fa-solid fa-file-excel"></i> Excel
                                             </a>
                                         </div>
                                         <div class="card-body">
                                             <div class="table-responsive dashboard-table-wrap">
-                                                <table class="table table-striped summary-table mb-0">
+                                                <table class="table table-striped summary-table mb-0 js-datatable" data-page-length="5">
                                                     <thead>
                                                         <tr>
+                                                            <th style="width: 70px;">S.No</th>
                                                             <th>Reference</th>
                                                             <th>Supplier</th>
                                                             <th>Status</th>
@@ -393,8 +396,9 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        @forelse ($recentPurchases as $purchase)
+                                                        @forelse ($recentPurchases as $index => $purchase)
                                                             <tr>
+                                                                <td>{{ $index + 1 }}</td>
                                                                 <td>{{ $purchase->reference }}</td>
                                                                 <td>{{ $purchase->supplier?->supplier_name ?? '-' }}</td>
                                                                 <td>
@@ -408,7 +412,7 @@
                                                             </tr>
                                                         @empty
                                                             <tr>
-                                                                <td colspan="6" class="summary-empty">No purchase data available yet.</td>
+                                                                <td colspan="7" class="summary-empty">No purchase data available yet.</td>
                                                             </tr>
                                                         @endforelse
                                                     </tbody>
@@ -461,14 +465,15 @@
                                     <div class="card-header justify-content-between">
                                         <div class="card-title">Low Stock Alert</div>
                                         <a href="{{ route('admin.export.low-stock') }}" class="btn btn-sm btn-outline-primary">
-                                            <i class="fa fa-download"></i> Excel
+                                            <i class="fa-solid fa-file-excel"></i> Excel
                                         </a>
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive dashboard-table-wrap">
-                                            <table class="table table-striped summary-table mb-0">
+                                            <table class="table table-striped summary-table mb-0 js-datatable" data-page-length="5">
                                                 <thead>
                                                     <tr>
+                                                        <th style="width: 70px;">S.No</th>
                                                         <th>Medicine</th>
                                                         <th>Reorder Level</th>
                                                         <th>Current Stock</th>
@@ -476,8 +481,9 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @forelse ($lowStockProducts as $item)
+                                                    @forelse ($lowStockProducts as $index => $item)
                                                         <tr>
+                                                            <td>{{ $index + 1 }}</td>
                                                             <td>{{ $item->product_name }}</td>
                                                             <td>{{ $item->reorder_level }}</td>
                                                             <td>
@@ -489,7 +495,7 @@
                                                         </tr>
                                                     @empty
                                                         <tr>
-                                                            <td colspan="4" class="summary-empty">No low stock items right now.</td>
+                                                            <td colspan="5" class="summary-empty">No low stock items right now.</td>
                                                         </tr>
                                                     @endforelse
                                                 </tbody>
@@ -505,14 +511,15 @@
                                         {{-- change 3: detailed expiry table for next 30 days --}}
                                         <div class="card-title">Expiry Alerts</div>
                                         <a href="{{ route('admin.export.expiry-alert') }}" class="btn btn-sm btn-outline-primary">
-                                            <i class="fa fa-download"></i> Excel
+                                            <i class="fa-solid fa-file-excel"></i> Excel
                                         </a>
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive dashboard-table-wrap">
-                                            <table class="table table-striped summary-table mb-0">
+                                            <table class="table table-striped summary-table mb-0 js-datatable" data-page-length="5">
                                                 <thead>
                                                     <tr>
+                                                        <th style="width: 70px;">S.No</th>
                                                         <th>Medicine</th>
                                                         <th>Batch Number</th>
                                                         <th>Expiry Date</th>
@@ -521,8 +528,9 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @forelse ($expiryAlerts as $batch)
+                                                    @forelse ($expiryAlerts as $index => $batch)
                                                         <tr class="{{ $batch->alert_row_class }}">
+                                                            <td>{{ $index + 1 }}</td>
                                                             <td>{{ $batch->product?->display_name ?? $batch->product?->product_name ?? '-' }}</td>
                                                             <td>{{ $batch->batch_number ?? $batch->batch_no ?? '-' }}</td>
                                                             <td>{{ $batch->expiry_show }}</td>
@@ -531,7 +539,7 @@
                                                         </tr>
                                                     @empty
                                                         <tr>
-                                                            <td colspan="5" class="summary-empty">No batches are expiring inside the next 30 days.</td>
+                                                            <td colspan="6" class="summary-empty">No batches are expiring inside the next 30 days.</td>
                                                         </tr>
                                                     @endforelse
                                                 </tbody>

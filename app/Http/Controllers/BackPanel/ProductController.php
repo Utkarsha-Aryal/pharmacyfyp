@@ -158,7 +158,6 @@ public function globalSearch(Request $request)
                 $array[$i]['formulation'] = ucfirst((string) ($row->formulation ?? 'Other'));
                 $array[$i]['unit'] = $row->unit ?: '-';
                 $array[$i]['reorder_level'] = $row->reorder_level ?? $row->alert_quantity ?? 10;
-                $array[$i]['status'] = $row->is_active ? 'Active' : 'Inactive';
                 $array[$i]['description'] = $row->description;
                 $array[$i]['keywords'] = Str::limit($row->keywords, 25, '...');
                 $array[$i]['display_price'] =$price;
@@ -171,6 +170,13 @@ public function globalSearch(Request $request)
                     $image = asset("storage/product/" . $row->image);
                 }
                 $array[$i]["image"] = '<img src="' . $image . '" height="30px" width="30px" alt="image"/>';
+                if (!empty($post['type']) && $post['type'] === 'trashed') {
+                    // Trashed rows only show a label, no toggle.
+                    $array[$i]['status'] = '<span class="report-badge report-badge-danger">Trashed</span>';
+                } else {
+                    // Put the active toggle inside the Status column so the action column stays clean.
+                    $array[$i]['status'] = '<form action="' . route('admin.product.toggle-active', $row->id) . '" method="POST" class="d-inline js-confirm-submit" data-confirm-title="' . ($row->is_active ? 'Deactivate this product?' : 'Activate this product?') . '" data-confirm-text="This will change the product availability in the backend." data-confirm-button="Yes, update status">' . csrf_field() . '<button type="submit" class="btn btn-sm ' . ($row->is_active ? 'btn-outline-success' : 'btn-outline-secondary') . ' table-action-btn status-toggle-btn" title="' . ($row->is_active ? 'Deactivate Product' : 'Activate Product') . '" aria-label="' . ($row->is_active ? 'Deactivate Product' : 'Activate Product') . '"><i class="fa-solid ' . ($row->is_active ? 'fa-toggle-on' : 'fa-toggle-off') . '"></i></button></form>';
+                }
                 $action = '<div class="table-action-group">';
                 if (!empty($post['type']) && $post['type'] != 'trashed') {
                     $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn viewProduct" title="View Product" data-id="' . $row->id . '"><i class="fa-solid fa-eye"></i></button>';
@@ -178,10 +184,10 @@ public function globalSearch(Request $request)
                     $action .= '<a href="' . route('admin.batch', $row->slug) . '" class="btn btn-sm btn-outline-info table-action-btn addBatch" title="Batch History"><i class="fa-solid fa-boxes-stacked"></i></a>';
 
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
-                    $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreProduct" title="Restore Product" data-id="' . $row->id . '"><i class="fa-solid fa-undo"></i></button>';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreProduct" title="Restore Product" data-id="' . $row->id . '"><i class="fa-solid fa-rotate-left"></i></button>';
                 }
                 
-                    $action .= '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deleteNews" title="Delete Product" data-id="' . $row->id . '"><i class="fa fa-trash"></i></button>';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deleteNews" title="Delete Product" data-id="' . $row->id . '"><i class="fa-solid fa-trash"></i></button>';
                     $action .= '</div>';
 
                 $array[$i]['action'] = $action;
@@ -283,6 +289,21 @@ public function globalSearch(Request $request)
             $message = $e->getMessage();
         }
         return response()->json(['type' => $type, 'message' => $message]);
+    }
+
+    public function toggleActive(Product $product)
+    {
+        try {
+            $product->update([
+                'is_active' => ! (bool) $product->is_active,
+                'updated_at' => now(),
+            ]);
+
+            $message = $product->is_active ? 'Product activated successfully.' : 'Product deactivated successfully.';
+            return back()->with('success', $message);
+        } catch (Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 
 

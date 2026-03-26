@@ -41,7 +41,7 @@ class Batch extends Model
     {
         $expiryDate = self::makeExpiryDate($this->expiry_date);
 
-        return $expiryDate?->format('Y-m-d');
+        return $expiryDate?->format('M j, Y');
     }
 
     public function getDaysRemainingAttribute(): int

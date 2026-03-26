@@ -13,7 +13,7 @@
             </div>
             <div class="d-flex my-xl-auto right-content gap-2">
                 <a href="{{ route('admin.export.purchase', ['supplier_id' => $selectedSupplier, 'order_status' => $selectedOrderStatus]) }}" class="btn btn-outline-primary">
-                    <i class="fa fa-download"></i> Excel
+                    <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
                 <a href="{{ route('admin.purchase.addpurchase') }}" class="btn btn-primary">
                     <i class="fa fa-plus"></i> Add Purchase
@@ -45,10 +45,14 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <button type="submit" class="btn btn-primary w-100">Show History</button>
-                    </div>
-                    <div class="col-md-2">
-                        <a href="{{ route('admin.purchase') }}" class="btn btn-outline-secondary w-100">Reset Filter</a>
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button type="submit" class="btn btn-primary btn-sm icon-only-btn" title="Apply Filter" aria-label="Apply Filter">
+                                <i class="fa-solid fa-filter"></i>
+                            </button>
+                            <a href="{{ route('admin.purchase') }}" class="btn btn-outline-secondary btn-sm icon-only-btn" title="Reset Filter" aria-label="Reset Filter">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

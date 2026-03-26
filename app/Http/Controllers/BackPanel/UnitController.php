@@ -57,7 +57,7 @@ class UnitController extends Controller
                 $array[$i]["unit_name"] = $row->unit_name;
                 $array[$i]["description"] = $row->description;
                 $array[$i]["status"] = $row->status;
-                $array[$i]["added_date"] = Carbon::parse($row->created_at)->format('Y-m-d');
+                $array[$i]["added_date"] = Carbon::parse($row->created_at)->format('M j, Y');
                 $action = '<div class="table-action-group">';
                 if (!empty($post['type']) && $post['type'] != 'trashed') {
                     $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editUnit" title="Edit Unit" data-id="' . $row->id . '" data-unit_name="' . $row->unit_name . '" data-description="' . $row->description . '" data-status="' . $row->status . '"><i class="fa-solid fa-pen-to-square"></i></button>';

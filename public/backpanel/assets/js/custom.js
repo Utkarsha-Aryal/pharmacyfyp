@@ -427,6 +427,22 @@
     });
   }
 
+  function initDataTableTabAdjust() {
+    if (!window.jQuery || !$.fn.DataTable || window.__datatableTabAdjustBound) {
+      return;
+    }
+
+    $(document).on("shown.bs.tab", '[data-bs-toggle="tab"]', function () {
+      window.requestAnimationFrame(function () {
+        if ($.fn.DataTable.tables) {
+          $.fn.DataTable.tables({ visible: true, api: true }).columns.adjust();
+        }
+      });
+    });
+
+    window.__datatableTabAdjustBound = true;
+  }
+
   function initStandardDataTables() {
     if (!window.jQuery || !$.fn.DataTable) {
       return;
@@ -487,8 +503,64 @@
           .addClass("search-input-highlight")
           .on("keyup change", function () {
             column.search(this.value).draw();
-          });
+        });
       });
+    });
+  }
+
+  function initServerSideDataTable(options) {
+    if (!window.jQuery || !$.fn.DataTable || !options) {
+      return null;
+    }
+
+    var tableElement = typeof options.selector === "string" ? document.querySelector(options.selector) : options.selector;
+
+    if (!tableElement || $.fn.DataTable.isDataTable(tableElement)) {
+      return null;
+    }
+
+    var $table = $(tableElement);
+    var ajaxData = options.ajaxData;
+    var searchColumns = Array.isArray(options.searchColumns) ? options.searchColumns : [];
+
+    return $table.DataTable({
+      sPaginationType: options.paginationType || "full_numbers",
+      bSearchable: false,
+      lengthMenu: options.lengthMenu || [
+        [5, 10, 15, 20, 25, -1],
+        [5, 10, 15, 20, 25, "All"],
+      ],
+      iDisplayLength: options.pageLength || 15,
+      sDom: options.searchable === false ? "lrtip" : (options.dom || "lfrtip"),
+      bAutoWidth: false,
+      aaSorting: Array.isArray(options.order) ? options.order : [],
+      bSort: options.sort !== false,
+      bProcessing: options.processing !== false,
+      bServerSide: options.serverSide !== false,
+      oLanguage: {
+        sEmptyTable: "<p class='no_data_message'>No data available.</p>",
+      },
+      aoColumns: options.columns || [],
+      aoColumnDefs: options.columnDefs || [],
+      ajax: {
+        url: options.ajaxUrl,
+        type: options.ajaxType || "POST",
+        headers: options.headers || {},
+        data: function (request) {
+          if (typeof ajaxData === "function") {
+            ajaxData(request);
+          }
+        },
+      },
+      initComplete: function () {
+        if (searchColumns.length > 0) {
+          addColumnSearch(this.api(), searchColumns);
+        }
+
+        if (typeof options.afterInit === "function") {
+          options.afterInit.call(this, this.api());
+        }
+      },
     });
   }
 
@@ -499,24 +571,12 @@
       return;
     }
 
-    $("#purchaseTable").DataTable({
-      sPaginationType: "full_numbers",
-      bSearchable: false,
-      lengthMenu: [
-        [5, 10, 15, 20, 25, -1],
-        [5, 10, 15, 20, 25, "All"],
-      ],
-      iDisplayLength: 15,
-      sDom: "ltipr",
-      bAutoWidth: false,
-      aaSorting: [[0, "desc"]],
-      bSort: false,
-      bProcessing: true,
-      bServerSide: true,
-      oLanguage: {
-        sEmptyTable: "<p class='no_data_message'>No data available.</p>",
-      },
-      aoColumns: [
+    window.initServerSideDataTable({
+      selector: tableElement,
+      pageLength: 15,
+      sort: false,
+      searchColumns: [1, 3],
+      columns: [
         { data: "sno" },
         { data: "reference_no" },
         { data: "invoice_no" },
@@ -528,16 +588,10 @@
         { data: "order_status" },
         { data: "added_date" },
       ],
-      ajax: {
-        url: tableElement.dataset.listUrl,
-        type: "POST",
-        data: function (request) {
-          request.supplier_id = byId("current_supplier_id") ? byId("current_supplier_id").value : "";
-          request.order_status = byId("current_order_status") ? byId("current_order_status").value : "";
-        },
-      },
-      initComplete: function () {
-        addColumnSearch(this.api(), [1, 3]);
+      ajaxUrl: tableElement.dataset.listUrl,
+      ajaxData: function (request) {
+        request.supplier_id = byId("current_supplier_id") ? byId("current_supplier_id").value : "";
+        request.order_status = byId("current_order_status") ? byId("current_order_status").value : "";
       },
     });
   }
@@ -558,6 +612,16 @@
     $("#grandTotal").val(total.toFixed(2));
   }
 
+  function updatePurchaseRowNumbers() {
+    $("#purchaseItemsTable tbody tr").each(function (index) {
+      var rowNumberCell = $(this).find(".purchase-row-number");
+
+      if (rowNumberCell.length) {
+        rowNumberCell.text(index + 1);
+      }
+    });
+  }
+
   function initPurchaseForm() {
     var form = byId("purchaseForm");
     var tableBody = document.querySelector("#purchaseItemsTable tbody");
@@ -573,11 +637,14 @@
     $(document).off("click.purchase", "#addPurchaseRow");
     $(document).on("click.purchase", "#addPurchaseRow", function () {
       var nextIndex = parseInt(tableBody.dataset.nextIndex || "1", 10);
-      var html = template.innerHTML.replace(/__INDEX__/g, nextIndex);
+      var html = template.innerHTML
+        .replace(/__INDEX__/g, nextIndex)
+        .replace(/__ROW__/g, nextIndex + 1);
 
       $(tableBody).append(html);
       tableBody.dataset.nextIndex = String(nextIndex + 1);
       initEnhancedSelects($(tableBody).find("tr:last"));
+      updatePurchaseRowNumbers();
       updatePurchaseTotal();
     });
 
@@ -595,6 +662,7 @@
         row.remove();
       }
 
+      updatePurchaseRowNumbers();
       updatePurchaseTotal();
     });
 
@@ -634,6 +702,61 @@
     });
 
     form.dataset.purchaseReady = "true";
+    updatePurchaseRowNumbers();
+  }
+
+  function submitFormSafely(form) {
+    if (!form) {
+      return;
+    }
+
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+      return;
+    }
+
+    form.submit();
+  }
+
+  function initPurchaseShortcuts() {
+    if (window.__purchaseShortcutBound) {
+      return;
+    }
+
+    var pageTitle = String(document.body.dataset.page || "").trim().toLowerCase();
+
+    if (pageTitle !== "create purchase order" && pageTitle !== "receive purchase order") {
+      return;
+    }
+
+    document.addEventListener("keydown", function (event) {
+      var targetTag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : "";
+
+      if (pageTitle === "create purchase order" && event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        var addRowButton = byId("addPurchaseRow");
+        if (addRowButton) {
+          addRowButton.click();
+        }
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        if (targetTag === "textarea") {
+          return;
+        }
+
+        event.preventDefault();
+
+        if (pageTitle === "create purchase order") {
+          submitFormSafely(byId("purchaseForm"));
+        } else if (pageTitle === "receive purchase order") {
+          submitFormSafely(document.querySelector("form[action*='/receive']"));
+        }
+      }
+    });
+
+    window.__purchaseShortcutBound = true;
   }
 
   function initBatchHistoryTable() {
@@ -643,24 +766,12 @@
       return;
     }
 
-    $("#batchHistoryTable").DataTable({
-      sPaginationType: "full_numbers",
-      bSearchable: false,
-      lengthMenu: [
-        [5, 10, 15, 20, 25, -1],
-        [5, 10, 15, 20, 25, "All"],
-      ],
-      iDisplayLength: 15,
-      sDom: "ltipr",
-      bAutoWidth: false,
-      aaSorting: [[0, "desc"]],
-      bSort: false,
-      bProcessing: true,
-      bServerSide: true,
-      oLanguage: {
-        sEmptyTable: "<p class='no_data_message'>No data available.</p>",
-      },
-      aoColumns: [
+    window.initServerSideDataTable({
+      selector: tableElement,
+      pageLength: 15,
+      sort: false,
+      searchColumns: [1],
+      columns: [
         { data: "sno" },
         { data: "batch_no" },
         { data: "reference_no" },
@@ -671,15 +782,9 @@
         { data: "purchase_price" },
         { data: "subtotal" },
       ],
-      ajax: {
-        url: tableElement.dataset.listUrl,
-        type: "POST",
-        data: function (request) {
-          request.product_id = byId("batch_product_id") ? byId("batch_product_id").value : "";
-        },
-      },
-      initComplete: function () {
-        addColumnSearch(this.api(), [1]);
+      ajaxUrl: tableElement.dataset.listUrl,
+      ajaxData: function (request) {
+        request.product_id = byId("batch_product_id") ? byId("batch_product_id").value : "";
       },
     });
   }
@@ -775,6 +880,8 @@
   window.hideLoader = hideLoader;
   window.showNotification = showNotification;
   window.initEnhancedSelects = initEnhancedSelects;
+  window.addTableColumnSearch = addColumnSearch;
+  window.initServerSideDataTable = initServerSideDataTable;
   window.showDatePicker = function () {
     if (window.jQuery && $("#nepali-datepicker").length && $("#nepali-datepicker").nepaliDatePicker) {
       $("#nepali-datepicker").nepaliDatePicker({
@@ -795,7 +902,9 @@
     initRememberedTabs();
     initEnhancedSelects(document);
     initConfirmForms();
+    initDataTableTabAdjust();
     initStandardDataTables();
+    initPurchaseShortcuts();
   });
 
   window.addEventListener("load", function () {

@@ -13,14 +13,68 @@ class RolePermissionController extends Controller
 {
     public function index()
     {
-        $roles = Role::query()
-            ->with('permissions')
-            ->withCount('users')
-            ->orderBy('name')
-            ->get();
-
         return view('backend.role-permission.index', [
-            'roles' => $roles,
+        ]);
+    }
+
+    public function list(Request $request)
+    {
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = max((int) $request->input('length', 10), 1);
+
+        $query = Role::query()->with('permissions')->withCount('users')->orderBy('name');
+        $recordsTotal = (clone $query)->count();
+
+        if ($keyword !== '') {
+            $query->where(function ($builder) use ($keyword) {
+                $builder->where('name', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('permissions', function ($permissionQuery) use ($keyword) {
+                        $permissionQuery->where('name', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+        $roles = $query->skip($start)->take($length)->get();
+
+        $data = [];
+
+        foreach ($roles as $index => $role) {
+            $summary = $role->permissions->take(4)->map(function ($permission) {
+                return '<span class="role-access-chip">' . e(ucwords(str_replace(['.', '_'], ' ', $permission->name))) . '</span>';
+            })->implode('');
+
+            if ($summary === '') {
+                $summary = '<span class="text-muted">No permission selected.</span>';
+            } elseif ($role->permissions->count() > 4) {
+                $summary .= '<span class="role-access-chip role-access-chip-muted">+' . ($role->permissions->count() - 4) . ' more</span>';
+            }
+
+            $action = '<div class="table-action-group">';
+            $action .= '<a href="' . route('admin.role-permission.edit', $role) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit Role" aria-label="Edit Role"><i class="fa-solid fa-pen-to-square"></i></a>';
+
+            if ($role->name !== 'admin') {
+                $action .= '<form action="' . route('admin.role-permission.delete', $role) . '" method="POST" class="js-confirm-submit" data-confirm-title="Delete this role?" data-confirm-text="Users must be moved out of this role before deletion." data-confirm-button="Yes, delete role">' . csrf_field() . '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Role" aria-label="Delete Role"><i class="fa-solid fa-trash"></i></button></form>';
+            }
+
+            $action .= '</div>';
+
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'role' => '<div class="fw-semibold">' . e(ucfirst($role->name)) . '</div>' . ($role->name === 'admin' ? '<small class="text-muted">System protected role</small>' : ''),
+                'users' => $role->users_count,
+                'permissions' => $role->permissions->count(),
+                'access_summary' => '<div class="role-access-chip-wrap">' . $summary . '</div>',
+                'action' => $action,
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
         ]);
     }
 

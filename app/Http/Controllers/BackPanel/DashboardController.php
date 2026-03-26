@@ -44,7 +44,7 @@ class DashboardController extends Controller
                     return null;
                 }
 
-                $batch->expiry_show = $expiryDate->format('Y-m-d');
+                $batch->expiry_show = $expiryDate->format('M j, Y');
                 $batch->days_left = $today->diffInDays($expiryDate, false);
                 $batch->alert_row_class = $batch->days_left < 0
                     ? 'dashboard-expiry-row-critical'

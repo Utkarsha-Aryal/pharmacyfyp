@@ -13,7 +13,7 @@
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.export.expiry-alert') }}" class="btn btn-outline-primary">
-                    <i class="fa fa-download"></i> Excel
+                    <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
             </div>
         </div>

@@ -44,7 +44,7 @@ class ExportController extends Controller
             ->map(fn ($category) => [
                 'Name' => $category->name,
                 'Order' => $category->order_number,
-                'Added Date' => $category->created_at?->format('Y-m-d'),
+                'Added Date' => $category->created_at?->format('M j, Y'),
             ]);
 
         return $this->downloadExcel('categories.xlsx', $rows);
@@ -59,7 +59,7 @@ class ExportController extends Controller
             ->map(fn ($unit) => [
                 'Unit Name' => $unit->unit_name,
                 'Description' => $unit->description,
-                'Added Date' => $unit->created_at?->format('Y-m-d'),
+                'Added Date' => $unit->created_at?->format('M j, Y'),
             ]);
 
         return $this->downloadExcel('units.xlsx', $rows);
@@ -293,7 +293,7 @@ class ExportController extends Controller
                 'Name' => $user->name,
                 'Email' => $user->email,
                 'Role' => $user->getRoleNames()->implode(', '),
-                'Added Date' => $user->created_at?->format('Y-m-d'),
+                'Added Date' => $user->created_at?->format('M j, Y'),
             ]);
 
         return $this->downloadExcel('users.xlsx', $rows);
@@ -345,7 +345,7 @@ class ExportController extends Controller
                     'Product' => $batch->product?->display_name,
                     'Batch No' => $batch->batch_number,
                     'Supplier' => $batch->supplier?->supplier_name,
-                    'Expiry Date' => $expiryDate->format('Y-m-d'),
+                    'Expiry Date' => $expiryDate->format('M j, Y'),
                     'Days Left' => $today->diffInDays($expiryDate, false),
                     'Qty' => $batch->quantity_available,
                     'Location' => $batch->storage_location,
@@ -372,8 +372,8 @@ class ExportController extends Controller
                 'Batch No' => $batch->batch_no,
                 'Reference' => $batch->reference?->reference_no,
                 'Supplier' => $batch->supplier?->supplier_name,
-                'Purchase Date' => $batch->purchase?->purchase_date,
-                'Expiry' => $batch->expiry_date,
+                'Purchase Date' => $batch->purchase?->purchase_date_show ?? '-',
+                'Expiry' => Batch::makeExpiryDate($batch->expiry_date)?->format('M j, Y') ?? '-',
                 'Qty' => $batch->quantity,
                 'Price' => $batch->purchase_price,
                 'Subtotal' => $batch->subtotal,

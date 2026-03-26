@@ -13,8 +13,11 @@
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.export.inventory-batches', request()->query()) }}" class="btn btn-outline-primary">
-                    <i class="fa fa-download"></i> Excel
+                    <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
+                <button type="button" class="btn btn-primary addBatchBtn">
+                    <i class="fa fa-plus"></i> Add Batch
+                </button>
             </div>
         </div>
 
@@ -89,74 +92,88 @@
                         </select>
                     </div>
                     <div class="col-md-1">
-                        <button type="submit" class="btn btn-primary w-100">Go</button>
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button type="submit" class="btn btn-primary btn-sm icon-only-btn" title="Apply Filter" aria-label="Apply Filter">
+                                <i class="fa-solid fa-filter"></i>
+                            </button>
+                            <a href="{{ route('admin.inventory.batches.index') }}" class="btn btn-outline-secondary btn-sm icon-only-btn" title="Reset Filter" aria-label="Reset Filter">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
         </form>
 
-        <div class="card custom-card mb-4">
-            <div class="card-header">
-                <div class="card-title">Manual Batch Entry</div>
+        <div class="modal fade" id="batchModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <form action="{{ route('admin.inventory.batches.store') }}" method="POST" id="batchForm">
+                        @csrf
+                        <div class="modal-header">
+                            <h5 class="modal-title">Manual Batch Entry</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-3">
+                                <input type="hidden" name="id" id="batch_id" value="">
+                                <div class="col-md-3">
+                                    <label class="form-label">Product</label>
+                                    <select name="product_id" class="form-select js-select2" required>
+                                        <option value="">Select Product</option>
+                                        @foreach ($products as $product)
+                                            <option value="{{ $product->id }}">{{ $product->display_name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Supplier</label>
+                                    <select name="supplier_id" class="form-select js-select2" required>
+                                        <option value="">Select Supplier</option>
+                                        @foreach ($suppliers as $supplier)
+                                            <option value="{{ $supplier->id }}">{{ $supplier->supplier_name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Batch Number</label>
+                                    <input type="text" name="batch_number" class="form-control" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Storage</label>
+                                    <input type="text" name="storage_location" class="form-control" placeholder="Rack A-1">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Manufacturing Date</label>
+                                    <input type="date" name="manufacturing_date" class="form-control">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Expiry Date</label>
+                                    <input type="date" name="expiry_date" class="form-control" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Qty Received</label>
+                                    <input type="number" name="quantity_received" class="form-control" min="1" value="1" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Qty Available</label>
+                                    <input type="number" name="quantity_available" class="form-control" min="0" value="1">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Purchase Price</label>
+                                    <input type="number" name="purchase_price" class="form-control" min="0" step="0.01" value="0" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary btn-sm icon-only-btn" id="resetBatchForm" title="Reset Form" aria-label="Reset Form">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="batchSaveBtn"><i class="fa fa-save"></i> Save Batch</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <form action="{{ route('admin.inventory.batches.store') }}" method="POST" id="batchForm">
-                @csrf
-                <div class="card-body">
-                    <div class="row g-3">
-                        <input type="hidden" name="id" id="batch_id" value="">
-                        <div class="col-md-3">
-                            <label class="form-label">Product</label>
-                            <select name="product_id" class="form-select js-select2" required>
-                                <option value="">Select Product</option>
-                                @foreach ($products as $product)
-                                    <option value="{{ $product->id }}">{{ $product->display_name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Supplier</label>
-                            <select name="supplier_id" class="form-select js-select2" required>
-                                <option value="">Select Supplier</option>
-                                @foreach ($suppliers as $supplier)
-                                    <option value="{{ $supplier->id }}">{{ $supplier->supplier_name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Batch Number</label>
-                            <input type="text" name="batch_number" class="form-control" required>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Storage</label>
-                            <input type="text" name="storage_location" class="form-control" placeholder="Rack A-1">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Manufacturing Date</label>
-                            <input type="date" name="manufacturing_date" class="form-control">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Expiry Date</label>
-                            <input type="date" name="expiry_date" class="form-control" required>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Qty Received</label>
-                            <input type="number" name="quantity_received" class="form-control" min="1" value="1" required>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Qty Available</label>
-                            <input type="number" name="quantity_available" class="form-control" min="0" value="1">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Purchase Price</label>
-                            <input type="number" name="purchase_price" class="form-control" min="0" step="0.01" value="0" required>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-footer text-end">
-                    <button type="button" class="btn btn-outline-secondary me-2" id="resetBatchForm">Reset</button>
-                    <button type="submit" class="btn btn-primary" id="batchSaveBtn"><i class="fa fa-save"></i> Save Batch</button>
-                </div>
-            </form>
         </div>
 
         <div class="card custom-card">
@@ -168,6 +185,7 @@
                     <table class="table table-bordered align-middle js-datatable" data-page-length="10">
                         <thead>
                             <tr>
+                                <th style="width: 70px;">S.No</th>
                                 <th>Product</th>
                                 <th>Batch No</th>
                                 <th>Supplier</th>
@@ -180,8 +198,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($batches as $batch)
+                            @forelse ($batches as $index => $batch)
                                 <tr class="{{ $batch->days_remaining < 0 ? 'table-danger' : ($batch->days_remaining <= 7 ? 'table-danger' : ($batch->days_remaining <= 15 ? 'table-warning' : ($batch->days_remaining <= 30 ? 'table-info' : ''))) }}">
+                                    <td>{{ $index + 1 }}</td>
                                     <td>{{ $batch->product?->display_name ?? '-' }}</td>
                                     <td>{{ $batch->batch_number }}</td>
                                     <td>{{ $batch->supplier?->supplier_name ?? '-' }}</td>
@@ -225,7 +244,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">No batch data available.</td>
+                                    <td colspan="10" class="text-center text-muted py-4">No batch data available.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -239,6 +258,8 @@
 @section('script')
     <script>
         $(document).ready(function () {
+            var batchModalElement = document.getElementById('batchModal');
+            var batchModal = batchModalElement ? new bootstrap.Modal(batchModalElement) : null;
             var batchForm = $('#batchForm');
             var batchIdInput = $('#batch_id');
             var saveButton = $('#batchSaveBtn');
@@ -253,7 +274,18 @@
                 batchForm.find('[name="purchase_price"]').val(0);
             }
 
+            $(document).on('click', '.addBatchBtn', function () {
+                resetBatchForm();
+                if (batchModal) {
+                    batchModal.show();
+                }
+            });
+
             $(document).on('click', '#resetBatchForm', function () {
+                resetBatchForm();
+            });
+
+            $(document).on('hidden.bs.modal', '#batchModal', function () {
                 resetBatchForm();
             });
 
@@ -269,7 +301,9 @@
                 batchForm.find('[name="purchase_price"]').val($(this).data('purchase-price'));
                 batchForm.find('[name="storage_location"]').val($(this).data('storage-location'));
                 saveButton.html('<i class="fa fa-save"></i> Update Batch');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                if (batchModal) {
+                    batchModal.show();
+                }
             });
         });
     </script>

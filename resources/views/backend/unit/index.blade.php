@@ -12,49 +12,49 @@
         </div>
         <div class="d-flex gap-2 mt-3 mt-md-0">
             <a href="{{ route('admin.export.unit') }}" class="btn btn-outline-primary">
-                <i class="fa fa-download"></i> Excel
+                <i class="fa-solid fa-file-excel"></i> Excel
             </a>
+            <button type="button" class="btn btn-primary addUnitBtn">
+                <i class="fa fa-plus"></i> Add Unit
+            </button>
         </div>
     </div>
 
-    <!-- Modal -->
     <div class="modal fade" id="unitModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
         aria-labelledby="staticBackdropLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                {{-- Content goes here --}}
-            </div>
-        </div>
-    </div>
-    <!-- Page Header Close -->
-
-    <!-- Start::row-1 -->
-    <div class="row">
-        <div class="col-xl-4">
-            <div class="card custom-card">
                 <form action="{{ route('admin.unit.save')}}" method="POST" id="unitForm" enctype="multipart/form-data">
                     @csrf
-                    <div class="card-body">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Unit Form</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
                         <div class="row gy-4">
-                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12">
+                            <div class="col-12">
                                 <input type="hidden" name="id" value="" id="id">
                                 <label for="unit_name" class="form-label">Unit Name <span class="required-field">*</span></label>
-                                <input type="text" class="form-control" id="unit_name" placeholder="Enter unit name..."
-                                    name="unit_name">
+                                <input type="text" class="form-control" id="unit_name" placeholder="Enter unit name..." name="unit_name">
                             </div>
-                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12">
+                            <div class="col-12">
                                 <label for="description" class="form-label">Description</label>
                                 <textarea class="form-control" id="description" placeholder="Enter description..." name="description"></textarea>
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer d-flex justify-content-end">
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary saveData"><i class="fa fa-save"></i> Save</button>
                     </div>
                 </form>
             </div>
         </div>
-        <div class="col-xl-8">
+    </div>
+
+    <!-- Start::row-1 -->
+    <div class="row">
+        <div class="col-xl-12">
             <div class="card custom-card">
                 <div class="card-header justify-content-between">
                     <div class="card-title">
@@ -72,29 +72,19 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <div id="datatable-basic_wrapper" class="dataTables_wrapper dt-bootstrap5 no-footer">
-                            <div class="row">
-                                <div class="col-sm-12 col-md-12 mb-3">
-                                    <div class="dataTables_length" id="datatable-basic_length">
-                                        <table id="unitTable"
-                                            class="table table-bordered text-nowrap w-100 dataTable no-footer mt-3"
-                                            aria-describedby="datatable-basic_info">
-                                            <thead>
-                                                <tr>
-                                                    <th>S.No</th>
-                                                    <th>Unit Name</th>
-                                                    <th>Description</th>
-                                                    <th>Added At</th>
-                                                    <th>Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <table id="unitTable" class="table table-bordered text-nowrap w-100 mt-3">
+                            <thead>
+                                <tr>
+                                    <th>S.No</th>
+                                    <th>Unit Name</th>
+                                    <th>Description</th>
+                                    <th>Added At</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -107,57 +97,46 @@
     <script>
         var unitTable;
         $(document).ready(function() {
-            unitTable = $('#unitTable').DataTable({
-                "sPaginationType": "full_numbers",
-                "bSearchable": false,
-                "lengthMenu": [
-                    [5, 10, 15, 20, 25, -1],
-                    [5, 10, 15, 20, 25, "All"]
-                ],
-                'iDisplayLength': 15,
-                "sDom": 'ltipr',
-                "bAutoWidth": false,
-                "aaSorting": [
-                    [0, 'desc']
-                ],
-                "bSort": false,
-                "bProcessing": true,
-                "bServerSide": true,
-                "oLanguage": {
-                    "sEmptyTable": "<p class='no_data_message'>No data available.</p>"
-                },
-                "aoColumnDefs": [{
-                    "bSortable": false,
-                    "aTargets": [1]
-                }],
-                "aoColumns": [
-                    { "data": "sno" },
-                    { "data": "unit_name" },
-                    { "data": "description" },
-                    { "data": "added_date" },
-                    { "data": "action" },
-                ],
-                "ajax": {
-                    "url": "{{route('admin.unit.list')}}",
-                    "type": "POST",
-                    "data": function(d) {
-                        var type = $('#trashed_file').is(':checked') == true ? 'trashed' : 'nottrashed';
-                        d.type = type;
-                    }
-                },
-                "initComplete": function() {
-                    this.api().columns([1]).every(function() {
-                        var column = this;
-                        var input = document.createElement("input");
-                        var columnName = column.header().innerText.trim();
-                        $(input).appendTo($(column.header()).empty())
-                            .attr('placeholder', columnName).css('width', '100%')
-                            .addClass('search-input-highlight')
-                            .on('keyup change', function() {
-                                column.search(this.value).draw();
-                            });
-                    });
+            var unitModalElement = document.getElementById('unitModal');
+            var unitModal = unitModalElement ? new bootstrap.Modal(unitModalElement) : null;
+
+            function resetUnitForm() {
+                $('#unitForm')[0].reset();
+                $('#id').val('');
+                $('.saveData').html('<i class="fa fa-save"></i> Save');
+            }
+
+            $(document).on('click', '.addUnitBtn', function() {
+                resetUnitForm();
+                if (unitModal) {
+                    unitModal.show();
                 }
+            });
+
+            unitTable = window.initServerSideDataTable({
+                selector: '#unitTable',
+                pageLength: 15,
+                sort: false,
+                searchColumns: [1],
+                columnDefs: [{
+                    bSortable: false,
+                    aTargets: [1]
+                }],
+                columns: [
+                    { data: "sno" },
+                    { data: "unit_name" },
+                    { data: "description" },
+                    { data: "added_date" },
+                    { data: "action" },
+                ],
+                ajaxUrl: "{{ route('admin.unit.list') }}",
+                ajaxData: function(d) {
+                    d.type = $('#trashed_file').is(':checked') == true ? 'trashed' : 'nottrashed';
+                }
+            });
+
+            $(document).on('hidden.bs.modal', '#unitModal', function() {
+                resetUnitForm();
             });
 
             $('#unitForm').validate({
@@ -185,12 +164,14 @@
                         success: function(response) {
                             if (response) {
                                 if (response.type === 'success') {
-                                    $('.saveData').html('<i class="fa fa-save"></i> Save');
                                     showNotification(response.message, 'success');
                                     hideLoader();
                                     unitTable.draw();
-                                    $('#unitForm')[0].reset();
-                                    $('#id').val('');
+                                    if (unitModal) {
+                                        unitModal.hide();
+                                    } else {
+                                        resetUnitForm();
+                                    }
                                 } else {
                                     showNotification(response.message, 'error');
                                     hideLoader();
@@ -218,6 +199,9 @@
                 $('#unitForm input[name = "unit_name"]').val(unit_name);
                 $('#unitForm textarea[name = "description"]').val(description);
                 $('.saveData').html('<i class="fa fa-save"></i> Update');
+                if (unitModal) {
+                    unitModal.show();
+                }
             });
 
             // view trashed items

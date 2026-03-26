@@ -74,6 +74,7 @@
                     <table class="table table-bordered align-middle js-datatable" data-page-length="10">
                         <thead>
                             <tr>
+                                <th>S.No</th>
                                 <th>Product</th>
                                 <th>Batch</th>
                                 <th>Type</th>
@@ -84,19 +85,20 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($adjustments as $adjustment)
+                            @forelse ($adjustments as $index => $adjustment)
                                 <tr>
+                                    <td>{{ $index + 1 }}</td>
                                     <td>{{ $adjustment->product?->display_name ?? '-' }}</td>
                                     <td>{{ $adjustment->batch?->batch_number ?? '-' }}</td>
                                     <td>{{ ucfirst($adjustment->adjustment_type) }}</td>
                                     <td>{{ $adjustment->quantity }}</td>
                                     <td>{{ $adjustment->reason ?: '-' }}</td>
                                     <td>{{ $adjustment->adjustedBy?->name ?? '-' }}</td>
-                                    <td>{{ $adjustment->created_at?->format('Y-m-d') }}</td>
+                                    <td>{{ $adjustment->created_at?->format('M j, Y') }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">No adjustment data yet.</td>
+                                    <td colspan="8" class="text-center text-muted py-4">No adjustment data yet.</td>
                                 </tr>
                             @endforelse
                         </tbody>

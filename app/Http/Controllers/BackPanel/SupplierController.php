@@ -68,7 +68,7 @@ class SupplierController extends Controller
                 $array[$i]["email"] = $row->email;
                 $array[$i]["pan_number"] = $row->pan_number;
                 $array[$i]["opening_balance"] = $row->opening_balance;
-                $array[$i]["added_date"] = Carbon::parse($row->created_at)->format('Y-m-d');
+                $array[$i]["added_date"] = Carbon::parse($row->created_at)->format('M j, Y');
                 $array[$i]["type"] = ucfirst($row->type);
 
                 $action = '<div class="table-action-group">';

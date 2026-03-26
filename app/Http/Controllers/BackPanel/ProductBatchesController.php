@@ -38,7 +38,7 @@ class ProductBatchesController extends Controller
                 $array[$i]['batch_no'] = $row->batch_no ?: '-';
                 $array[$i]['reference_no'] = $row->reference?->reference_no ?? '-';
                 $array[$i]['supplier'] = $row->supplier?->supplier_name ?? '-';
-                $array[$i]['purchase_date'] = $row->purchase?->purchase_date ?? '-';
+                $array[$i]['purchase_date'] = $row->purchase?->purchase_date_show ?? '-';
                 $array[$i]['expiry_date'] = $row->expiry_date ?: '-';
                 $array[$i]['quantity'] = $row->quantity;
                 $array[$i]['purchase_price'] = number_format((float) $row->purchase_price, 2);

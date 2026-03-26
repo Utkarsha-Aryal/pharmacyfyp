@@ -74,6 +74,6 @@ class PurchaseOrder extends Model
 
     public function getOrderDateShowAttribute(): string
     {
-        return $this->order_date ? Carbon::parse($this->order_date)->format('Y-m-d') : '-';
+        return $this->order_date ? Carbon::parse($this->order_date)->format('M j, Y') : '-';
     }
 }

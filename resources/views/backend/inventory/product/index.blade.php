@@ -8,14 +8,13 @@
     <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
         <div class="my-auto">
             <h5 class="page-title fs-21 mb-1">Inventory Products</h5>
-            <p class="mb-0 text-muted">Name, formulation, unit, reorder level and current stock in one table.</p>
         </div>
         <div class="d-flex my-xl-auto right-content">
             <div class="pe-1 mb-xl-0 d-flex gap-2">
                 <a href="{{ route('admin.export.inventory-products') }}" class="btn btn-outline-primary">
-                    <i class="fa fa-download"></i> Excel
+                    <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
-                <button type="button" class="btn btn-primary addProductBtn"><i class="fa fa-add"></i> Add</button>
+                <button type="button" class="btn btn-primary addProductBtn"><i class="fa fa-add"></i> Add Product</button>
             </div>
         </div>
     </div>
@@ -32,20 +31,25 @@
                 <div class="card-header justify-content-between">
                     <div class="card-title">Inventory Product List</div>
                     <div class="d-flex my-xl-auto right-content gap-2">
-                        <form class="d-flex gap-2" method="GET">
+                        <form class="d-flex gap-2 align-items-end" method="GET">
                             <select name="category_id" class="form-select js-select2" data-placeholder="All categories" data-allow-clear="1" style="min-width: 220px;">
                                 <option value="">All Category</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category->id }}" @selected(request('category_id') == $category->id)>{{ $category->name }}</option>
                                 @endforeach
                             </select>
-                            <button class="btn btn-outline-secondary" type="submit">Filter</button>
+                            <button class="btn btn-primary btn-sm icon-only-btn" type="submit" title="Filter" aria-label="Filter">
+                                <i class="fa-solid fa-filter"></i>
+                            </button>
+                            <a href="{{ route('admin.inventory.products.index') }}" class="btn btn-outline-secondary btn-sm icon-only-btn" title="Reset" aria-label="Reset">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </a>
                         </form>
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table id="productTable" class="table table-bordered text-nowrap w-100 dataTable no-footer mt-3">
+                        <table id="productTable" class="table table-bordered text-nowrap w-100 mt-3">
                             <thead>
                                 <tr>
                                     <th>S.No</th>
@@ -89,21 +93,12 @@
                 });
             });
 
-            productTable = $('#productTable').DataTable({
-                sPaginationType: 'full_numbers',
-                bSearchable: false,
-                lengthMenu: [[5, 10, 15, 20, 25, -1], [5, 10, 15, 20, 25, 'All']],
-                iDisplayLength: 15,
-                sDom: 'ltipr',
-                bAutoWidth: false,
-                aaSorting: [[0, 'desc']],
-                bSort: false,
-                bProcessing: true,
-                bServerSide: true,
-                oLanguage: {
-                    sEmptyTable: "<p class='no_data_message'>No data available.</p>"
-                },
-                aoColumns: [
+            productTable = window.initServerSideDataTable({
+                selector: '#productTable',
+                pageLength: 15,
+                sort: false,
+                searchColumns: [1],
+                columns: [
                     { data: 'sno' },
                     { data: 'product_name' },
                     { data: 'category' },
@@ -114,27 +109,10 @@
                     { data: 'status' },
                     { data: 'action' },
                 ],
-                ajax: {
-                    url: '{{ route('admin.inventory.products.list') }}',
-                    type: 'POST',
-                    data: function(d) {
-                        d.category_id = '{{ request('category_id') }}';
-                        d.type = $('#trashed_file').is(':checked') ? 'trashed' : 'nottrashed';
-                    }
-                },
-                initComplete: function() {
-                    this.api().columns([1]).every(function() {
-                        var column = this;
-                        var input = document.createElement('input');
-                        var columnName = column.header().innerText.trim();
-                        $(input).appendTo($(column.header()).empty())
-                            .attr('placeholder', columnName)
-                            .css('width', '100%')
-                            .addClass('search-input-highlight')
-                            .on('keyup change', function() {
-                                column.search(this.value).draw();
-                            });
-                    });
+                ajaxUrl: '{{ route('admin.inventory.products.list') }}',
+                ajaxData: function(d) {
+                    d.category_id = '{{ request('category_id') }}';
+                    d.type = $('#trashed_file').is(':checked') ? 'trashed' : 'nottrashed';
                 }
             });
 

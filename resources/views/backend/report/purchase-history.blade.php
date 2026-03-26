@@ -13,7 +13,7 @@
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.export.purchase-history', request()->query()) }}" class="btn btn-outline-primary">
-                    <i class="fa fa-download"></i> Excel
+                    <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
             </div>
         </div>
@@ -57,7 +57,14 @@
                         <input type="date" name="date_to" class="form-control" value="{{ $filters['date_to'] ?? '' }}">
                     </div>
                     <div class="col-md-1">
-                        <button type="submit" class="btn btn-primary w-100">Go</button>
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button type="submit" class="btn btn-primary btn-sm icon-only-btn" title="Apply Filter" aria-label="Apply Filter">
+                                <i class="fa-solid fa-filter"></i>
+                            </button>
+                            <a href="{{ route('admin.report.purchases') }}" class="btn btn-outline-secondary btn-sm icon-only-btn" title="Reset Filter" aria-label="Reset Filter">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -72,6 +79,7 @@
                     <table class="table table-bordered align-middle js-datatable" data-page-length="15">
                         <thead>
                             <tr>
+                                <th style="width: 70px;">S.No</th>
                                 <th>Reference</th>
                                 <th>Supplier</th>
                                 <th>Date</th>
@@ -82,8 +90,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($orders as $order)
+                            @forelse ($orders as $index => $order)
                                 <tr>
+                                    <td>{{ $index + 1 }}</td>
                                     <td>{{ $order->reference }}</td>
                                     <td>{{ $order->supplier?->supplier_name ?? '-' }}</td>
                                     <td>{{ $order->order_date_show }}</td>
@@ -94,7 +103,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">No purchase history found.</td>
+                                    <td colspan="8" class="text-center text-muted py-4">No purchase history found.</td>
                                 </tr>
                             @endforelse
                         </tbody>

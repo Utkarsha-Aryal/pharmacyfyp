@@ -12,51 +12,40 @@
         </div>
         <div class="d-flex gap-2 mt-3 mt-md-0">
             <a href="{{ route('admin.export.category') }}" class="btn btn-outline-primary">
-                <i class="fa fa-download"></i> Excel
+                <i class="fa-solid fa-file-excel"></i> Excel
             </a>
+            <button type="button" class="btn btn-primary addCategoryBtn">
+                <i class="fa fa-plus"></i> Add Category
+            </button>
         </div>
     </div>
 
-    <!-- Modal -->
     <div class="modal fade" id="categoryModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
         aria-labelledby="staticBackdropLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                {{-- Content goes here --}}
-            </div>
-        </div>
-    </div>
-    <!-- Page Header Close -->
-
-    <!-- Start::row-1 -->
-    <div class="row">
-        <div class="col-xl-4">
-            <div class="card custom-card">
                 <form action="{{ route('admin.category.save')}}" method="POST" id="categoryForm" enctype="multipart/form-data">
-                    <div class="card-body">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title">Category Form</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
                         <div class="row gy-4">
-
                             <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6">
                                 <input type="hidden" name="id" value="" id="id">
-                                <label for="name" class="form-label">Category Name <span
-                                        class="required-field">*</span></label>
-                                <input type="text" class="form-control" id="name" placeholder="Enter name..."
-                                    name="name">
+                                <label for="name" class="form-label">Category Name <span class="required-field">*</span></label>
+                                <input type="text" class="form-control" id="name" placeholder="Enter name..." name="name">
                             </div>
                             <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6">
-                                <label for="order_number" class="form-label">Order <span
-                                        class="required-field">*</span></label>
-                                <input type="number" class="form-control" id="order_number" placeholder="Enter order..."
-                                    name="order_number">
+                                <label for="order_number" class="form-label">Order <span class="required-field">*</span></label>
+                                <input type="number" class="form-control" id="order_number" placeholder="Enter order..." name="order_number">
                             </div>
-
-                            <div class="row mt-2">
+                            <div class="col-12">
                                 <label for="photo" class="form-label">Photo</label>
-                                <div class="col-10 relative" id="edit-image">
-
+                                <div class="relative" id="edit-image">
                                     <div class="profile-user">
-                                        <label for="file_input"
-                                            class="fe fe-camera profile-edit text-primary absolute"></label>
+                                        <label for="file_input" class="fe fe-camera profile-edit text-primary absolute"></label>
                                     </div>
                                     <input type="file" class="file_input" id="file_input"
                                         style="position: absolute; clip: rect(0, 0, 0, 0); pointer-events: none;"
@@ -65,19 +54,24 @@
                                         alt="Default Image" class='_image'>
                                 </div>
                             </div>
-                            <div class="row mt-4 ms-1">
+                            <div class="col-12">
                                 <p class="p-0 m-0">Accepted Format :<span class="text-muted"> jpg/jpeg/png</span></p>
                                 <p class="p-0 m-0">File size :<span class="text-muted"> 512KB </span></p>
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer d-flex justify-content-end">
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary saveData"><i class="fa fa-save"></i> Save</button>
                     </div>
                 </form>
             </div>
         </div>
-        <div class="col-xl-8">
+    </div>
+
+    <!-- Start::row-1 -->
+    <div class="row">
+        <div class="col-xl-12">
             <div class="card custom-card">
                 <div class="card-header justify-content-between">
                     <div class="card-title">
@@ -95,28 +89,19 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <div id="datatable-basic_wrapper" class="dataTables_wrapper dt-bootstrap5 no-footer">
-                            <div class="row">
-                                <div class="col-sm-12 col-md-12 mb-3">
-                                    <div class="dataTables_length" id="datatable-basic_length">
-                                        <table id="categoryTable"
-                                            class="table table-bordered text-nowrap w-100 dataTable no-footer mt-3"
-                                            aria-describedby="datatable-basic_info">
-                                            <thead>
-                                                <tr>
-                                                    <th>S.No</th>
-                                                    <th>Name</th>
-                                                    <th>Order</th>
-                                                    <th>Image</th>
-                                                    <th>Action</th>
-                                            </thead>
-                                            <tbody>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <table id="categoryTable" class="table table-bordered text-nowrap w-100 mt-3">
+                            <thead>
+                                <tr>
+                                    <th>S.No</th>
+                                    <th>Name</th>
+                                    <th>Order</th>
+                                    <th>Image</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -129,86 +114,51 @@
     <script>
         var categoryTable;
         $(document).ready(function() {
-            categoryTable = $('#categoryTable').DataTable({
-                "sPaginationType": "full_numbers",
-                "bSearchable": false,
-                "lengthMenu": [
-                    [5, 10, 15, 20, 25, -1],
-                    [5, 10, 15, 20, 25, "All"]
-                ],
-                'iDisplayLength': 15,
-                "sDom": 'ltipr',
-                "bAutoWidth": false,
-                "aaSorting": [
-                    [0, 'desc']
-                ],
-                "bSort": false,
-                "bProcessing": true,
-                "bServerSide": true,
-                "oLanguage": {
-                    "sEmptyTable": "<p class='no_data_message'>No data available.</p>"
-                },
-                "aoColumnDefs": [{
-                    "bSortable": false,
-                    "aTargets": [1]
+            var categoryModalElement = document.getElementById('categoryModal');
+            var categoryModal = categoryModalElement ? new bootstrap.Modal(categoryModalElement) : null;
+
+            function resetCategoryForm() {
+                $('#categoryForm')[0].reset();
+                $('#id').val('');
+                $('._image').attr('src', "{{ asset('/images/no-image.jpg') }}");
+                $('.saveData').html('<i class="fa fa-save"></i> Save');
+            }
+
+            $(document).on('click', '.addCategoryBtn', function() {
+                resetCategoryForm();
+                if (categoryModal) {
+                    categoryModal.show();
+                }
+            });
+
+            categoryTable = window.initServerSideDataTable({
+                selector: '#categoryTable',
+                pageLength: 15,
+                sort: false,
+                searchColumns: [1],
+                columnDefs: [{
+                    bSortable: false,
+                    aTargets: [1]
                 }],
-                "aoColumns": [{
-                        "data": "sno"
+                columns: [{
+                        data: 'sno'
                     },
                     {
-                        "data": "name"
+                        data: 'name'
                     },
                     {
-                        "data": "order_number"
+                        data: 'order_number'
                     },
                     {
-                        "data": "image"
+                        data: 'image'
                     },
-
                     {
-                        "data": "action"
+                        data: 'action'
                     },
                 ],
-                "ajax": {
-                    "url": "{{route('admin.category.list')}}",
-                    "type": "POST",
-                    "data": function(d) {
-                        var type = $('#trashed_file').is(':checked') == true ? 'trashed' :
-                            'nottrashed';
-                        d.type = type;
-                    }
-                },
-                "initComplete": function() {
-                    // Ensure text input fields in the header for specific columns with placeholders
-                    this.api().columns([1]).every(function() {
-                        var column = this;
-                        var input = document.createElement("input");
-                        var columnName = column.header().innerText.trim();
-                        // Append input field to the header, set placeholder, and apply CSS styling
-                        $(input).appendTo($(column.header()).empty())
-                            .attr('placeholder', columnName).css('width',
-                                '100%') // Set width to 100%
-                            .addClass(
-                                'search-input-highlight') // Add a CSS class for highlighting
-                            .on('keyup change', function() {
-                                column.search(this.value).draw();
-                            });
-                    });
-
-                    // this.api().columns([2]).every(function() {
-                    //     var column = this;
-                    //     var input = document.createElement("input");
-                    //     var columnName = column.header().innerText.trim();
-                    //     // Append input field to the header, set placeholder, and apply CSS styling
-                    //     $(input).appendTo($(column.header()).empty())
-                    //         .attr('placeholder', columnName).css('width',
-                    //             '100%') // Set width to 100%
-                    //         .addClass(
-                    //             'search-input-highlight') // Add a CSS class for highlighting
-                    //         .on('keyup change', function() {
-                    //             column.search(this.value).draw();
-                    //         });
-                    // });
+                ajaxUrl: "{{ route('admin.category.list') }}",
+                ajaxData: function(d) {
+                    d.type = $('#trashed_file').is(':checked') == true ? 'trashed' : 'nottrashed';
                 }
             });
 
@@ -223,6 +173,10 @@
                 }
             });
             //end upload image
+
+            $(document).on('hidden.bs.modal', '#categoryModal', function() {
+                resetCategoryForm();
+            });
 
             $('#categoryForm').validate({
                 rules: {
@@ -261,13 +215,14 @@
                         success: function(response) {
                             if (response) {
                                 if (response.type === 'success') {
-                                    $('.saveData').html('<i class="fa fa-save"></i> Save');
                                     showNotification(response.message, 'success');
                                     hideLoader();
                                     categoryTable.draw();
-                                    $('#categoryForm')[0].reset();
-                                    $('#id').val('');
-                                    $('._image').attr('src', "{{ asset('/images/no-image.jpg') }}");
+                                    if (categoryModal) {
+                                        categoryModal.hide();
+                                    } else {
+                                        resetCategoryForm();
+                                    }
                                 } else {
                                     showNotification(response.message, 'error');
                                     hideLoader();
@@ -298,6 +253,9 @@
                 $('#categoryForm input[name = "order_number"]').val(order_number);
                 $('#categoryForm ._image').attr('src', image);
                 $('.saveData').html('<i class="fa fa-save"></i> Update');
+                if (categoryModal) {
+                    categoryModal.show();
+                }
             });
 
 

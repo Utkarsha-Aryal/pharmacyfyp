@@ -16,9 +16,9 @@
         <div class="d-flex my-xl-auto right-content">
             <div class="pe-1 mb-xl-0 d-flex gap-2">
                 <a href="{{ route('admin.export.product') }}" class="btn btn-outline-primary">
-                    <i class="fa fa-download"></i> Excel
+                    <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
-                <button type="button" class="btn btn-primary addProductBtn"><i class="fa fa-add"></i> Add</button>
+                <button type="button" class="btn btn-primary addProductBtn"><i class="fa fa-add"></i> Add Product</button>
             </div>
         </div>
     </div>
@@ -44,40 +44,32 @@
                             <input class="form-check-input" type="checkbox" value="Y" id="trashed_file"
                                 name="trashed_file">
                             <label class="form-check-label" for="trashed_file">
-                                View Trashed
+                                Show Deleted
                             </label>
                         </div>
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <div id="datatable-basic_wrapper" class="dataTables_wrapper dt-bootstrap5 no-footer">
-                            <div class="row">
-                                <div class="col-sm-12 col-md-12 mb-3">
-                                    <div class="dataTables_length" id="datatable-basic_length">
-                                        <table id="productTable"
-                                            class="table table-bordered text-nowrap w-100 dataTable no-footer mt-3"
-                                            aria-describedby="datatable-basic_info">
-                                            <thead>
-                                                <tr>
-                                                    <th>S.No</th>
-                                                    <th>Product Name</th>
-                                                    <th>Category</th>
-                                                    <th>Stock Qty</th>
-                                                    <th>Order</th>
-                                                    <th>Generic Name</th>
-                                                    <th>Price</th>
-                                                    <th>Image</th>
-                                                    <th>Keywords</th>
-                                                    <th>Action</th>
-                                            </thead>
-                                            <tbody>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <table id="productTable" class="table table-bordered text-nowrap w-100 mt-3">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Product Name</th>
+                                <th>Category</th>
+                                <th>Stock Qty</th>
+                                <th>Order</th>
+                                <th>Generic Name</th>
+                                <th>Price</th>
+                                <th>Image</th>
+                                <th>Keywords</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -107,86 +99,52 @@
                 });
             });
 
-
-            productTable = $('#productTable').DataTable({
-                "sPaginationType": "full_numbers",
-                "bSearchable": false,
-                "lengthMenu": [
-                    [5, 10, 15, 20, 25, -1],
-                    [5, 10, 15, 20, 25, "All"]
-                ],
-                'iDisplayLength': 15,
-                "sDom": 'ltipr',
-                "bAutoWidth": false,
-                "aaSorting": [
-                    [0, 'desc']
-                ],
-                "bSort": false,
-                "bProcessing": true,
-                "bServerSide": true,
-                "oLanguage": {
-                    "sEmptyTable": "<p class='no_data_message'>No data available.</p>"
-                },
-                "aoColumnDefs": [{
-                    "bSortable": false,
-                    "aTargets": [1]
+            productTable = window.initServerSideDataTable({
+                selector: '#productTable',
+                pageLength: 15,
+                sort: false,
+                searchColumns: [1],
+                columnDefs: [{
+                    bSortable: false,
+                    aTargets: [1]
                 }],
-                "aoColumns": [{
-                        "data": "sno"
+                columns: [{
+                        data: "sno"
                     },
                     {
-                        "data": "product_name"
+                        data: "product_name"
                     },
                     {
-                        "data": "category"
+                        data: "category"
                     },
                     {
-                        "data": "stock_quantity"
+                        data: "stock_quantity"
                     },
                     {
-                        "data": "order_number"
+                        data: "order_number"
                     },
                     {
-                        "data": "generic_name"
+                        data: "generic_name"
                     },
                     {
-                        "data": "display_price"
+                        data: "display_price"
                     },
                     {
-                        "data":"image"
+                        data:"image"
                     },
                     {
-                        "data": "keywords"
+                        data: "keywords"
                     },
                     {
-                        "data": "action"
+                        data: "status"
+                    },
+                    {
+                        data: "action"
                     },
                 ],
-                "ajax": {
-                    "url": '{{route('admin.product.list')}}',
-                    "type": "POST",
-                    "data": function(d) {
-                        var type = $('#trashed_file').is(':checked') == true ? 'trashed' :
-                            'nottrashed';
-                        d.type = type;
-                    }
-                },
-                "initComplete": function() {
-                    // Ensure text input fields in the header for specific columns with placeholders
-                    this.api().columns([1]).every(function() {
-                        var column = this;
-                        var input = document.createElement("input");
-                        var columnName = column.header().innerText.trim();
-                        // Append input field to the header, set placeholder, and apply CSS styling
-                        $(input).appendTo($(column.header()).empty())
-                            .attr('placeholder', columnName).css('width',
-                                '100%') // Set width to 100%
-                            .addClass(
-                                'search-input-highlight') // Add a CSS class for highlighting
-                            .on('keyup change', function() {
-                                column.search(this.value).draw();
-                            });
-                    });
+                ajaxUrl: '{{route('admin.product.list')}}',
+                ajaxData: function(d) {
+                    d.type = $('#trashed_file').is(':checked') == true ? 'trashed' : 'nottrashed';
                 }
             });
 

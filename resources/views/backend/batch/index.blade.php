@@ -13,7 +13,7 @@
             </div>
             <div class="d-flex my-xl-auto right-content gap-2">
                 <a href="{{ route('admin.export.batch', $product->slug) }}" class="btn btn-outline-primary">
-                    <i class="fa fa-download"></i> Excel
+                    <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
                 <a href="{{ route('admin.product') }}" class="btn btn-outline-secondary">
                     <i class="fa fa-arrow-left"></i> Back

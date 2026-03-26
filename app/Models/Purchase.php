@@ -124,6 +124,6 @@ class Purchase extends Model
             return '-';
         }
 
-        return Carbon::parse($this->purchase_date)->format('Y-m-d');
+        return Carbon::parse($this->purchase_date)->format('M j, Y');
     }
 }

@@ -76,6 +76,7 @@
                         <table class="table table-bordered purchase-item-table" id="purchaseItemsTable">
                             <thead>
                                 <tr>
+                                    <th style="width: 70px;">S.No</th>
                                     <th>Product</th>
                                     <th>Batch No</th>
                                     <th>Expiry</th>
@@ -87,6 +88,7 @@
                             </thead>
                             <tbody data-next-index="1">
                                 <tr>
+                                    <td class="purchase-row-number">1</td>
                                     <td>
                                         <select name="items[0][product_id]" class="form-select js-select2-ajax"
                                             data-ajax-url="{{ route('admin.purchase.product-options') }}"
@@ -115,6 +117,7 @@
 
                     <template id="purchaseItemTemplate">
                         <tr>
+                            <td class="purchase-row-number">__ROW__</td>
                             <td>
                                 <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax"
                                     data-ajax-url="{{ route('admin.purchase.product-options') }}"

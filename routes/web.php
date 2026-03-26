@@ -56,6 +56,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/list', [ProductController::class, 'list'])->name('product.list');
         Route::post('/view', [ProductController::class, 'view'])->name('product.view');
         Route::post('/delete', [ProductController::class, 'delete'])->name('product.delete');
+        Route::post('/{product}/toggle-active', [ProductController::class, 'toggleActive'])->name('product.toggle-active');
         Route::any('/form', [ProductController::class, 'form'])->name('product.form');
         Route::post('/restore', [ProductController::class, 'restore'])->name('product.restore');
     });
@@ -126,6 +127,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::middleware(['role:admin'])->group(function () {
         Route::prefix('users')->name('user.')->middleware('permission:user.manage')->group(function () {
             Route::get('/', [UserManagementController::class, 'index'])->name('index');
+            Route::post('/list', [UserManagementController::class, 'list'])->name('list');
             Route::get('/create', [UserManagementController::class, 'create'])->name('create');
             Route::post('/store', [UserManagementController::class, 'store'])->name('store');
             Route::get('/{user}/edit', [UserManagementController::class, 'edit'])->name('edit');
@@ -136,6 +138,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
         Route::prefix('role-permission')->name('role-permission.')->middleware('permission:role.manage')->group(function () {
             Route::get('/', [RolePermissionController::class, 'index'])->name('index');
+            Route::post('/list', [RolePermissionController::class, 'list'])->name('list');
             Route::get('/create', [RolePermissionController::class, 'create'])->name('create');
             Route::post('/store', [RolePermissionController::class, 'store'])->name('store');
             Route::get('/{role}/edit', [RolePermissionController::class, 'edit'])->name('edit');

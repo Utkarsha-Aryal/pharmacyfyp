@@ -1,8 +1,27 @@
 @php
     $imgPath = app_logo_url();
     $isDashboard = request()->routeIs('admin.dashboard');
-    $isInventoryMenu = request()->routeIs('admin.category*') || request()->routeIs('admin.unit*') || request()->routeIs('admin.product*') || request()->routeIs('admin.batch*') || request()->routeIs('admin.inventory.*');
-    $isPurchaseMenu = request()->routeIs('admin.supplier*') || request()->routeIs('admin.purchase*') || request()->routeIs('admin.purchase-orders.*');
+    // Keep the active state narrow so one page does not light up many menus.
+    $isInventoryMenu = request()->routeIs(
+        'admin.category',
+        'admin.category.*',
+        'admin.unit',
+        'admin.unit.*',
+        'admin.product',
+        'admin.product.*',
+        'admin.batch',
+        'admin.batch.*',
+        'admin.inventory.products.*',
+        'admin.inventory.batches.*',
+        'admin.inventory.adjustments.*'
+    );
+    $isPurchaseMenu = request()->routeIs(
+        'admin.supplier',
+        'admin.supplier.*',
+        'admin.purchase',
+        'admin.purchase.*',
+        'admin.purchase-orders.*'
+    );
     $isReportMenu = request()->routeIs('admin.report.*');
     $isUsersMenu = request()->routeIs('admin.user.*');
     $isRoleMenu = request()->routeIs('admin.role-permission.*');
@@ -54,28 +73,28 @@
                                 <a href="javascript:void(0);">Inventory</a>
                             </li>
                             @can('inventory.category')
-                                <li class="slide {{ request()->routeIs('admin.category*') ? 'active' : '' }}">
+                                <li class="slide {{ request()->routeIs('admin.category', 'admin.category.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.category') }}" class="side-menu__item">Category</a>
                                 </li>
                             @endcan
                             @can('inventory.unit')
-                                <li class="slide {{ request()->routeIs('admin.unit*') ? 'active' : '' }}">
+                                <li class="slide {{ request()->routeIs('admin.unit', 'admin.unit.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.unit') }}" class="side-menu__item">Unit</a>
                                 </li>
                             @endcan
                             @can('inventory.product')
-                                <li class="slide {{ request()->routeIs('admin.product*') || request()->routeIs('admin.batch*') || request()->routeIs('admin.inventory.products*') ? 'active' : '' }}">
+                                <li class="slide {{ request()->routeIs('admin.product', 'admin.product.*', 'admin.batch', 'admin.batch.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.product') }}" class="side-menu__item">Product Master</a>
                                 </li>
                             @endcan
                             @can('inventory.view')
-                                <li class="slide {{ request()->routeIs('admin.inventory.products*') ? 'active' : '' }}">
+                                <li class="slide {{ request()->routeIs('admin.inventory.products.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.inventory.products.index') }}" class="side-menu__item">Products</a>
                                 </li>
-                                <li class="slide {{ request()->routeIs('admin.inventory.batches*') ? 'active' : '' }}">
+                                <li class="slide {{ request()->routeIs('admin.inventory.batches.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.inventory.batches.index') }}" class="side-menu__item">Batches</a>
                                 </li>
-                                <li class="slide {{ request()->routeIs('admin.inventory.adjustments*') ? 'active' : '' }}">
+                                <li class="slide {{ request()->routeIs('admin.inventory.adjustments.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.inventory.adjustments.index') }}" class="side-menu__item">Stock Adjustment</a>
                                 </li>
                             @endcan
@@ -97,12 +116,12 @@
                                 <a href="javascript:void(0);">Purchase</a>
                             </li>
                             @can('purchase.supplier')
-                                <li class="slide {{ request()->routeIs('admin.supplier*') ? 'active' : '' }}">
+                                <li class="slide {{ request()->routeIs('admin.supplier', 'admin.supplier.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.supplier') }}" class="side-menu__item">Supplier</a>
                                 </li>
                             @endcan
                             @can('purchase.entry')
-                                <li class="slide {{ request()->routeIs('admin.purchase*') ? 'active' : '' }}">
+                                <li class="slide {{ request()->routeIs('admin.purchase', 'admin.purchase.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.purchase') }}" class="side-menu__item">Purchase Entry</a>
                                 </li>
                             @endcan

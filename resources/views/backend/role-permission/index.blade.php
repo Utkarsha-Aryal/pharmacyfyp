@@ -24,7 +24,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="10">
+                    <table id="roleTable" class="table table-bordered align-middle w-100" data-list-url="{{ route('admin.role-permission.list') }}">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -35,63 +35,32 @@
                                 <th style="width: 210px;">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($roles as $index => $role)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>
-                                        <div class="fw-semibold">{{ ucfirst($role->name) }}</div>
-                                        @if ($role->name === 'admin')
-                                            <small class="text-muted">System protected role</small>
-                                        @endif
-                                    </td>
-                                    <td>{{ $role->users_count }}</td>
-                                    <td>{{ $role->permissions->count() }}</td>
-                                    <td>
-                                        <div class="role-access-chip-wrap">
-                                            @forelse ($role->permissions->take(4) as $permission)
-                                                <span class="role-access-chip">
-                                                    {{ ucwords(str_replace(['.', '_'], ' ', $permission->name)) }}
-                                                </span>
-                                            @empty
-                                                <span class="text-muted">No permission selected.</span>
-                                            @endforelse
-                                            @if ($role->permissions->count() > 4)
-                                                <span class="role-access-chip role-access-chip-muted">
-                                                    +{{ $role->permissions->count() - 4 }} more
-                                                </span>
-                                            @endif
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="table-action-group">
-                                            <a href="{{ route('admin.role-permission.edit', $role) }}" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit Role" aria-label="Edit Role">
-                                                <i class="fa-solid fa-pen-to-square"></i>
-                                            </a>
-                                            @if ($role->name !== 'admin')
-                                                <form action="{{ route('admin.role-permission.delete', $role) }}" method="POST"
-                                                    class="js-confirm-submit"
-                                                    data-confirm-title="Delete this role?"
-                                                    data-confirm-text="Users must be moved out of this role before deletion."
-                                                    data-confirm-button="Yes, delete role">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Role" aria-label="Delete Role">
-                                                        <i class="fa-solid fa-trash"></i>
-                                                    </button>
-                                                </form>
-                                            @endif
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted">No roles added yet.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function() {
+            window.roleTable = window.initServerSideDataTable({
+                selector: '#roleTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'role' },
+                    { data: 'users' },
+                    { data: 'permissions' },
+                    { data: 'access_summary' },
+                    { data: 'action' },
+                ],
+                ajaxUrl: '{{ route('admin.role-permission.list') }}'
+            });
+        });
+    </script>
 @endsection
