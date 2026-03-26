@@ -54,40 +54,38 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered">
+                    <table class="table table-bordered js-datatable" data-page-length="10">
                         <thead>
                             <tr>
                                 <th>S.No</th>
                                 <th>Product</th>
                                 <th>Batch</th>
                                 <th>Supplier</th>
-                                <th>Reference</th>
-                                <th>Purchase Date</th>
                                 <th>Expiry</th>
+                                <th>Days Left</th>
                                 <th>Qty</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse ($expiryItems as $index => $item)
-                                <tr>
+                                <tr class="{{ $item->expiry_state === 'expired' || $item->expiry_state === 'critical' ? 'table-danger' : ($item->expiry_state === 'warning' ? 'table-warning' : ($item->expiry_state === 'near' ? 'table-info' : '')) }}">
                                     <td>{{ $index + 1 }}</td>
-                                    <td>{{ $item->product?->product_name ?? '-' }}</td>
-                                    <td>{{ $item->batch_no ?? '-' }}</td>
+                                    <td>{{ $item->product?->display_name ?? '-' }}</td>
+                                    <td>{{ $item->batch_number ?? '-' }}</td>
                                     <td>{{ $item->supplier?->supplier_name ?? '-' }}</td>
-                                    <td>{{ $item->reference?->reference_no ?? '-' }}</td>
-                                    <td>{{ $item->purchase?->purchase_date ?? '-' }}</td>
                                     <td>{{ $item->expiry_show }}</td>
-                                    <td>{{ $item->quantity }}</td>
+                                    <td>{{ $item->days_left }}</td>
+                                    <td>{{ $item->quantity_available }}</td>
                                     <td>
-                                        <span class="report-badge {{ $item->expiry_state === 'expired' ? 'report-badge-danger' : ($item->expiry_state === 'near' ? 'report-badge-warning' : 'report-badge-success') }}">
-                                            {{ $item->expiry_state === 'expired' ? 'Expired' : ($item->expiry_state === 'near' ? 'Near Expiry' : 'Safe') }}
+                                        <span class="report-badge {{ $item->expiry_state === 'expired' || $item->expiry_state === 'critical' ? 'report-badge-danger' : ($item->expiry_state === 'warning' ? 'report-badge-warning' : 'report-badge-info') }}">
+                                            {{ strtoupper($item->expiry_state) }}
                                         </span>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">No expiry data available.</td>
+                                    <td colspan="8" class="text-center text-muted py-4">No expiry data available.</td>
                                 </tr>
                             @endforelse
                         </tbody>

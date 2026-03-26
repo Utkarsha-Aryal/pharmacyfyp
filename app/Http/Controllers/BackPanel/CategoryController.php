@@ -72,18 +72,17 @@ class CategoryController extends Controller
                     $image = asset('/storage/category') . '/' . $row->image;
                 }
                 $array[$i]["image"] = '<img src="' . $image . '" height="30px" width="30px" alt="' . ' image"/>';
-                $action = '';
+                $action = '<div class="table-action-group">';
                 if (!empty($post['type']) && $post['type'] != 'trashed') {
-                    // $action .= ' <a href="javascript:;" class="viewCategory" title="View Data" data-id="' . $row->id . '"><i class="fa-solid fa-eye" style="color: #008f47;"></i></i></a> |';
-                    // $action .= '<span style="margin-left: 3px;"></span>';
-                    $action .= '<a href="javascript:;" class="editCategory" name="Edit Data" data-id="' . $row->id . '" data-name="' . $row->name . '" data-keywords="' . $row->keywords . '" data-designation="' . $row->designation . '" data-order_number="' . $row->order_number . '" data-image="' . $image . '" data-course="' . $row->student_course . '" data-rating="' . $row->rating . '"><i class="fa-solid fa-pen-to-square text-primary"></i></a> | ';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editCategory" title="Edit Category" data-id="' . $row->id . '" data-name="' . $row->name . '" data-keywords="' . $row->keywords . '" data-designation="' . $row->designation . '" data-order_number="' . $row->order_number . '" data-image="' . $image . '" data-course="' . $row->student_course . '" data-rating="' . $row->rating . '"><i class="fa-solid fa-pen-to-square"></i></button>';
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
-                    $action .= '<a href="javascript:;" class="restoreCategory" title="Restore Data" data-id="' . $row->id . '"><i class="fa-solid fa-undo text-success"></i></a> | ';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreCategory" title="Restore Category" data-id="' . $row->id . '"><i class="fa-solid fa-undo"></i></button>';
                 }
                 // $category_id = $row->id;
                 // $categoryCheck = Product::where('category_id', $category_id)->first();
                
-                $action .= ' <a href="javascript:;" class="deletecategory" name="Delete Data" data-id="' . $row->id . '"><i class="fa fa-trash text-danger"></i></a>';
+                $action .= '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deletecategory" title="Delete Category" data-id="' . $row->id . '"><i class="fa fa-trash"></i></button>';
+                $action .= '</div>';
                 $array[$i]["action"] = $action;
                 $i++;
             }

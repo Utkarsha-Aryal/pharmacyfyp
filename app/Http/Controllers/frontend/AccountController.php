@@ -39,6 +39,16 @@ class AccountController extends Controller
             ]);
         }
 
+        if (!Auth::user()->is_active) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            throw ValidationException::withMessages([
+                'email' => 'This account is inactive right now.',
+            ]);
+        }
+
         return redirect()->intended(route('admin.dashboard'))->with('success', 'Login done.');
     }
 

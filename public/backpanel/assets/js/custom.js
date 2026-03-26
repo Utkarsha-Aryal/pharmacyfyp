@@ -58,6 +58,87 @@
     return $parent.length ? $parent : $(document.body);
   }
 
+  function getNotificationReadStorageKey() {
+    var notificationAnchor = byId("mainHeaderNotification");
+    var userId = notificationAnchor ? notificationAnchor.dataset.notificationUser : "guest";
+
+    return "pharmacy:notifications:read:" + (userId || "guest");
+  }
+
+  function getReadNotificationIds() {
+    try {
+      return JSON.parse(window.localStorage.getItem(getNotificationReadStorageKey()) || "[]").map(function (id) {
+        return String(id);
+      });
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function setReadNotificationIds(ids) {
+    var uniqueIds = Array.from(new Set((ids || []).map(function (id) {
+      return String(id);
+    })));
+
+    try {
+      window.localStorage.setItem(getNotificationReadStorageKey(), JSON.stringify(uniqueIds));
+    } catch (error) {
+      // localStorage can be blocked in private sessions, so fail quietly.
+    }
+  }
+
+  function markNotificationAsRead(notificationId) {
+    if (!notificationId) {
+      return;
+    }
+
+    var readIds = getReadNotificationIds();
+    var normalizedId = String(notificationId);
+
+    if (readIds.indexOf(normalizedId) === -1) {
+      readIds.push(normalizedId);
+      setReadNotificationIds(readIds);
+    }
+  }
+
+  function updateNotificationTrayState() {
+    var notificationItems = Array.from(document.querySelectorAll(".notification-item-card[data-notification-id]"));
+    var readIds = getReadNotificationIds();
+    var unreadCount = 0;
+
+    notificationItems.forEach(function (item) {
+      var notificationId = item.dataset.notificationId;
+      var isRead = readIds.indexOf(String(notificationId)) !== -1;
+
+      item.classList.toggle("is-read", isRead);
+      item.classList.toggle("is-unread", !isRead);
+
+      if (!isRead) {
+        unreadCount += 1;
+      }
+    });
+
+    var countBadge = byId("headerNotificationCount");
+    if (countBadge) {
+      if (unreadCount > 0) {
+        countBadge.textContent = unreadCount;
+        countBadge.classList.remove("d-none");
+      } else {
+        countBadge.classList.add("d-none");
+      }
+    }
+
+    var summaryLabel = byId("notificationStateLabel");
+    if (summaryLabel) {
+      summaryLabel.textContent = unreadCount > 0 ? unreadCount + " unread" : (notificationItems.length > 0 ? "All caught up" : "No notifications");
+    }
+
+    var markAllButton = byId("notificationMarkAllRead");
+    if (markAllButton) {
+      markAllButton.disabled = unreadCount === 0;
+    }
+  }
+
   function initEnhancedSelects(context) {
     if (!window.jQuery || !$.fn.select2) {
       return;
@@ -187,6 +268,33 @@
     });
   }
 
+  function initNotificationReadState() {
+    updateNotificationTrayState();
+
+    if (window.__notificationReadStateBound) {
+      return;
+    }
+
+    $(document).on("click.notificationRead", ".notification-item-card[data-notification-id]", function () {
+      markNotificationAsRead(this.dataset.notificationId);
+      updateNotificationTrayState();
+    });
+
+    $(document).on("click.notificationRead", "#notificationMarkAllRead", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      var allNotificationIds = Array.from(document.querySelectorAll(".notification-item-card[data-notification-id]")).map(function (item) {
+        return item.dataset.notificationId;
+      });
+
+      setReadNotificationIds(allNotificationIds);
+      updateNotificationTrayState();
+    });
+
+    window.__notificationReadStateBound = true;
+  }
+
   function initImagePreviewInput() {
     document.querySelectorAll("[data-image-preview-input]").forEach(function (input) {
       if (input.dataset.previewReady === "true") {
@@ -282,6 +390,7 @@
       }
 
       updateButtonLabel();
+      updateNotificationTrayState();
     });
 
     loadMoreButton.dataset.bound = "true";
@@ -314,6 +423,51 @@
         if (result.isConfirmed) {
           form.submit();
         }
+      });
+    });
+  }
+
+  function initStandardDataTables() {
+    if (!window.jQuery || !$.fn.DataTable) {
+      return;
+    }
+
+    $("table.js-datatable, table[data-datatable='true']").each(function () {
+      var tableElement = this;
+      var $table = $(tableElement);
+
+      if ($.fn.DataTable.isDataTable(tableElement)) {
+        return;
+      }
+
+      var pageLength = parseInt($table.data("pageLength"), 10);
+      var orderColumn = parseInt($table.data("orderColumn"), 10);
+      var orderDirection = String($table.data("orderDirection") || "desc").toLowerCase();
+      var searchable = $table.data("searchable");
+
+      if (Number.isNaN(pageLength) || pageLength <= 0) {
+        pageLength = 10;
+      }
+
+      if (searchable === undefined) {
+        searchable = true;
+      }
+
+      $table.DataTable({
+        sPaginationType: "full_numbers",
+        lengthMenu: [
+          [5, 10, 15, 20, 25, -1],
+          [5, 10, 15, 20, 25, "All"],
+        ],
+        iDisplayLength: pageLength,
+        sDom: searchable ? "lfrtip" : "lrtip",
+        bAutoWidth: false,
+        aaSorting: Number.isNaN(orderColumn) ? [] : [[orderColumn, orderDirection]],
+        bSort: true,
+        bProcessing: false,
+        oLanguage: {
+          sEmptyTable: "<p class='no_data_message'>No data available.</p>",
+        },
       });
     });
   }
@@ -636,10 +790,12 @@
     initScrollToTop();
     initHeaderScroll();
     initImagePreviewInput();
+    initNotificationReadState();
     initNotificationLoadMore();
     initRememberedTabs();
     initEnhancedSelects(document);
     initConfirmForms();
+    initStandardDataTables();
   });
 
   window.addEventListener("load", function () {
@@ -649,5 +805,6 @@
     initPurchaseForm();
     initBatchHistoryTable();
     initDashboardCharts();
+    updateNotificationTrayState();
   });
 })();

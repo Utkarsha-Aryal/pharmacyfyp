@@ -162,15 +162,43 @@
             </div>
 
             <div class="col-md-4">
+                <label class="form-label">Formulation</label>
+                <select class="form-select js-select2" name="formulation" data-placeholder="Select formulation">
+                    <option value="tablet" @selected(old('formulation', $prevPost->formulation ?? '') === 'tablet')>Tablet</option>
+                    <option value="capsule" @selected(old('formulation', $prevPost->formulation ?? '') === 'capsule')>Capsule</option>
+                    <option value="syrup" @selected(old('formulation', $prevPost->formulation ?? '') === 'syrup')>Syrup</option>
+                    <option value="injection" @selected(old('formulation', $prevPost->formulation ?? '') === 'injection')>Injection</option>
+                    <option value="cream" @selected(old('formulation', $prevPost->formulation ?? '') === 'cream')>Cream</option>
+                    <option value="drops" @selected(old('formulation', $prevPost->formulation ?? '') === 'drops')>Drops</option>
+                    <option value="other" @selected(old('formulation', $prevPost->formulation ?? '') === 'other')>Other</option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Unit</label>
+                <input type="text" name="unit" class="form-control" placeholder="e.g. Strip"
+                    value="{{ old('unit', $prevPost->unit ?? '') }}">
+            </div>
+
+            <div class="col-md-4">
                 <label class="form-label">Order Number</label>
                 <input type="number" name="order_number" class="form-control"
                     value="{{ @$prevPost->order_number }}">
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">Alert Quantity</label>
-                <input type="number" name="alert_quantity" class="form-control"
-                    value="{{ @$prevPost->alert_quantity }}">
+                <label class="form-label">Reorder Level</label>
+                <input type="number" name="reorder_level" class="form-control"
+                    value="{{ old('reorder_level', $prevPost->reorder_level ?? $prevPost->alert_quantity ?? 10) }}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Active</label>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" name="is_active" value="1" role="switch"
+                        id="productActiveSwitch" @checked(old('is_active', $prevPost->is_active ?? true))>
+                    <label class="form-check-label" for="productActiveSwitch">Allow this product in backend</label>
+                </div>
             </div>
         </div>
 

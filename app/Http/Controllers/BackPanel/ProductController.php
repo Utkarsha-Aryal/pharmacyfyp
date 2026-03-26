@@ -22,6 +22,13 @@ class ProductController extends Controller
         return view('backend.product.index');
     }
 
+    public function inventoryIndex()
+    {
+        return view('backend.inventory.product.index', [
+            'categories' => Category::query()->orderBy('name')->get(),
+        ]);
+    }
+
 
 public function globalSearch(Request $request)
 {
@@ -138,13 +145,20 @@ public function globalSearch(Request $request)
                 $mrp = $row->mrp;
                 $discount = $row->discount;
                 $price = round($mrp - ($mrp * $discount / 100), 2);
-                $currentStock = $row->productBatches->sum('quantity');
+                $currentStock = $row->batches->sum('quantity_available');
+                if ($currentStock <= 0) {
+                    $currentStock = $row->productBatches->sum('quantity');
+                }
 
                 $array[$i]['sno'] = $i + 1;
                 $array[$i]['product_name'] = $row->product_name;
-                $array[$i]['category'] = $row->category->name;
+                $array[$i]['category'] = $row->category?->name ?? '-';
                 $array[$i]['stock_quantity'] = $currentStock;
                 $array[$i]['generic_name'] = $row->generic_name;
+                $array[$i]['formulation'] = ucfirst((string) ($row->formulation ?? 'Other'));
+                $array[$i]['unit'] = $row->unit ?: '-';
+                $array[$i]['reorder_level'] = $row->reorder_level ?? $row->alert_quantity ?? 10;
+                $array[$i]['status'] = $row->is_active ? 'Active' : 'Inactive';
                 $array[$i]['description'] = $row->description;
                 $array[$i]['keywords'] = Str::limit($row->keywords, 25, '...');
                 $array[$i]['display_price'] =$price;
@@ -157,24 +171,18 @@ public function globalSearch(Request $request)
                     $image = asset("storage/product/" . $row->image);
                 }
                 $array[$i]["image"] = '<img src="' . $image . '" height="30px" width="30px" alt="image"/>';
-                $action = '';
+                $action = '<div class="table-action-group">';
                 if (!empty($post['type']) && $post['type'] != 'trashed') {
-                    $action .= ' <a href="javascript:;" class="viewProduct" title="View Data" data-id="' . $row->id . '"><i class="fa-solid fa-eye" style="color: #008f47;"></i></i></a>';
-                    $action .= '<span style="margin-left: 10px;"></span>';
-                    $action .= '|';
-                    $action .= '<span style="margin-right: 10px;"></span>';
-                    $action .= '<a href="javascript:;" class="editNews" title="Edit Data" data-id="' . $row->id . '" data-name="' . $row->product_name . '" ><i class="fa-solid fa-pen-to-square text-primary"></i></a> |';
-                    $action .= '<span style="margin-right: 10px;"></span>';
-                    $action .= '<a href="' . route('admin.batch', $row->slug) . '" class="addBatch" title="Batch History"><i class="fa-solid fa-boxes-stacked text-info"></i></a> |';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn viewProduct" title="View Product" data-id="' . $row->id . '"><i class="fa-solid fa-eye"></i></button>';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editNews" title="Edit Product" data-id="' . $row->id . '" data-name="' . $row->product_name . '"><i class="fa-solid fa-pen-to-square"></i></button>';
+                    $action .= '<a href="' . route('admin.batch', $row->slug) . '" class="btn btn-sm btn-outline-info table-action-btn addBatch" title="Batch History"><i class="fa-solid fa-boxes-stacked"></i></a>';
 
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
-                    $action .= '<a href="javascript:;" class="restoreProduct" title="Restore Data" data-id="' . $row->id . '"><i class="fa-solid fa-undo text-success"></i></a> ';
-                    $action .= '<span style="margin-left: 10px;"></span>';
-                    $action .= '|';
-                    $action .= '<span style="margin-left: 10px;"></span>';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreProduct" title="Restore Product" data-id="' . $row->id . '"><i class="fa-solid fa-undo"></i></button>';
                 }
                 
-                    $action .= ' <a href="javascript:;" class="deleteNews" title="Delete Data" data-id="' . $row->id . '"><i class="fa fa-trash text-danger"></i></a>';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deleteNews" title="Delete Product" data-id="' . $row->id . '"><i class="fa fa-trash"></i></button>';
+                    $action .= '</div>';
 
                 $array[$i]['action'] = $action;
                 $i++;

@@ -31,6 +31,7 @@ class UserManagementController extends Controller
             'email' => ['required', 'email', 'unique:users,email'],
             'role' => ['required', Rule::in(array_keys(available_roles()))],
             'password' => ['required', 'confirmed', 'min:8'],
+            'is_active' => ['nullable', 'boolean'],
         ]);
 
         // keep create flow simple for admin page
@@ -38,6 +39,7 @@ class UserManagementController extends Controller
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => $validated['password'],
+            'is_active' => $request->boolean('is_active', true),
         ]);
 
         $user->syncRoles([$validated['role']]);
@@ -60,10 +62,12 @@ class UserManagementController extends Controller
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
             'role' => ['required', Rule::in(array_keys(available_roles()))],
             'password' => ['nullable', 'confirmed', 'min:8'],
+            'is_active' => ['nullable', 'boolean'],
         ]);
 
         $user->name = $validated['name'];
         $user->email = $validated['email'];
+        $user->is_active = $request->boolean('is_active', true);
 
         if (!empty($validated['password'])) {
             $user->password = $validated['password'];
@@ -84,5 +88,13 @@ class UserManagementController extends Controller
         $user->delete();
 
         return redirect()->route('admin.user.index')->with('success', 'User deleted successfully.');
+    }
+
+    public function toggleActive(User $user)
+    {
+        $user->is_active = ! (bool) $user->is_active;
+        $user->save();
+
+        return back()->with('success', 'User status updated successfully.');
     }
 }

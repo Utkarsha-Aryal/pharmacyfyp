@@ -27,6 +27,8 @@ class SettingsController extends Controller
                 'mail_from_address' => setting('mail_from_address'),
                 'mail_from_name' => setting('mail_from_name'),
                 'notification_email' => setting('notification_email'),
+                'currency_symbol' => setting('currency_symbol', 'NPR'),
+                'low_stock_threshold' => setting('low_stock_threshold', 10),
             ],
         ]);
     }
@@ -48,6 +50,8 @@ class SettingsController extends Controller
             'mail_from_address' => ['nullable', 'email'],
             'mail_from_name' => ['nullable', 'string', 'max:255'],
             'notification_email' => ['nullable', 'email'],
+            'currency_symbol' => ['nullable', 'string', 'max:20'],
+            'low_stock_threshold' => ['nullable', 'integer', 'min:1'],
         ]);
 
         if ($request->hasFile('favicon')) {

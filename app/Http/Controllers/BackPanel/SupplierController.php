@@ -71,13 +71,14 @@ class SupplierController extends Controller
                 $array[$i]["added_date"] = Carbon::parse($row->created_at)->format('Y-m-d');
                 $array[$i]["type"] = ucfirst($row->type);
 
-                $action = '';
+                $action = '<div class="table-action-group">';
                 if (!empty($post['type']) && $post['type'] != 'trashed') {
-                    $action .= '<a href="javascript:;" class="editSupplier" name="Edit Data" data-id="' . $row->id . '" data-supplier_name="' . $row->supplier_name . '" data-contact_person="' . $row->contact_person . '" data-phone_number="' . $row->phone_number . '" data-email="' . $row->email . '" data-pan_number="' . $row->pan_number . '" data-opening_balance="' . $row->opening_balance . '" data-address="' . $row->address . '" data-type="' . $row->type . '"><i class="fa-solid fa-pen-to-square text-primary"></i></a> | ';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editSupplier" title="Edit Supplier" data-id="' . $row->id . '" data-supplier_name="' . $row->supplier_name . '" data-contact_person="' . $row->contact_person . '" data-phone_number="' . $row->phone_number . '" data-email="' . $row->email . '" data-pan_number="' . $row->pan_number . '" data-opening_balance="' . $row->opening_balance . '" data-address="' . $row->address . '" data-type="' . $row->type . '"><i class="fa-solid fa-pen-to-square"></i></button>';
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
-                    $action .= '<a href="javascript:;" class="restoreSupplier" title="Restore Data" data-id="' . $row->id . '"><i class="fa-solid fa-undo text-success"></i></a> | ';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreSupplier" title="Restore Supplier" data-id="' . $row->id . '"><i class="fa-solid fa-undo"></i></button>';
                 }
-                $action .= '<a href="javascript:;" class="deleteSupplier" name="Delete Data" data-id="' . $row->id . '"><i class="fa fa-trash text-danger"></i></a>';
+                $action .= '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deleteSupplier" title="Delete Supplier" data-id="' . $row->id . '"><i class="fa fa-trash"></i></button>';
+                $action .= '</div>';
                 $array[$i]["action"] = $action;
                 $i++;
             }

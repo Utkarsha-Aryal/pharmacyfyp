@@ -21,49 +21,17 @@
 </head>
 <body class="login-page">
   <div class="login-shell">
-    <aside class="login-visual">
-      <div class="login-visual-top">
-        <div class="login-brand">
-          <img src="{{ app_logo_url() }}" alt="App Logo">
-          <div>
-            <span class="login-brand-label">Pharmacy Admin Panel</span>
-            <h1>{{ setting('app_name', 'Pharmacy Management System') }}</h1>
-          </div>
-        </div>
-        <p class="login-visual-text">
-          Manage stock, purchase bills, expiry alerts, staff access, and settings from one clean dashboard.
-        </p>
-      </div>
-
-      <div class="login-feature-grid">
-        <div class="login-feature-card">
-          <i class="fa-solid fa-boxes-stacked"></i>
-          <strong>Batch Tracking</strong>
-          <span>Batch no, expiry date, and supplier link kept together.</span>
-        </div>
-        <div class="login-feature-card">
-          <i class="fa-solid fa-file-invoice-dollar"></i>
-          <strong>Purchase Entry</strong>
-          <span>Receive stock and update totals from one workflow.</span>
-        </div>
-        <div class="login-feature-card">
-          <i class="fa-solid fa-chart-column"></i>
-          <strong>Reports & Alerts</strong>
-          <span>Low stock, expiry, and purchase overview with quick export.</span>
-        </div>
-      </div>
-
-      <div class="login-visual-illustration">
-        <img src="{{ asset('assets/img/login/pharmacy-login-visual.svg') }}" alt="Pharmacy Illustration">
-      </div>
-    </aside>
-
     <main class="login-panel">
       <div class="login-card">
-        <div class="login-card-head">
-          <span class="login-kicker">Secure Access</span>
+        <div class="login-card-head login-card-head-compact">
+          <div class="login-brand login-brand-compact">
+            <img src="{{ app_logo_url() }}" alt="App Logo">
+            <div>
+              <span class="login-brand-label">Pharmacy Admin Panel</span>
+              <h1>{{ setting('app_name', 'Pharmacy Management System') }}</h1>
+            </div>
+          </div>
           <h2>Sign in to continue</h2>
-          <p class="login-text">Only admin and staff accounts can access the backend.</p>
         </div>
 
         @if (session('success'))
@@ -119,7 +87,7 @@
           <button type="button" class="demo-fill-btn" data-fill-email="admin@pharmacy.com" data-fill-password="admin12345">
             <span>
               <strong>Admin Login</strong>
-              <small>admin@pharmacy.com / admin12345</small>
+              <small>admin@email.com / password</small>
             </span>
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
           </button>
@@ -127,7 +95,7 @@
           <button type="button" class="demo-fill-btn" data-fill-email="staff@pharmacy.com" data-fill-password="staff12345">
             <span>
               <strong>Staff Login</strong>
-              <small>staff@pharmacy.com / staff12345</small>
+              <small>staff@email.com / password</small>
             </span>
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
           </button>

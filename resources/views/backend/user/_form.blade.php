@@ -33,6 +33,16 @@
     </div>
 
     <div class="col-md-6">
+        <label class="form-label">Status</label>
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" role="switch" name="is_active" value="1" id="userActiveSwitch"
+                @checked(old('is_active', $editUser->is_active ?? true))>
+            <label class="form-check-label" for="userActiveSwitch">Active account</label>
+        </div>
+        <small class="text-muted d-block mt-2">Turn this off if the staff should not login for now.</small>
+    </div>
+
+    <div class="col-md-6">
         <label class="form-label">
             Password
             @if (!isset($editUser))

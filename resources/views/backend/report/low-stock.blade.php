@@ -54,14 +54,15 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered">
+                    <table class="table table-bordered js-datatable" data-page-length="10">
                         <thead>
                             <tr>
                                 <th>S.No</th>
                                 <th>Product</th>
                                 <th>Category</th>
-                                <th>Alert Qty</th>
+                                <th>Reorder Level</th>
                                 <th>Current Stock</th>
+                                <th>Deficit</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -71,8 +72,9 @@
                                     <td>{{ $index + 1 }}</td>
                                     <td>{{ $item->product_name }}</td>
                                     <td>{{ $item->category_name ?? '-' }}</td>
-                                    <td>{{ $item->alert_quantity }}</td>
+                                    <td>{{ $item->reorder_level }}</td>
                                     <td>{{ $item->current_stock }}</td>
+                                    <td>{{ max(0, (int) $item->reorder_level - (int) $item->current_stock) }}</td>
                                     <td>
                                         <span class="report-badge {{ $item->current_stock == 0 ? 'report-badge-danger' : 'report-badge-warning' }}">
                                             {{ $item->current_stock == 0 ? 'Out of Stock' : 'Low Stock' }}
@@ -81,7 +83,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted py-4">No low stock item right now.</td>
+                                    <td colspan="7" class="text-center text-muted py-4">No low stock item right now.</td>
                                 </tr>
                             @endforelse
                         </tbody>

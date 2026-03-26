@@ -10,10 +10,11 @@ class AdminUserSeeder extends Seeder
     public function run(): void
     {
         $user = User::updateOrCreate(
-            ['email' => 'admin@pharmacy.com'],
+            ['email' => 'admin@email.com'],
             [
                 'name' => 'Admin User',
-                'password' => 'admin12345',
+                'password' => 'password',
+                'is_active' => true,
             ]
         );
 

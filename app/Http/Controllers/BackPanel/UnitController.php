@@ -58,13 +58,14 @@ class UnitController extends Controller
                 $array[$i]["description"] = $row->description;
                 $array[$i]["status"] = $row->status;
                 $array[$i]["added_date"] = Carbon::parse($row->created_at)->format('Y-m-d');
-                $action = '';
+                $action = '<div class="table-action-group">';
                 if (!empty($post['type']) && $post['type'] != 'trashed') {
-                    $action .= '<a href="javascript:;" class="editUnit" name="Edit Data" data-id="' . $row->id . '" data-unit_name="' . $row->unit_name . '" data-description="' . $row->description . '" data-status="' . $row->status . '"><i class="fa-solid fa-pen-to-square text-primary"></i></a> | ';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editUnit" title="Edit Unit" data-id="' . $row->id . '" data-unit_name="' . $row->unit_name . '" data-description="' . $row->description . '" data-status="' . $row->status . '"><i class="fa-solid fa-pen-to-square"></i></button>';
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
-                    $action .= '<a href="javascript:;" class="restoreUnit" title="Restore Data" data-id="' . $row->id . '"><i class="fa-solid fa-undo text-success"></i></a> | ';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreUnit" title="Restore Unit" data-id="' . $row->id . '"><i class="fa-solid fa-undo"></i></button>';
                 }
-                $action .= '<a href="javascript:;" class="deleteUnit" name="Delete Data" data-id="' . $row->id . '"><i class="fa fa-trash text-danger"></i></a>';
+                $action .= '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deleteUnit" title="Delete Unit" data-id="' . $row->id . '"><i class="fa fa-trash"></i></button>';
+                $action .= '</div>';
                 $array[$i]["action"] = $action;
                 $i++;
             }

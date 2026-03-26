@@ -19,10 +19,17 @@ class RolePermissionSeeder extends Seeder
             'inventory.unit',
             'inventory.product',
             'inventory.batch',
+            'inventory.view',
+            'inventory.adjustment',
             'purchase.supplier',
             'purchase.entry',
+            'purchase.orders',
+            'purchase.receive',
+            'purchase.payment',
             'report.low_stock',
             'report.expiry',
+            'report.purchases',
+            'report.suppliers',
             'user.manage',
             'role.manage',
             'settings.manage',
@@ -38,14 +45,24 @@ class RolePermissionSeeder extends Seeder
         $adminRole->syncPermissions($permissions);
         $staffRole->syncPermissions([
             'dashboard.view',
-            'inventory.category',
-            'inventory.unit',
+            'inventory.view',
             'inventory.product',
             'inventory.batch',
-            'purchase.supplier',
-            'purchase.entry',
+            'inventory.adjustment',
             'report.low_stock',
             'report.expiry',
+        ]);
+
+        $procurementRole = Role::findOrCreate('procurement', 'web');
+        $procurementRole->syncPermissions([
+            'dashboard.view',
+            'purchase.orders',
+            'purchase.receive',
+            'purchase.payment',
+            'report.low_stock',
+            'report.expiry',
+            'report.purchases',
+            'report.suppliers',
         ]);
     }
 }

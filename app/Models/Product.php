@@ -12,6 +12,8 @@ use Carbon\Carbon;
 
 class Product extends Model
 {
+    protected $guarded = [];
+
     public function category()
     {
         return $this->belongsTo(Category::class, 'category_id');
@@ -22,10 +24,35 @@ class Product extends Model
         return $this->hasMany(ProductBatch::class, 'product_id');
     }
 
+    public function batches()
+    {
+        return $this->hasMany(Batch::class, 'product_id');
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        return (string) ($this->name ?: $this->product_name ?: 'Untitled product');
+    }
+
+    public function getEffectiveReorderLevelAttribute(): int
+    {
+        if (!is_null($this->reorder_level)) {
+            return (int) $this->reorder_level;
+        }
+
+        return (int) ($this->alert_quantity ?? 10);
+    }
+
+    public function getEffectiveUnitAttribute(): string
+    {
+        return (string) ($this->unit ?? 'Unit');
+    }
+
     public static function saveData($post)
     {
         try {
             $dataArray = [
+                'name' => $post['product_name'],
                 'product_name' => $post['product_name'],
                 'generic_name' => $post['generic_name'],
                 'composition' => $post['composition'],
@@ -36,6 +63,11 @@ class Product extends Model
                 'previous_price' => $post['previous_price'],
                 'mrp'=>$post['mrp'],
                 'category_id' => $post['category_id'],
+                'formulation' => $post['formulation'] ?? 'other',
+                'unit' => $post['unit_name'] ?? $post['unit'] ?? null,
+                'reorder_level' => $post['reorder_level'] ?? $post['alert_quantity'] ?? 10,
+                'alert_quantity' => $post['reorder_level'] ?? $post['alert_quantity'] ?? 10,
+                'is_active' => array_key_exists('is_active', $post) ? (bool) $post['is_active'] : true,
                 'sale_unit_id'=>$post['unit_sale_id'],
                 'purchase_unit_id'=>$post['unit_purchase_id'],
                 'product_status' => $post['product_status'] ?? 'stockout',
@@ -97,6 +129,10 @@ class Product extends Model
             if ($get['columns'][1]['search']['value'])
                 $cond .= " and lower(product_name) like '%" . $get['columns'][1]['search']['value'] . "%'";
 
+            if (!empty($post['category_id'])) {
+                $cond .= " and category_id = '" . addslashes($post['category_id']) . "'";
+            }
+
             $limit = 15;
             $offset = 0;
             if (!empty($get["length"]) && $get["length"]) {
@@ -109,9 +145,12 @@ class Product extends Model
                 'productBatches' => function ($batchQuery) {
                     $batchQuery->where('status', 'Y');
                 },
+                'batches' => function ($batchQuery) {
+                    $batchQuery->where('is_active', true);
+                },
             ])
                 ->selectRaw("(SELECT COUNT(*) FROM products WHERE {$cond}) 
-               AS totalrecs, id, product_name, description,mrp,discount,slug, image, category_id,keywords,order_number,generic_name,display_price,manufacturer")->whereRaw($cond);
+               AS totalrecs, id, name, product_name, description,mrp,discount,slug, image, category_id,keywords,order_number,generic_name,display_price,manufacturer,formulation,unit,reorder_level,is_active")->whereRaw($cond);
             if ($limit > -1) {
                 $result = $query->orderByRaw($orderby)->offset($offset)->limit($limit)->get();
             } else {

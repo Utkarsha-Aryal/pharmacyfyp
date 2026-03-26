@@ -24,7 +24,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle">
+                    <table class="table table-bordered align-middle js-datatable" data-page-length="10">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -64,9 +64,9 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="d-flex gap-2">
-                                            <a href="{{ route('admin.role-permission.edit', $role) }}" class="btn btn-sm btn-outline-primary">
-                                                Edit
+                                        <div class="table-action-group">
+                                            <a href="{{ route('admin.role-permission.edit', $role) }}" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit Role" aria-label="Edit Role">
+                                                <i class="fa-solid fa-pen-to-square"></i>
                                             </a>
                                             @if ($role->name !== 'admin')
                                                 <form action="{{ route('admin.role-permission.delete', $role) }}" method="POST"
@@ -75,7 +75,9 @@
                                                     data-confirm-text="Users must be moved out of this role before deletion."
                                                     data-confirm-button="Yes, delete role">
                                                     @csrf
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Role" aria-label="Delete Role">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
                                                 </form>
                                             @endif
                                         </div>

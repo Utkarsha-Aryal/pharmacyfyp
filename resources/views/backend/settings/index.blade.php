@@ -54,6 +54,14 @@
                                     <label class="form-label">Notification Email</label>
                                     <input type="email" name="notification_email" class="form-control" value="{{ old('notification_email', $settings['notification_email']) }}" placeholder="Send alerts to this email if needed">
                                 </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Currency Symbol</label>
+                                    <input type="text" name="currency_symbol" class="form-control" value="{{ old('currency_symbol', $settings['currency_symbol']) }}" placeholder="NPR">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Low Stock Threshold</label>
+                                    <input type="number" name="low_stock_threshold" class="form-control" min="1" value="{{ old('low_stock_threshold', $settings['low_stock_threshold']) }}" placeholder="10">
+                                </div>
                             </div>
                         </div>
 

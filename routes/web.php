@@ -3,13 +3,16 @@
 use App\Http\Controllers\BackPanel\CategoryController;
 use App\Http\Controllers\BackPanel\DashboardController;
 use App\Http\Controllers\BackPanel\ExportController;
+use App\Http\Controllers\BackPanel\InventoryBatchController;
 use App\Http\Controllers\BackPanel\ProductBatchesController;
 use App\Http\Controllers\BackPanel\ProductController;
 use App\Http\Controllers\BackPanel\ProfileController;
+use App\Http\Controllers\BackPanel\PurchaseOrderController;
 use App\Http\Controllers\BackPanel\PurchaseController;
 use App\Http\Controllers\BackPanel\ReportController;
 use App\Http\Controllers\BackPanel\RolePermissionController;
 use App\Http\Controllers\BackPanel\SettingsController;
+use App\Http\Controllers\BackPanel\StockAdjustmentController;
 use App\Http\Controllers\BackPanel\SupplierController;
 use App\Http\Controllers\BackPanel\UnitController;
 use App\Http\Controllers\BackPanel\UserManagementController;
@@ -57,6 +60,18 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/restore', [ProductController::class, 'restore'])->name('product.restore');
     });
 
+    Route::prefix('inventory')->name('inventory.')->group(function () {
+        Route::get('/products', [ProductController::class, 'inventoryIndex'])->middleware('permission:inventory.product')->name('products.index');
+        Route::post('/products/list', [ProductController::class, 'list'])->middleware('permission:inventory.product')->name('products.list');
+
+        Route::get('/batches', [InventoryBatchController::class, 'index'])->middleware('permission:inventory.batch')->name('batches.index');
+        Route::post('/batches', [InventoryBatchController::class, 'store'])->middleware('permission:inventory.batch')->name('batches.store');
+        Route::post('/batches/{batch}/delete', [InventoryBatchController::class, 'destroy'])->middleware('permission:inventory.batch')->name('batches.delete');
+
+        Route::get('/adjustments', [StockAdjustmentController::class, 'index'])->middleware('permission:inventory.adjustment')->name('adjustments.index');
+        Route::post('/adjustments', [StockAdjustmentController::class, 'store'])->middleware('permission:inventory.adjustment')->name('adjustments.store');
+    });
+
     Route::group(['prefix' => 'batch', 'middleware' => 'permission:inventory.batch'], function () {
         Route::get('/{slug}', [ProductBatchesController::class, 'index'])->name('batch');
         Route::post('/list', [ProductBatchesController::class, 'list'])->name('batch.list');
@@ -88,9 +103,24 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/save', [PurchaseController::class, 'save'])->name('purchase.save');
     });
 
+    Route::prefix('purchase/orders')->name('purchase-orders.')->middleware('permission:purchase.orders')->group(function () {
+        Route::get('/', [PurchaseOrderController::class, 'index'])->name('index');
+        Route::get('/create', [PurchaseOrderController::class, 'create'])->name('create');
+        Route::post('/store', [PurchaseOrderController::class, 'store'])->name('store');
+        Route::get('/supplier-options', [PurchaseOrderController::class, 'supplierOptions'])->name('supplier-options');
+        Route::get('/product-options', [PurchaseOrderController::class, 'productOptions'])->name('product-options');
+        Route::get('/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('show');
+        Route::post('/{purchaseOrder}/approve', [PurchaseOrderController::class, 'approve'])->middleware('permission:purchase.orders')->name('approve');
+        Route::get('/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->middleware('permission:purchase.receive')->name('receive');
+        Route::post('/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receiveStore'])->middleware('permission:purchase.receive')->name('receive.store');
+        Route::post('/{purchaseOrder}/payment', [PurchaseOrderController::class, 'updatePayment'])->middleware('permission:purchase.payment')->name('payment');
+    });
+
     Route::group(['prefix' => 'report'], function () {
         Route::get('/low-stock', [ReportController::class, 'lowStock'])->middleware('permission:report.low_stock')->name('report.lowstock');
         Route::get('/expiry-alert', [ReportController::class, 'expiryAlert'])->middleware('permission:report.expiry')->name('report.expiry');
+        Route::get('/purchases', [ReportController::class, 'purchaseHistory'])->middleware('permission:report.purchases')->name('report.purchases');
+        Route::get('/supplier-performance', [ReportController::class, 'supplierPerformance'])->middleware('permission:report.suppliers')->name('report.suppliers');
     });
 
     Route::middleware(['role:admin'])->group(function () {
@@ -101,6 +131,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::get('/{user}/edit', [UserManagementController::class, 'edit'])->name('edit');
             Route::post('/{user}/update', [UserManagementController::class, 'update'])->name('update');
             Route::post('/{user}/delete', [UserManagementController::class, 'delete'])->name('delete');
+            Route::post('/{user}/toggle-active', [UserManagementController::class, 'toggleActive'])->name('toggle-active');
         });
 
         Route::prefix('role-permission')->name('role-permission.')->middleware('permission:role.manage')->group(function () {
@@ -124,6 +155,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::get('/product', [ExportController::class, 'products'])->name('product');
             Route::get('/purchase', [ExportController::class, 'purchases'])->name('purchase');
             Route::get('/purchase-supplier-summary', [ExportController::class, 'purchaseSupplierSummary'])->name('purchase-supplier-summary');
+            Route::get('/purchase-orders', [ExportController::class, 'purchaseOrders'])->name('purchase-orders');
+            Route::get('/purchase-history', [ExportController::class, 'purchaseHistory'])->name('purchase-history');
+            Route::get('/supplier-performance', [ExportController::class, 'supplierPerformance'])->name('supplier-performance');
+            Route::get('/inventory-products', [ExportController::class, 'inventoryProducts'])->name('inventory-products');
+            Route::get('/inventory-batches', [ExportController::class, 'inventoryBatches'])->name('inventory-batches');
             Route::get('/user', [ExportController::class, 'users'])->name('user');
             Route::get('/low-stock', [ExportController::class, 'lowStock'])->name('low-stock');
             Route::get('/expiry-alert', [ExportController::class, 'expiryAlert'])->name('expiry-alert');

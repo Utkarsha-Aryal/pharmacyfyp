@@ -27,15 +27,16 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle">
+                    <table class="table table-bordered align-middle js-datatable" data-page-length="10">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Role</th>
+                                <th>Status</th>
                                 <th>Created</th>
-                                <th style="width: 170px;">Action</th>
+                                <th style="width: 260px;">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -52,12 +53,25 @@
                                             {{ ucfirst($userRole) }}
                                         </span>
                                     </td>
+                                    <td>
+                                        <span class="report-badge {{ $listUser->is_active ? 'report-badge-success' : 'report-badge-danger' }}">
+                                            {{ $listUser->is_active ? 'Active' : 'Inactive' }}
+                                        </span>
+                                    </td>
                                     <td>{{ $listUser->created_at?->format('Y-m-d') }}</td>
                                     <td>
-                                        <div class="d-flex gap-2">
-                                            <a href="{{ route('admin.user.edit', $listUser) }}" class="btn btn-sm btn-outline-primary">
-                                                Edit
+                                        <div class="table-action-group">
+                                            <a href="{{ route('admin.user.edit', $listUser) }}" class="btn btn-sm btn-outline-primary table-action-btn" title="Edit User" aria-label="Edit User">
+                                                <i class="fa-solid fa-pen-to-square"></i>
                                             </a>
+                                            @if (auth()->id() !== $listUser->id)
+                                                <form action="{{ route('admin.user.toggle-active', $listUser) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-outline-{{ $listUser->is_active ? 'warning' : 'success' }} table-action-btn" title="{{ $listUser->is_active ? 'Deactivate User' : 'Activate User' }}" aria-label="{{ $listUser->is_active ? 'Deactivate User' : 'Activate User' }}">
+                                                        <i class="fa-solid fa-{{ $listUser->is_active ? 'toggle-on' : 'toggle-off' }}"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
                                             @if (auth()->id() !== $listUser->id)
                                                 <form action="{{ route('admin.user.delete', $listUser) }}" method="POST"
                                                     class="js-confirm-submit"
@@ -65,7 +79,9 @@
                                                     data-confirm-text="This account will be removed from the system."
                                                     data-confirm-button="Yes, delete user">
                                                     @csrf
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete User" aria-label="Delete User">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
                                                 </form>
                                             @endif
                                         </div>
@@ -73,7 +89,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">No users added yet.</td>
+                                    <td colspan="7" class="text-center text-muted">No users added yet.</td>
                                 </tr>
                             @endforelse
                         </tbody>

@@ -1,8 +1,8 @@
 @php
     $imgPath = app_logo_url();
     $isDashboard = request()->routeIs('admin.dashboard');
-    $isInventoryMenu = request()->routeIs('admin.category*') || request()->routeIs('admin.unit*') || request()->routeIs('admin.product*') || request()->routeIs('admin.batch*');
-    $isPurchaseMenu = request()->routeIs('admin.supplier*') || request()->routeIs('admin.purchase*');
+    $isInventoryMenu = request()->routeIs('admin.category*') || request()->routeIs('admin.unit*') || request()->routeIs('admin.product*') || request()->routeIs('admin.batch*') || request()->routeIs('admin.inventory.*');
+    $isPurchaseMenu = request()->routeIs('admin.supplier*') || request()->routeIs('admin.purchase*') || request()->routeIs('admin.purchase-orders.*');
     $isReportMenu = request()->routeIs('admin.report.*');
     $isUsersMenu = request()->routeIs('admin.user.*');
     $isRoleMenu = request()->routeIs('admin.role-permission.*');
@@ -64,8 +64,19 @@
                                 </li>
                             @endcan
                             @can('inventory.product')
-                                <li class="slide {{ request()->routeIs('admin.product*') || request()->routeIs('admin.batch*') ? 'active' : '' }}">
+                                <li class="slide {{ request()->routeIs('admin.product*') || request()->routeIs('admin.batch*') || request()->routeIs('admin.inventory.products*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.product') }}" class="side-menu__item">Product Master</a>
+                                </li>
+                            @endcan
+                            @can('inventory.view')
+                                <li class="slide {{ request()->routeIs('admin.inventory.products*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.inventory.products.index') }}" class="side-menu__item">Products</a>
+                                </li>
+                                <li class="slide {{ request()->routeIs('admin.inventory.batches*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.inventory.batches.index') }}" class="side-menu__item">Batches</a>
+                                </li>
+                                <li class="slide {{ request()->routeIs('admin.inventory.adjustments*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.inventory.adjustments.index') }}" class="side-menu__item">Stock Adjustment</a>
                                 </li>
                             @endcan
                         </ul>
@@ -95,6 +106,11 @@
                                     <a href="{{ route('admin.purchase') }}" class="side-menu__item">Purchase Entry</a>
                                 </li>
                             @endcan
+                            @can('purchase.orders')
+                                <li class="slide {{ request()->routeIs('admin.purchase-orders.*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.purchase-orders.index') }}" class="side-menu__item">Purchase Orders</a>
+                                </li>
+                            @endcan
                         </ul>
                     </li>
                 @endif
@@ -120,6 +136,16 @@
                             @can('report.expiry')
                                 <li class="slide {{ request()->routeIs('admin.report.expiry') ? 'active' : '' }}">
                                     <a href="{{ route('admin.report.expiry') }}" class="side-menu__item">Expiry Alert</a>
+                                </li>
+                            @endcan
+                            @can('report.purchases')
+                                <li class="slide {{ request()->routeIs('admin.report.purchases') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.report.purchases') }}" class="side-menu__item">Purchase History</a>
+                                </li>
+                            @endcan
+                            @can('report.suppliers')
+                                <li class="slide {{ request()->routeIs('admin.report.suppliers') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.report.suppliers') }}" class="side-menu__item">Supplier Performance</a>
                                 </li>
                             @endcan
                         </ul>

@@ -1,6 +1,7 @@
 @php
     $currentUser = auth()->user();
     $notifications = admin_notifications();
+    $notificationCount = count($notifications);
     $currentRole = $currentUser?->getRoleNames()->first();
     $visibleNotifications = collect($notifications)->take(5);
     $moreNotifications = collect($notifications)->slice(5);
@@ -32,29 +33,42 @@
         <div class="d-flex align-items-center gap-3">
             <div class="header-element dropdown">
                 <a href="javascript:void(0);" class="header-link position-relative" id="mainHeaderNotification"
-                    data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                    data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                    data-notification-user="{{ $currentUser?->id ?? 'guest' }}">
                     <i class="fe fe-bell fs-18"></i>
-                    @if (admin_notification_count() > 0)
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                            {{ admin_notification_count() }}
+                    @if ($notificationCount > 0)
+                        <span id="headerNotificationCount"
+                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            {{ $notificationCount }}
                         </span>
                     @endif
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end p-0 header-notification-dropdown" aria-labelledby="mainHeaderNotification">
                     <li class="dropdown-header border-bottom py-2 px-3">
-                        <div class="d-flex justify-content-between align-items-center gap-2">
-                            <strong>Notifications</strong>
-                            <span class="badge bg-light text-dark">{{ admin_notification_count() }}</span>
+                        <div class="d-flex justify-content-between align-items-center gap-2 w-100">
+                            <div>
+                                <strong>Notifications</strong>
+                                <span class="notification-summary-line text-muted" id="notificationStateLabel">
+                                    {{ $notificationCount > 0 ? $notificationCount . ' alerts' : 'All caught up' }}
+                                </span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary notification-mark-all-btn"
+                                id="notificationMarkAllRead" @disabled($notificationCount === 0)>
+                                Mark all read
+                            </button>
                         </div>
                     </li>
                     <li>
                         <div class="header-notification-scroll" id="header-notification-scroll" data-native-scroll="true">
                             @forelse ($visibleNotifications as $notification)
-                                <a href="{{ $notification['url'] }}" class="dropdown-item py-3 notification-item-card">
-                                    <div class="d-flex justify-content-between align-items-start gap-3">
-                                        <div>
-                                            <div class="fw-semibold">{{ $notification['title'] }}</div>
-                                            <div class="text-muted small">{{ $notification['message'] }}</div>
+                                <a href="{{ $notification['url'] }}"
+                                    class="dropdown-item py-3 notification-item-card is-unread"
+                                    data-notification-id="{{ $notification['id'] }}">
+                                    <span class="notification-item-dot" aria-hidden="true"></span>
+                                    <div class="d-flex justify-content-between align-items-start gap-3 flex-grow-1">
+                                        <div class="notification-item-content">
+                                            <div class="fw-semibold notification-item-title">{{ $notification['title'] }}</div>
+                                            <div class="text-muted small notification-item-meta">{{ $notification['message'] }}</div>
                                         </div>
                                         <span class="badge bg-{{ $notification['color'] }}">{{ ucfirst($notification['color']) }}</span>
                                     </div>
@@ -64,11 +78,14 @@
                             @endforelse
 
                             @foreach ($moreNotifications as $notification)
-                                <a href="{{ $notification['url'] }}" class="dropdown-item py-3 notification-item-card notification-more d-none">
-                                    <div class="d-flex justify-content-between align-items-start gap-3">
-                                        <div>
-                                            <div class="fw-semibold">{{ $notification['title'] }}</div>
-                                            <div class="text-muted small">{{ $notification['message'] }}</div>
+                                <a href="{{ $notification['url'] }}"
+                                    class="dropdown-item py-3 notification-item-card notification-more is-unread d-none"
+                                    data-notification-id="{{ $notification['id'] }}">
+                                    <span class="notification-item-dot" aria-hidden="true"></span>
+                                    <div class="d-flex justify-content-between align-items-start gap-3 flex-grow-1">
+                                        <div class="notification-item-content">
+                                            <div class="fw-semibold notification-item-title">{{ $notification['title'] }}</div>
+                                            <div class="text-muted small notification-item-meta">{{ $notification['message'] }}</div>
                                         </div>
                                         <span class="badge bg-{{ $notification['color'] }}">{{ ucfirst($notification['color']) }}</span>
                                     </div>
