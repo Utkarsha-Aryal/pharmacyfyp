@@ -62,6 +62,11 @@
                                     <label class="form-label">Low Stock Threshold</label>
                                     <input type="number" name="low_stock_threshold" class="form-control" min="1" value="{{ old('low_stock_threshold', $settings['low_stock_threshold']) }}" placeholder="10">
                                 </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Default Tax Rate (%)</label>
+                                    <input type="number" step="0.01" min="0" max="100" name="tax_rate" class="form-control" value="{{ old('tax_rate', $settings['tax_rate']) }}" placeholder="13">
+                                    <small class="text-muted">This default tax goes into new billing rows automatically.</small>
+                                </div>
                             </div>
                         </div>
 

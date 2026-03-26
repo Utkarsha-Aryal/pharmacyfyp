@@ -22,6 +22,9 @@
         'admin.purchase.*',
         'admin.purchase-orders.*'
     );
+    $isPartyMenu = request()->routeIs('admin.customers.*');
+    $isSalesMenu = request()->routeIs('admin.sales.*');
+    $isFinanceMenu = request()->routeIs('admin.finance.*', 'admin.expenses.*');
     $isReportMenu = request()->routeIs('admin.report.*');
     $isUsersMenu = request()->routeIs('admin.user.*');
     $isRoleMenu = request()->routeIs('admin.role-permission.*');
@@ -128,6 +131,78 @@
                             @can('purchase.orders')
                                 <li class="slide {{ request()->routeIs('admin.purchase-orders.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.purchase-orders.index') }}" class="side-menu__item">Purchase Orders</a>
+                                </li>
+                            @endcan
+                        </ul>
+                    </li>
+                @endif
+
+                @if (auth()->user()->can('party.manage'))
+                    <li class="slide {{ $isPartyMenu ? 'active' : '' }}">
+                        <a href="{{ route('admin.customers.index') }}" class="side-menu__item">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 0a5 5 0 0 0-5 5c0 1.934 1.09 3.62 2.69 4.47C2.36 10.26 0 12.58 0 15h1c0-2.76 3.13-5 7-5s7 2.24 7 5h1c0-2.42-2.36-4.74-5.69-5.53A5 5 0 0 0 8 0m0 1a4 4 0 1 1 0 8 4 4 0 0 1 0-8" />
+                            </svg>
+                            <span class="side-menu__label">Party Management</span>
+                        </a>
+                    </li>
+                @endif
+
+                @if (auth()->user()->can('sales.invoice'))
+                    <li class="slide {{ $isSalesMenu ? 'active' : '' }}">
+                        <a href="{{ route('admin.sales.index') }}" class="side-menu__item">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2 2h12v12H2z" opacity=".2"></path>
+                                <path d="M1 1h14v14H1zm1 1v12h12V2z"></path>
+                                <path d="M4 4h8v1H4zm0 3h8v1H4zm0 3h5v1H4z"></path>
+                            </svg>
+                            <span class="side-menu__label">Sales / POS</span>
+                        </a>
+                    </li>
+                @endif
+
+                @if (auth()->user()->can('expense.manage') || auth()->user()->can('accounting.ledger') || auth()->user()->can('accounting.trial_balance') || auth()->user()->can('accounting.cash_book') || auth()->user()->can('accounting.bank_book') || auth()->user()->can('accounting.gst_report'))
+                    <li class="slide has-sub {{ $isFinanceMenu ? 'open active' : '' }}">
+                        <a href="javascript:void(0);" class="side-menu__item">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M0 0h1v15h15v1H0z"></path>
+                                <path d="M3 11h10v1H3zm0-3h7v1H3zm0-3h10v1H3z"></path>
+                            </svg>
+                            <span class="side-menu__label">Accounting &amp; Finance</span>
+                            <i class="fe fe-chevron-right side-menu__angle"></i>
+                        </a>
+                        <ul class="slide-menu child1">
+                            <li class="slide side-menu__label1">
+                                <a href="javascript:void(0);">Accounting</a>
+                            </li>
+                            @can('accounting.ledger')
+                                <li class="slide {{ request()->routeIs('admin.finance.ledger') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.finance.ledger') }}" class="side-menu__item">Ledger</a>
+                                </li>
+                            @endcan
+                            @can('accounting.trial_balance')
+                                <li class="slide {{ request()->routeIs('admin.finance.trial-balance') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.finance.trial-balance') }}" class="side-menu__item">Trial Balance</a>
+                                </li>
+                            @endcan
+                            @can('accounting.cash_book')
+                                <li class="slide {{ request()->routeIs('admin.finance.cash-book') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.finance.cash-book') }}" class="side-menu__item">Cash Book</a>
+                                </li>
+                            @endcan
+                            @can('accounting.bank_book')
+                                <li class="slide {{ request()->routeIs('admin.finance.bank-book') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.finance.bank-book') }}" class="side-menu__item">Bank Book</a>
+                                </li>
+                            @endcan
+                            @can('accounting.gst_report')
+                                <li class="slide {{ request()->routeIs('admin.finance.gst-report') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.finance.gst-report') }}" class="side-menu__item">GST Report</a>
+                                </li>
+                            @endcan
+                            @can('expense.manage')
+                                <li class="slide {{ request()->routeIs('admin.expenses.*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.expenses.index') }}" class="side-menu__item">Expenses</a>
                                 </li>
                             @endcan
                         </ul>

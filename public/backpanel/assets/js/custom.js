@@ -705,6 +705,205 @@
     updatePurchaseRowNumbers();
   }
 
+  function updateSalesRow(row) {
+    var qty = parseFloat($(row).find(".sales-qty-input").val()) || 0;
+    var price = parseFloat($(row).find(".sales-price-input").val()) || 0;
+    var discountPercent = parseFloat($(row).find(".sales-discount-input").val()) || 0;
+    var taxPercent = parseFloat($(row).find(".sales-tax-input").val()) || 0;
+    var baseAmount = qty * price;
+    var discountAmount = baseAmount * discountPercent / 100;
+    var taxableAmount = baseAmount - discountAmount;
+    var taxAmount = taxableAmount * taxPercent / 100;
+    var subtotal = taxableAmount + taxAmount;
+
+    $(row).find(".sales-subtotal-input").val(subtotal.toFixed(2));
+  }
+
+  function updateSalesTotal() {
+    var total = 0;
+
+    $("#salesItemsTable .sales-subtotal-input").each(function () {
+      total += parseFloat($(this).val()) || 0;
+    });
+
+    $("#salesGrandTotal").val(total.toFixed(2));
+  }
+
+  function updateSalesRowNumbers() {
+    $("#salesItemsTable tbody tr").each(function (index) {
+      var rowNumberCell = $(this).find(".sales-row-number");
+
+      if (rowNumberCell.length) {
+        rowNumberCell.text(index + 1);
+      }
+    });
+  }
+
+  function refreshSalesProductInfo(selectElement) {
+    var $select = $(selectElement);
+    var productId = $select.val();
+    var infoUrl = $select.data("productInfoUrl");
+    var $row = $select.closest("tr");
+
+    if (!productId || !infoUrl) {
+      return;
+    }
+
+    $.get(infoUrl, { product_id: productId }, function (response) {
+      if (!response) {
+        return;
+      }
+
+      if (response.price !== undefined) {
+        $row.find(".sales-price-input").val(parseFloat(response.price || 0).toFixed(2));
+      }
+
+      var stockText = response.name ? response.name + " stock: " + (response.stock || 0) : "Select product to auto fill price and stock.";
+      $row.find(".sales-stock-note").text(stockText);
+
+      updateSalesRow($row);
+      updateSalesTotal();
+    });
+  }
+
+  function initSalesInvoiceForm() {
+    var form = byId("salesForm");
+    var tableBody = document.querySelector("#salesItemsTable tbody");
+    var template = byId("salesItemTemplate");
+
+    if (!form || !tableBody || !template || !window.jQuery || form.dataset.salesReady === "true") {
+      return;
+    }
+
+    updateSalesRow($("#salesItemsTable tbody tr").first());
+    updateSalesTotal();
+
+    $(document).off("click.sales", "#addSalesRow");
+    $(document).on("click.sales", "#addSalesRow", function () {
+      var nextIndex = parseInt(tableBody.dataset.nextIndex || "1", 10);
+      var html = template.innerHTML
+        .replace(/__INDEX__/g, nextIndex)
+        .replace(/__ROW__/g, nextIndex + 1);
+
+      $(tableBody).append(html);
+      tableBody.dataset.nextIndex = String(nextIndex + 1);
+      initEnhancedSelects($(tableBody).find("tr:last"));
+      updateSalesRowNumbers();
+      updateSalesTotal();
+    });
+
+    $(document).off("click.sales", ".removeSalesRow");
+    $(document).on("click.sales", ".removeSalesRow", function () {
+      var row = $(this).closest("tr");
+
+      if ($("#salesItemsTable tbody tr").length === 1) {
+        row.find("input").val("");
+        row.find(".sales-qty-input").val(1);
+        row.find(".sales-price-input").val(0);
+        row.find(".sales-discount-input").val(0);
+        row.find(".sales-tax-input").val(0);
+        row.find(".sales-subtotal-input").val("0.00");
+        row.find("select").val("");
+      } else {
+        row.remove();
+      }
+
+      updateSalesRowNumbers();
+      updateSalesTotal();
+    });
+
+    $(document).off("input.sales change.sales", "#salesItemsTable .sales-qty-input, #salesItemsTable .sales-price-input, #salesItemsTable .sales-discount-input, #salesItemsTable .sales-tax-input");
+    $(document).on("input.sales change.sales", "#salesItemsTable .sales-qty-input, #salesItemsTable .sales-price-input, #salesItemsTable .sales-discount-input, #salesItemsTable .sales-tax-input", function () {
+      updateSalesRow($(this).closest("tr"));
+      updateSalesTotal();
+    });
+
+    $(document).off("change.sales", ".sales-product-select");
+    $(document).on("change.sales", ".sales-product-select", function () {
+      refreshSalesProductInfo(this);
+    });
+
+    $(form).off("submit.sales");
+    $(form).on("submit.sales", function (event) {
+      event.preventDefault();
+      showLoader();
+
+      if (typeof $(form).ajaxSubmit !== "function") {
+        form.submit();
+        return;
+      }
+
+      $(form).ajaxSubmit({
+        success: function (response) {
+          showNotification(response.message, response.type);
+          hideLoader();
+
+          if (response.type === "success" && response.redirect) {
+            window.setTimeout(function () {
+              window.location.href = response.redirect;
+            }, 700);
+          }
+        },
+        error: function (xhr) {
+          var response = xhr.responseJSON || {};
+          showNotification(response.message || "Could not save sales invoice.", "error");
+          hideLoader();
+        },
+      });
+    });
+
+    form.dataset.salesReady = "true";
+    updateSalesRowNumbers();
+  }
+
+  function initAjaxForms() {
+    if (!window.jQuery || !$.fn.ajaxSubmit) {
+      return;
+    }
+
+    $(document).off("submit.ajaxForm", ".js-ajax-form");
+    $(document).on("submit.ajaxForm", ".js-ajax-form", function (event) {
+      event.preventDefault();
+
+      var form = this;
+      var $form = $(form);
+      var reloadTableSelector = form.dataset.reloadTable || "";
+
+      showLoader();
+      $form.ajaxSubmit({
+        success: function (response) {
+          showNotification(response.message, response.type);
+          hideLoader();
+
+          if (response.type === "success") {
+            var modal = form.closest(".modal");
+            if (modal && window.bootstrap) {
+              var modalInstance = bootstrap.Modal.getInstance(modal);
+              if (modalInstance) {
+                modalInstance.hide();
+              }
+            }
+
+            if (reloadTableSelector && window.jQuery && $.fn.DataTable && $.fn.DataTable.isDataTable(reloadTableSelector)) {
+              $(reloadTableSelector).DataTable().draw(false);
+            }
+
+            if (response.redirect) {
+              window.setTimeout(function () {
+                window.location.href = response.redirect;
+              }, 700);
+            }
+          }
+        },
+        error: function (xhr) {
+          var response = xhr.responseJSON || {};
+          showNotification(response.message || "Something went wrong.", "error");
+          hideLoader();
+        },
+      });
+    });
+  }
+
   function submitFormSafely(form) {
     if (!form) {
       return;
@@ -757,6 +956,41 @@
     });
 
     window.__purchaseShortcutBound = true;
+  }
+
+  function initPrintActions() {
+    if (window.__printActionBound) {
+      return;
+    }
+
+    $(document).on("click.printArea", ".js-print-trigger", function (event) {
+      event.preventDefault();
+
+      var targetSelector = this.dataset.printTarget || "";
+      var printTarget = targetSelector ? document.querySelector(targetSelector) : null;
+
+      if (!printTarget) {
+        window.print();
+        return;
+      }
+
+      document.body.classList.add("print-target-active");
+      printTarget.classList.add("print-active-target");
+
+      var cleanup = function () {
+        document.body.classList.remove("print-target-active");
+        printTarget.classList.remove("print-active-target");
+      };
+
+      window.addEventListener("afterprint", cleanup, { once: true });
+
+      window.setTimeout(function () {
+        window.print();
+        window.setTimeout(cleanup, 400);
+      }, 80);
+    });
+
+    window.__printActionBound = true;
   }
 
   function initBatchHistoryTable() {
@@ -902,8 +1136,10 @@
     initRememberedTabs();
     initEnhancedSelects(document);
     initConfirmForms();
+    initAjaxForms();
     initDataTableTabAdjust();
     initStandardDataTables();
+    initPrintActions();
     initPurchaseShortcuts();
   });
 
@@ -912,6 +1148,7 @@
     initWaves();
     initPurchaseTable();
     initPurchaseForm();
+    initSalesInvoiceForm();
     initBatchHistoryTable();
     initDashboardCharts();
     updateNotificationTrayState();

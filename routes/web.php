@@ -2,13 +2,17 @@
 
 use App\Http\Controllers\BackPanel\CategoryController;
 use App\Http\Controllers\BackPanel\DashboardController;
+use App\Http\Controllers\BackPanel\CustomerController;
+use App\Http\Controllers\BackPanel\ExpenseController;
 use App\Http\Controllers\BackPanel\ExportController;
+use App\Http\Controllers\BackPanel\FinanceController;
 use App\Http\Controllers\BackPanel\InventoryBatchController;
 use App\Http\Controllers\BackPanel\ProductBatchesController;
 use App\Http\Controllers\BackPanel\ProductController;
 use App\Http\Controllers\BackPanel\ProfileController;
 use App\Http\Controllers\BackPanel\PurchaseOrderController;
 use App\Http\Controllers\BackPanel\PurchaseController;
+use App\Http\Controllers\BackPanel\SalesInvoiceController;
 use App\Http\Controllers\BackPanel\ReportController;
 use App\Http\Controllers\BackPanel\RolePermissionController;
 use App\Http\Controllers\BackPanel\SettingsController;
@@ -117,6 +121,44 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/{purchaseOrder}/payment', [PurchaseOrderController::class, 'updatePayment'])->middleware('permission:purchase.payment')->name('payment');
     });
 
+    Route::prefix('customers')->name('customers.')->middleware('permission:party.manage')->group(function () {
+        Route::get('/', [CustomerController::class, 'index'])->name('index');
+        Route::post('/list', [CustomerController::class, 'list'])->name('list');
+        Route::post('/save', [CustomerController::class, 'save'])->name('save');
+        Route::get('/options', [CustomerController::class, 'options'])->name('options');
+        Route::get('/{customer}/ledger', [CustomerController::class, 'ledger'])->name('ledger');
+        Route::post('/{customer}/toggle-active', [CustomerController::class, 'toggleActive'])->name('toggle-active');
+        Route::post('/{customer}/delete', [CustomerController::class, 'delete'])->name('delete');
+    });
+
+    Route::prefix('sales')->name('sales.')->middleware('permission:sales.invoice')->group(function () {
+        Route::get('/invoices', [SalesInvoiceController::class, 'index'])->name('index');
+        Route::post('/invoices/list', [SalesInvoiceController::class, 'list'])->name('list');
+        Route::get('/invoices/create', [SalesInvoiceController::class, 'create'])->name('create');
+        Route::post('/invoices/store', [SalesInvoiceController::class, 'store'])->name('store');
+        Route::get('/invoices/{salesInvoice}', [SalesInvoiceController::class, 'show'])->name('show');
+        Route::post('/invoices/{salesInvoice}/payment', [SalesInvoiceController::class, 'updatePayment'])->name('payment');
+        Route::post('/invoices/{salesInvoice}/returns', [SalesInvoiceController::class, 'returnStore'])->name('return.store');
+        Route::get('/customer-options', [SalesInvoiceController::class, 'customerOptions'])->name('customer-options');
+        Route::get('/product-options', [SalesInvoiceController::class, 'productOptions'])->name('product-options');
+        Route::get('/product-info', [SalesInvoiceController::class, 'productInfo'])->name('product-info');
+    });
+
+    Route::prefix('expenses')->name('expenses.')->middleware('permission:expense.manage')->group(function () {
+        Route::get('/', [ExpenseController::class, 'index'])->name('index');
+        Route::post('/list', [ExpenseController::class, 'list'])->name('list');
+        Route::post('/save', [ExpenseController::class, 'save'])->name('save');
+        Route::post('/{expense}/delete', [ExpenseController::class, 'delete'])->name('delete');
+    });
+
+    Route::prefix('finance')->name('finance.')->group(function () {
+        Route::get('/ledger', [FinanceController::class, 'ledger'])->middleware('permission:accounting.ledger')->name('ledger');
+        Route::get('/trial-balance', [FinanceController::class, 'trialBalance'])->middleware('permission:accounting.trial_balance')->name('trial-balance');
+        Route::get('/cash-book', [FinanceController::class, 'cashBook'])->middleware('permission:accounting.cash_book')->name('cash-book');
+        Route::get('/bank-book', [FinanceController::class, 'bankBook'])->middleware('permission:accounting.bank_book')->name('bank-book');
+        Route::get('/gst-report', [FinanceController::class, 'gstReport'])->middleware('permission:accounting.gst_report')->name('gst-report');
+    });
+
     Route::group(['prefix' => 'report'], function () {
         Route::get('/low-stock', [ReportController::class, 'lowStock'])->middleware('permission:report.low_stock')->name('report.lowstock');
         Route::get('/expiry-alert', [ReportController::class, 'expiryAlert'])->middleware('permission:report.expiry')->name('report.expiry');
@@ -156,6 +198,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::get('/unit', [ExportController::class, 'units'])->name('unit');
             Route::get('/supplier', [ExportController::class, 'suppliers'])->name('supplier');
             Route::get('/product', [ExportController::class, 'products'])->name('product');
+            Route::get('/customers', [ExportController::class, 'customers'])->name('customers');
+            Route::get('/sales-invoices', [ExportController::class, 'salesInvoices'])->name('sales-invoices');
+            Route::get('/expenses', [ExportController::class, 'expenses'])->name('expenses');
+            Route::get('/ledger', [ExportController::class, 'ledger'])->name('ledger');
+            Route::get('/trial-balance', [ExportController::class, 'trialBalance'])->name('trial-balance');
+            Route::get('/cash-book', [ExportController::class, 'cashBook'])->name('cash-book');
+            Route::get('/bank-book', [ExportController::class, 'bankBook'])->name('bank-book');
+            Route::get('/gst-report', [ExportController::class, 'gstReport'])->name('gst-report');
             Route::get('/purchase', [ExportController::class, 'purchases'])->name('purchase');
             Route::get('/purchase-supplier-summary', [ExportController::class, 'purchaseSupplierSummary'])->name('purchase-supplier-summary');
             Route::get('/purchase-orders', [ExportController::class, 'purchaseOrders'])->name('purchase-orders');

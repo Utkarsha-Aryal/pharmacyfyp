@@ -3,6 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\Batch;
+use App\Models\Customer;
+use App\Models\Expense;
+use App\Models\SalesInvoice;
+use App\Models\SalesInvoiceItem;
+use App\Models\SalesReturn;
 use App\Models\ProductBatch;
 use App\Models\Purchase;
 use App\Models\PurchaseOrder;
@@ -23,7 +28,6 @@ class DemoDataSeeder extends Seeder
 
         $now = now();
 
-        // keep a small unit list because the old product page still depends on it
         $unitIds = [];
         foreach ([
             ['unit_name' => 'Strip', 'description' => 'Tablet strip'],
@@ -116,8 +120,7 @@ class DemoDataSeeder extends Seeder
                 'updated_at' => $now,
             ]);
         }
-
-        // old purchase flow still exists, so we keep it alive with legacy tables too
+        
         $legacyPurchaseRows = [
             [
                 'supplier_id' => $supplierIds[0],
@@ -255,6 +258,29 @@ class DemoDataSeeder extends Seeder
             ]);
         }
 
+        $customerIds = [];
+        foreach ([
+            ['name' => 'Kathmandu Clinic Pvt. Ltd.', 'party_type' => 'institution', 'contact_person' => 'Dr. Sita Sharma', 'phone' => '9841010101', 'email' => 'clinic@example.com', 'credit_limit' => 50000, 'opening_balance' => 8000, 'current_balance' => 8000, 'address' => 'Kathmandu'],
+            ['name' => 'Sunlight Pharmacy', 'party_type' => 'customer', 'contact_person' => 'Ram Shrestha', 'phone' => '9852020202', 'email' => 'sunlight@example.com', 'credit_limit' => 20000, 'opening_balance' => 0, 'current_balance' => 0, 'address' => 'Lalitpur'],
+            ['name' => 'Everest Hospital Store', 'party_type' => 'institution', 'contact_person' => 'Mina KC', 'phone' => '9863030303', 'email' => 'hospital@example.com', 'credit_limit' => 80000, 'opening_balance' => 12000, 'current_balance' => 12000, 'address' => 'Bhaktapur'],
+            ['name' => 'Local Meds Retail', 'party_type' => 'customer', 'contact_person' => 'Bikash Lama', 'phone' => '9874040404', 'email' => 'local@example.com', 'credit_limit' => 10000, 'opening_balance' => 0, 'current_balance' => 0, 'address' => 'Pokhara'],
+        ] as $customer) {
+            $customerIds[] = DB::table('customers')->insertGetId([
+                'name' => $customer['name'],
+                'party_type' => $customer['party_type'],
+                'contact_person' => $customer['contact_person'],
+                'phone' => $customer['phone'],
+                'email' => $customer['email'],
+                'address' => $customer['address'],
+                'credit_limit' => $customer['credit_limit'],
+                'opening_balance' => $customer['opening_balance'],
+                'current_balance' => $customer['current_balance'],
+                'is_active' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
         // create demo users before orders so we can safely link "ordered by"
         $admin = User::updateOrCreate(
             ['email' => 'admin@pharmacy.com'],
@@ -287,6 +313,288 @@ class DemoDataSeeder extends Seeder
         $procurement->syncRoles(['procurement']);
 
         $adminId = $admin->id;
+
+        $findSaleBatch = function (int $productId, float $quantity) {
+            $batch = Batch::query()
+                ->where('product_id', $productId)
+                ->where('is_active', true)
+                ->orderBy('expiry_date')
+                ->get()
+                ->first(function ($item) use ($quantity) {
+                    return (float) $item->quantity_available >= $quantity;
+                });
+
+            if (!$batch) {
+                throw new \RuntimeException('Seed stock is not enough for sales demo data.');
+            }
+
+            return $batch;
+        };
+
+        $salesInvoiceRows = [
+            [
+                'customer_id' => $customerIds[1],
+                'invoice_date' => now()->subDays(6)->toDateString(),
+                'sale_type' => 'retail',
+                'payment_method' => 'cash',
+                'paid_amount' => 550,
+                'notes' => 'Retail billing demo',
+                'items' => [
+                    ['product_id' => $productIds[0], 'quantity' => 2, 'unit_price' => 105, 'discount_percent' => 5, 'tax_percent' => 13],
+                    ['product_id' => $productIds[4], 'quantity' => 1, 'unit_price' => 300, 'discount_percent' => 0, 'tax_percent' => 13],
+                ],
+            ],
+            [
+                'customer_id' => $customerIds[0],
+                'invoice_date' => now()->subDays(4)->toDateString(),
+                'sale_type' => 'credit',
+                'payment_method' => 'bank',
+                'paid_amount' => 500,
+                'notes' => 'Credit sale for clinic',
+                'items' => [
+                    ['product_id' => $productIds[2], 'quantity' => 2, 'unit_price' => 140, 'discount_percent' => 3, 'tax_percent' => 13],
+                    ['product_id' => $productIds[6], 'quantity' => 3, 'unit_price' => 160, 'discount_percent' => 0, 'tax_percent' => 13],
+                ],
+            ],
+            [
+                'customer_id' => $customerIds[2],
+                'invoice_date' => now()->subDays(2)->toDateString(),
+                'sale_type' => 'wholesale',
+                'payment_method' => 'bank',
+                'paid_amount' => 0,
+                'notes' => 'Wholesale invoice for hospital store',
+                'items' => [
+                    ['product_id' => $productIds[1], 'quantity' => 4, 'unit_price' => 90, 'discount_percent' => 0, 'tax_percent' => 13],
+                    ['product_id' => $productIds[3], 'quantity' => 1, 'unit_price' => 210, 'discount_percent' => 0, 'tax_percent' => 13],
+                ],
+            ],
+            [
+                'customer_id' => $customerIds[3],
+                'invoice_date' => now()->subDay()->toDateString(),
+                'sale_type' => 'retail',
+                'payment_method' => 'cash',
+                'paid_amount' => 620,
+                'notes' => 'Retail cash sale',
+                'items' => [
+                    ['product_id' => $productIds[5], 'quantity' => 2, 'unit_price' => 175, 'discount_percent' => 0, 'tax_percent' => 13],
+                    ['product_id' => $productIds[7], 'quantity' => 1, 'unit_price' => 250, 'discount_percent' => 0, 'tax_percent' => 13],
+                ],
+            ],
+        ];
+
+        $createdSalesInvoices = [];
+
+        foreach ($salesInvoiceRows as $row) {
+            $subtotal = 0;
+            $discountAmount = 0;
+            $taxAmount = 0;
+            $totalAmount = 0;
+
+            $invoice = SalesInvoice::create([
+                'reference' => SalesInvoice::makeReference(),
+                'customer_id' => $row['customer_id'],
+                'sold_by' => $adminId,
+                'created_by' => $adminId,
+                'updated_by' => $adminId,
+                'invoice_date' => $row['invoice_date'],
+                'sale_type' => $row['sale_type'],
+                'status' => 'confirmed',
+                'payment_status' => 'unpaid',
+                'payment_method' => $row['payment_method'],
+                'subtotal' => 0,
+                'discount_amount' => 0,
+                'tax_amount' => 0,
+                'total_amount' => 0,
+                'paid_amount' => $row['paid_amount'],
+                'notes' => $row['notes'],
+                'confirmed_at' => now(),
+            ]);
+
+            foreach ($row['items'] as $item) {
+                $batch = $findSaleBatch($item['product_id'], $item['quantity']);
+                $lineBase = round($item['quantity'] * $item['unit_price'], 2);
+                $lineDiscount = round(($lineBase * $item['discount_percent']) / 100, 2);
+                $lineTax = round((($lineBase - $lineDiscount) * $item['tax_percent']) / 100, 2);
+                $lineTotal = round($lineBase - $lineDiscount + $lineTax, 2);
+
+                SalesInvoiceItem::create([
+                    'sales_invoice_id' => $invoice->id,
+                    'product_id' => $item['product_id'],
+                    'batch_id' => $batch->id,
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'discount_percent' => $item['discount_percent'],
+                    'tax_percent' => $item['tax_percent'],
+                    'subtotal' => $lineTotal,
+                ]);
+
+                $batch->quantity_available = max(0, (float) $batch->quantity_available - (float) $item['quantity']);
+                $batch->save();
+
+                $subtotal += $lineBase;
+                $discountAmount += $lineDiscount;
+                $taxAmount += $lineTax;
+                $totalAmount += $lineTotal;
+            }
+
+            $invoice->update([
+                'subtotal' => round($subtotal, 2),
+                'discount_amount' => round($discountAmount, 2),
+                'tax_amount' => round($taxAmount, 2),
+                'total_amount' => round($totalAmount, 2),
+                'payment_status' => SalesInvoice::resolvePaymentStatus($totalAmount, (float) $row['paid_amount']),
+            ]);
+
+            $customer = Customer::query()->find($row['customer_id']);
+            if ($customer) {
+                $customer->current_balance = round((float) $customer->current_balance + $invoice->due_amount, 2);
+                $customer->save();
+            }
+
+            if ((float) $row['paid_amount'] > 0) {
+                record_account_transaction([
+                    'transaction_date' => $invoice->invoice_date,
+                    'reference_type' => 'SalesInvoice',
+                    'reference_id' => $invoice->id,
+                    'party_type' => 'customer',
+                    'party_id' => $invoice->customer_id,
+                    'entry_type' => 'debit',
+                    'account_type' => $row['payment_method'] === 'bank' ? 'bank' : 'cash',
+                    'amount' => $row['paid_amount'],
+                    'notes' => 'Demo sale payment for ' . $invoice->reference,
+                    'created_by' => $adminId,
+                ]);
+            }
+
+            if ($invoice->due_amount > 0) {
+                record_account_transaction([
+                    'transaction_date' => $invoice->invoice_date,
+                    'reference_type' => 'SalesInvoice',
+                    'reference_id' => $invoice->id,
+                    'party_type' => 'customer',
+                    'party_id' => $invoice->customer_id,
+                    'entry_type' => 'debit',
+                    'account_type' => 'receivable',
+                    'amount' => $invoice->due_amount,
+                    'notes' => 'Demo sale due for ' . $invoice->reference,
+                    'created_by' => $adminId,
+                ]);
+            }
+
+            record_account_transaction([
+                'transaction_date' => $invoice->invoice_date,
+                'reference_type' => 'SalesInvoice',
+                'reference_id' => $invoice->id,
+                'party_type' => 'customer',
+                'party_id' => $invoice->customer_id,
+                'entry_type' => 'credit',
+                'account_type' => 'income',
+                'amount' => $invoice->total_amount,
+                'notes' => 'Demo sales income for ' . $invoice->reference,
+                'created_by' => $adminId,
+            ]);
+
+            $createdSalesInvoices[] = $invoice;
+        }
+
+        $firstInvoice = $createdSalesInvoices[0] ?? null;
+        if ($firstInvoice) {
+            $firstItem = $firstInvoice->items()->first();
+
+            if ($firstItem) {
+                $returnQuantity = 1;
+                $refundAmount = round($returnQuantity * (float) $firstItem->unit_price, 2);
+
+                if ($firstItem->batch) {
+                    $firstItem->batch->quantity_available = round((float) $firstItem->batch->quantity_available + $returnQuantity, 2);
+                    $firstItem->batch->save();
+                }
+
+                SalesReturn::create([
+                    'sales_invoice_id' => $firstInvoice->id,
+                    'sales_invoice_item_id' => $firstItem->id,
+                    'product_id' => $firstItem->product_id,
+                    'batch_id' => $firstItem->batch_id,
+                    'created_by' => $adminId,
+                    'return_date' => now()->subDay()->toDateString(),
+                    'quantity' => $returnQuantity,
+                    'refund_amount' => $refundAmount,
+                    'reason' => 'Demo return',
+                    'notes' => 'Customer returned one pack',
+                ]);
+
+                $customer = Customer::query()->find($firstInvoice->customer_id);
+                if ($customer) {
+                    $customer->current_balance = max(0, round((float) $customer->current_balance - $refundAmount, 2));
+                    $customer->save();
+                }
+
+                record_account_transaction([
+                    'transaction_date' => now()->subDay()->toDateString(),
+                    'reference_type' => 'SalesReturn',
+                    'reference_id' => $firstInvoice->id,
+                    'party_type' => 'customer',
+                    'party_id' => $firstInvoice->customer_id,
+                    'entry_type' => 'debit',
+                    'account_type' => 'income',
+                    'amount' => $refundAmount,
+                    'notes' => 'Demo sales return for ' . $firstInvoice->reference,
+                    'created_by' => $adminId,
+                ]);
+
+                record_account_transaction([
+                    'transaction_date' => now()->subDay()->toDateString(),
+                    'reference_type' => 'SalesReturn',
+                    'reference_id' => $firstInvoice->id,
+                    'party_type' => 'customer',
+                    'party_id' => $firstInvoice->customer_id,
+                    'entry_type' => 'credit',
+                    'account_type' => 'cash',
+                    'amount' => $refundAmount,
+                    'notes' => 'Demo refund for ' . $firstInvoice->reference,
+                    'created_by' => $adminId,
+                ]);
+            }
+        }
+
+        foreach ([
+            ['date' => now()->subDays(8)->toDateString(), 'category' => 'Salary', 'vendor' => 'Pharmacy Team', 'payment_mode' => 'cash', 'amount' => 15000, 'notes' => 'Monthly staff payroll'],
+            ['date' => now()->subDays(6)->toDateString(), 'category' => 'Fuel', 'vendor' => 'City Fuel Station', 'payment_mode' => 'cash', 'amount' => 2200, 'notes' => 'Delivery fuel expense'],
+            ['date' => now()->subDays(5)->toDateString(), 'category' => 'Utilities', 'vendor' => 'NEA', 'payment_mode' => 'bank', 'amount' => 3800, 'notes' => 'Electricity bill paid online'],
+            ['date' => now()->subDays(3)->toDateString(), 'category' => 'Office', 'vendor' => 'Stationery Hub', 'payment_mode' => 'bank', 'amount' => 1200, 'notes' => 'Stationery and office items'],
+        ] as $expenseRow) {
+            $expense = Expense::create([
+                'expense_date' => $expenseRow['date'],
+                'category' => $expenseRow['category'],
+                'vendor_name' => $expenseRow['vendor'],
+                'payment_mode' => $expenseRow['payment_mode'],
+                'amount' => $expenseRow['amount'],
+                'notes' => $expenseRow['notes'],
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $expense->expense_date,
+                'reference_type' => 'Expense',
+                'reference_id' => $expense->id,
+                'entry_type' => 'debit',
+                'account_type' => 'expense',
+                'amount' => $expense->amount,
+                'notes' => 'Demo expense for ' . $expense->category,
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $expense->expense_date,
+                'reference_type' => 'Expense',
+                'reference_id' => $expense->id,
+                'entry_type' => 'credit',
+                'account_type' => $expense->payment_mode === 'bank' ? 'bank' : 'cash',
+                'amount' => $expense->amount,
+                'notes' => 'Demo expense payment via ' . ucfirst($expense->payment_mode),
+                'created_by' => $adminId,
+            ]);
+        }
 
         $purchaseOrderRows = [
             [

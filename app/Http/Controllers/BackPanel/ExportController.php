@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\BackPanel;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountTransaction;
 use App\Models\Batch;
 use App\Models\Category;
+use App\Models\Customer;
+use App\Models\Expense;
 use App\Models\Product;
 use App\Models\ProductBatch;
 use App\Models\Purchase;
 use App\Models\PurchaseOrder;
+use App\Models\SalesInvoice;
 use App\Models\Supplier;
 use App\Models\Unit;
 use App\Models\User;
@@ -355,6 +359,221 @@ class ExportController extends Controller
             ->values();
 
         return $this->downloadExcel('expiry-alert-report.xlsx', $rows);
+    }
+
+    // Export the customer and institution master list.
+    public function customers()
+    {
+        $rows = Customer::query()
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($customer) => [
+                'Name' => $customer->name,
+                'Type' => ucfirst((string) $customer->party_type),
+                'Contact Person' => $customer->contact_person,
+                'Phone' => $customer->phone,
+                'Email' => $customer->email,
+                'Credit Limit' => $customer->credit_limit,
+                'Balance' => $customer->current_balance,
+                'Status' => $customer->is_active ? 'Active' : 'Inactive',
+            ]);
+
+        return $this->downloadExcel('customers.xlsx', $rows);
+    }
+
+    // Export the sales invoice list with payment status and due amount.
+    public function salesInvoices(Request $request)
+    {
+        $rows = SalesInvoice::query()
+            ->with('customer')
+            ->when($request->filled('customer_id'), function ($query) use ($request) {
+                $query->where('customer_id', $request->customer_id);
+            })
+            ->when($request->filled('sale_type'), function ($query) use ($request) {
+                $query->where('sale_type', $request->sale_type);
+            })
+            ->when($request->filled('status'), function ($query) use ($request) {
+                $query->where('status', $request->status);
+            })
+            ->when($request->filled('payment_status'), function ($query) use ($request) {
+                $query->where('payment_status', $request->payment_status);
+            })
+            ->when($request->filled('date_from'), function ($query) use ($request) {
+                $query->whereDate('invoice_date', '>=', $request->date_from);
+            })
+            ->when($request->filled('date_to'), function ($query) use ($request) {
+                $query->whereDate('invoice_date', '<=', $request->date_to);
+            })
+            ->latest('invoice_date')
+            ->get()
+            ->map(fn ($invoice) => [
+                'Reference' => $invoice->reference,
+                'Party' => $invoice->customer?->name,
+                'Date' => $invoice->invoice_date_show,
+                'Sale Type' => $invoice->sale_type_label,
+                'Status' => $invoice->status_label,
+                'Payment' => $invoice->payment_label,
+                'Total' => $invoice->total_amount,
+                'Paid' => $invoice->paid_amount,
+                'Due' => $invoice->due_amount,
+            ]);
+
+        return $this->downloadExcel('sales-invoices.xlsx', $rows);
+    }
+
+    // Export the expense tracking list.
+    public function expenses()
+    {
+        $rows = Expense::query()
+            ->latest('expense_date')
+            ->get()
+            ->map(fn ($expense) => [
+                'Date' => $expense->expense_date_show,
+                'Category' => $expense->category,
+                'Vendor' => $expense->vendor_name,
+                'Payment Mode' => ucfirst((string) $expense->payment_mode),
+                'Amount' => $expense->amount,
+                'Notes' => $expense->notes,
+            ]);
+
+        return $this->downloadExcel('expenses.xlsx', $rows);
+    }
+
+    // Export the general ledger rows.
+    public function ledger(Request $request)
+    {
+        $rows = AccountTransaction::query()
+            ->with(['customer', 'supplier', 'creator'])
+            ->when($request->filled('party_type'), function ($query) use ($request) {
+                $query->where('party_type', $request->party_type);
+            })
+            ->when($request->filled('account_type'), function ($query) use ($request) {
+                $query->where('account_type', $request->account_type);
+            })
+            ->when($request->filled('entry_type'), function ($query) use ($request) {
+                $query->where('entry_type', $request->entry_type);
+            })
+            ->when($request->filled('date_from'), function ($query) use ($request) {
+                $query->whereDate('transaction_date', '>=', $request->date_from);
+            })
+            ->when($request->filled('date_to'), function ($query) use ($request) {
+                $query->whereDate('transaction_date', '<=', $request->date_to);
+            })
+            ->latest('transaction_date')
+            ->get()
+            ->map(fn ($transaction) => [
+                'Date' => $transaction->transaction_date_show,
+                'Reference' => $transaction->reference_type ? $transaction->reference_type . ' #' . $transaction->reference_id : '-',
+                'Party' => $transaction->party_name,
+                'Account' => $transaction->account_label,
+                'Entry' => $transaction->entry_label,
+                'Amount' => $transaction->amount,
+                'Notes' => $transaction->notes,
+            ]);
+
+        return $this->downloadExcel('ledger.xlsx', $rows);
+    }
+
+    // Export the trial balance summary table.
+    public function trialBalance()
+    {
+        $rows = AccountTransaction::query()
+            ->selectRaw('account_type, entry_type, SUM(amount) as total_amount')
+            ->groupBy('account_type', 'entry_type')
+            ->get()
+            ->groupBy('account_type')
+            ->map(function ($items, $accountType) {
+                $debit = (float) ($items->firstWhere('entry_type', 'debit')?->total_amount ?? 0);
+                $credit = (float) ($items->firstWhere('entry_type', 'credit')?->total_amount ?? 0);
+
+                return [
+                    'Account' => ucwords(str_replace('_', ' ', $accountType)),
+                    'Debit' => $debit,
+                    'Credit' => $credit,
+                    'Difference' => round($debit - $credit, 2),
+                ];
+            })
+            ->values();
+
+        return $this->downloadExcel('trial-balance.xlsx', $rows);
+    }
+
+    // Export the cash book rows.
+    public function cashBook(Request $request)
+    {
+        $rows = AccountTransaction::query()
+            ->with(['customer', 'supplier', 'creator'])
+            ->where('account_type', 'cash')
+            ->when($request->filled('date_from'), function ($query) use ($request) {
+                $query->whereDate('transaction_date', '>=', $request->date_from);
+            })
+            ->when($request->filled('date_to'), function ($query) use ($request) {
+                $query->whereDate('transaction_date', '<=', $request->date_to);
+            })
+            ->latest('transaction_date')
+            ->get()
+            ->map(fn ($transaction) => [
+                'Date' => $transaction->transaction_date_show,
+                'Reference' => $transaction->reference_type ? $transaction->reference_type . ' #' . $transaction->reference_id : '-',
+                'Party' => $transaction->party_name,
+                'Entry' => $transaction->entry_label,
+                'Amount' => $transaction->amount,
+                'Notes' => $transaction->notes,
+            ]);
+
+        return $this->downloadExcel('cash-book.xlsx', $rows);
+    }
+
+    // Export the bank book rows.
+    public function bankBook(Request $request)
+    {
+        $rows = AccountTransaction::query()
+            ->with(['customer', 'supplier', 'creator'])
+            ->where('account_type', 'bank')
+            ->when($request->filled('date_from'), function ($query) use ($request) {
+                $query->whereDate('transaction_date', '>=', $request->date_from);
+            })
+            ->when($request->filled('date_to'), function ($query) use ($request) {
+                $query->whereDate('transaction_date', '<=', $request->date_to);
+            })
+            ->latest('transaction_date')
+            ->get()
+            ->map(fn ($transaction) => [
+                'Date' => $transaction->transaction_date_show,
+                'Reference' => $transaction->reference_type ? $transaction->reference_type . ' #' . $transaction->reference_id : '-',
+                'Party' => $transaction->party_name,
+                'Entry' => $transaction->entry_label,
+                'Amount' => $transaction->amount,
+                'Notes' => $transaction->notes,
+            ]);
+
+        return $this->downloadExcel('bank-book.xlsx', $rows);
+    }
+
+    // Export the GST report rows.
+    public function gstReport(Request $request)
+    {
+        $rows = SalesInvoice::query()
+            ->with('customer')
+            ->when($request->filled('date_from'), function ($query) use ($request) {
+                $query->whereDate('invoice_date', '>=', $request->date_from);
+            })
+            ->when($request->filled('date_to'), function ($query) use ($request) {
+                $query->whereDate('invoice_date', '<=', $request->date_to);
+            })
+            ->latest('invoice_date')
+            ->get()
+            ->map(fn ($invoice) => [
+                'Invoice' => $invoice->reference,
+                'Party' => $invoice->customer?->name,
+                'Date' => $invoice->invoice_date_show,
+                'Taxable Sales' => $invoice->subtotal,
+                'Tax' => $invoice->tax_amount,
+                'Total' => $invoice->total_amount,
+                'Payment' => $invoice->payment_label,
+            ]);
+
+        return $this->downloadExcel('gst-report.xlsx', $rows);
     }
 
     public function batches(string $slug)

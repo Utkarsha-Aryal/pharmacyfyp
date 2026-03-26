@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\BackPanel;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountTransaction;
 use App\Models\Batch;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
@@ -275,6 +276,8 @@ class PurchaseOrderController extends Controller
                 'received_at' => now(),
                 'updated_by' => $request->user()->id,
             ]);
+
+            $this->syncPurchaseOrderAccounts($purchaseOrder, $request->user()->id);
         });
 
         return redirect()->route('admin.purchase-orders.show', $purchaseOrder)->with('success', 'Goods received and batches created successfully.');
@@ -293,6 +296,58 @@ class PurchaseOrderController extends Controller
             'updated_by' => $request->user()->id,
         ]);
 
+        $this->syncPurchaseOrderAccounts($purchaseOrder, $request->user()->id);
+
         return back()->with('success', 'Payment status updated successfully.');
+    }
+
+    // Keep the supplier bill and payment entries in one place so finance pages stay accurate.
+    private function syncPurchaseOrderAccounts(PurchaseOrder $purchaseOrder, int $userId): void
+    {
+        AccountTransaction::query()
+            ->where('reference_type', 'PurchaseOrder')
+            ->where('reference_id', $purchaseOrder->id)
+            ->delete();
+
+        record_account_transaction([
+            'transaction_date' => $purchaseOrder->order_date,
+            'reference_type' => 'PurchaseOrder',
+            'reference_id' => $purchaseOrder->id,
+            'party_type' => 'supplier',
+            'party_id' => $purchaseOrder->supplier_id,
+            'entry_type' => 'credit',
+            'account_type' => 'payable',
+            'amount' => $purchaseOrder->total_amount,
+            'notes' => 'Purchase bill for ' . $purchaseOrder->reference,
+            'created_by' => $userId,
+        ]);
+
+        if ((float) $purchaseOrder->paid_amount > 0) {
+            record_account_transaction([
+                'transaction_date' => $purchaseOrder->order_date,
+                'reference_type' => 'PurchaseOrder',
+                'reference_id' => $purchaseOrder->id,
+                'party_type' => 'supplier',
+                'party_id' => $purchaseOrder->supplier_id,
+                'entry_type' => 'debit',
+                'account_type' => 'payable',
+                'amount' => $purchaseOrder->paid_amount,
+                'notes' => 'Payment adjusted for ' . $purchaseOrder->reference,
+                'created_by' => $userId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $purchaseOrder->order_date,
+                'reference_type' => 'PurchaseOrder',
+                'reference_id' => $purchaseOrder->id,
+                'party_type' => 'supplier',
+                'party_id' => $purchaseOrder->supplier_id,
+                'entry_type' => 'credit',
+                'account_type' => 'cash',
+                'amount' => $purchaseOrder->paid_amount,
+                'notes' => 'Cash payment for ' . $purchaseOrder->reference,
+                'created_by' => $userId,
+            ]);
+        }
     }
 }

@@ -1,9 +1,11 @@
 <?php
 
 use App\Models\Batch;
+use App\Models\AccountTransaction;
 use App\Models\Product;
 use App\Models\ProductBatch;
 use App\Models\PurchaseOrder;
+use App\Models\SalesInvoice;
 use App\Models\Setting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -234,9 +236,78 @@ if (!function_exists('low_stock_threshold')) {
     }
 }
 
+if (!function_exists('default_tax_rate')) {
+    function default_tax_rate()
+    {
+        return (float) setting('tax_rate', 13);
+    }
+}
+
 if (!function_exists('admin_notification_count')) {
     function admin_notification_count()
     {
         return count(admin_notifications());
+    }
+}
+
+if (!function_exists('human_date')) {
+    function human_date($value, $default = '-')
+    {
+        if (empty($value)) {
+            return $default;
+        }
+
+        try {
+            return Carbon::parse($value)->format('M j, Y');
+        } catch (Throwable $th) {
+            return $default;
+        }
+    }
+}
+
+if (!function_exists('money_value')) {
+    function money_value($value, $default = '0.00')
+    {
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        return number_format((float) $value, 2);
+    }
+}
+
+if (!function_exists('next_sales_reference')) {
+    function next_sales_reference(): string
+    {
+        try {
+            $datePart = now()->format('ymd');
+            $count = SalesInvoice::query()->whereDate('created_at', now()->toDateString())->count() + 1;
+
+            return 'INV-' . $datePart . '-' . str_pad((string) $count, 4, '0', STR_PAD_LEFT);
+        } catch (Throwable $th) {
+            return 'INV-' . now()->format('ymd') . '-0001';
+        }
+    }
+}
+
+if (!function_exists('record_account_transaction')) {
+    function record_account_transaction(array $payload)
+    {
+        if (!Schema::hasTable('account_transactions')) {
+            return null;
+        }
+
+        return AccountTransaction::create([
+            'transaction_date' => $payload['transaction_date'] ?? now()->toDateString(),
+            'reference_type' => $payload['reference_type'] ?? null,
+            'reference_id' => $payload['reference_id'] ?? null,
+            'party_type' => $payload['party_type'] ?? null,
+            'party_id' => $payload['party_id'] ?? null,
+            'entry_type' => $payload['entry_type'],
+            'account_type' => $payload['account_type'],
+            'amount' => $payload['amount'],
+            'notes' => $payload['notes'] ?? null,
+            'created_by' => $payload['created_by'] ?? auth()->id(),
+        ]);
     }
 }

@@ -29,6 +29,7 @@ class SettingsController extends Controller
                 'notification_email' => setting('notification_email'),
                 'currency_symbol' => setting('currency_symbol', 'NPR'),
                 'low_stock_threshold' => setting('low_stock_threshold', 10),
+                'tax_rate' => setting('tax_rate', 13),
             ],
         ]);
     }
@@ -52,6 +53,7 @@ class SettingsController extends Controller
             'notification_email' => ['nullable', 'email'],
             'currency_symbol' => ['nullable', 'string', 'max:20'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:1'],
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         if ($request->hasFile('favicon')) {

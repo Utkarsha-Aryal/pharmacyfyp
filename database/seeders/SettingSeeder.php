@@ -16,6 +16,7 @@ class SettingSeeder extends Seeder
             'mail_from_name' => 'Pharmacy Management System',
             'currency_symbol' => 'NPR',
             'low_stock_threshold' => 10,
+            'tax_rate' => 13,
         ];
 
         foreach ($defaultSettings as $key => $value) {
