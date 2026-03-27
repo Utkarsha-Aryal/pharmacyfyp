@@ -124,20 +124,19 @@
                                     <div class="smtp-test-box">
                                         <div>
                                             <h6 class="mb-1">SMTP Test</h6>
-                                            <p class="mb-0 text-muted">Save settings first, then send one test email to confirm Mailtrap or real SMTP is working.</p>
+                                            <p class="mb-0 text-muted">You can test the current SMTP fields directly from here without saving settings first.</p>
                                         </div>
-                                        <form action="{{ route('admin.settings.test-mail') }}" method="POST" class="row g-2 align-items-end mt-2">
-                                            @csrf
+                                        <div class="row g-2 align-items-end mt-2">
                                             <div class="col-md-8">
                                                 <label class="form-label">Test Recipient</label>
-                                                <input type="email" name="email" class="form-control" value="{{ old('email', $settings['notification_email']) }}" placeholder="mailbox@example.com">
+                                                <input type="email" id="testMailRecipient" class="form-control" value="{{ old('email', $settings['notification_email']) }}" placeholder="mailbox@example.com">
                                             </div>
                                             <div class="col-md-4">
-                                                <button type="submit" class="btn btn-pdf w-100">
+                                                <button type="button" class="btn btn-pdf w-100" id="sendTestMailBtn" data-url="{{ route('admin.settings.test-mail') }}">
                                                     <i class="fa-solid fa-paper-plane"></i> Send Test Mail
                                                 </button>
                                             </div>
-                                        </form>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -161,28 +160,67 @@
             var hiddenInput = document.getElementById('company_address');
             var settingsForm = document.getElementById('settingsForm');
 
-            if (!editorElement || !hiddenInput || !settingsForm || typeof Quill === 'undefined') {
-                return;
+            if (editorElement && hiddenInput && settingsForm && typeof Quill !== 'undefined') {
+                // small editor is enough here because admin may want styled address and footer text
+                var addressEditor = new Quill('#companyAddressEditor', {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            ['bold', 'italic', 'underline'],
+                            [{
+                                'list': 'ordered'
+                            }, {
+                                'list': 'bullet'
+                            }],
+                            ['link']
+                        ]
+                    }
+                });
+
+                settingsForm.addEventListener('submit', function() {
+                    hiddenInput.value = addressEditor.root.innerHTML;
+                });
             }
 
-            // small editor is enough here because admin may want styled address and footer text
-            var addressEditor = new Quill('#companyAddressEditor', {
-                theme: 'snow',
-                modules: {
-                    toolbar: [
-                        ['bold', 'italic', 'underline'],
-                        [{
-                            'list': 'ordered'
-                        }, {
-                            'list': 'bullet'
-                        }],
-                        ['link']
-                    ]
-                }
-            });
+            // Test mail reads the current SMTP fields directly, so admin can check mail before saving.
+            $(document).on('click', '#sendTestMailBtn', function() {
+                var $button = $(this);
+                var testMailUrl = $button.data('url');
 
-            settingsForm.addEventListener('submit', function() {
-                hiddenInput.value = addressEditor.root.innerHTML;
+                if (!testMailUrl) {
+                    return;
+                }
+
+                showLoader();
+                $button.prop('disabled', true);
+
+                $.ajax({
+                    url: testMailUrl,
+                    method: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        email: $('#testMailRecipient').val(),
+                        smtp_host: $('input[name=\"smtp_host\"]').val(),
+                        smtp_port: $('input[name=\"smtp_port\"]').val(),
+                        smtp_username: $('input[name=\"smtp_username\"]').val(),
+                        smtp_password: $('input[name=\"smtp_password\"]').val(),
+                        smtp_encryption: $('input[name=\"smtp_encryption\"]').val(),
+                        mail_from_address: $('input[name=\"mail_from_address\"]').val(),
+                        mail_from_name: $('input[name=\"mail_from_name\"]').val(),
+                        notification_email: $('input[name=\"notification_email\"]').val()
+                    },
+                    success: function(response) {
+                        showNotification(response.message || 'Test mail sent.', response.type || 'success');
+                    },
+                    error: function(xhr) {
+                        var response = xhr.responseJSON || {};
+                        showNotification(response.message || 'Test mail failed.', 'error');
+                    },
+                    complete: function() {
+                        hideLoader();
+                        $button.prop('disabled', false);
+                    }
+                });
             });
         });
     </script>

@@ -7,12 +7,15 @@ use App\Models\ProductBatch;
 use App\Models\PurchaseOrder;
 use App\Models\SalesInvoice;
 use App\Models\Setting;
+use App\Models\User;
 use App\Mail\SystemStatusMail;
+use App\Mail\AdminNotificationDigestMail;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Mail\MailManager;
 use Spatie\Permission\Models\Role;
 
 if (!function_exists('settings_cache')) {
@@ -320,23 +323,115 @@ if (!function_exists('record_account_transaction')) {
 if (!function_exists('notification_email_address')) {
     function notification_email_address(): ?string
     {
-        return setting('notification_email')
-            ?: setting('mail_from_address')
-            ?: config('mail.from.address');
+        return notification_email_recipients()[0] ?? null;
+    }
+}
+
+if (!function_exists('notification_email_recipients')) {
+    function notification_email_recipients(): array
+    {
+        $mailSettings = current_mail_settings();
+        $recipients = [];
+
+        if (!empty($mailSettings['notification_email'])) {
+            $recipients[] = trim((string) $mailSettings['notification_email']);
+        }
+
+        if (!empty($mailSettings['from_address'])) {
+            $recipients[] = trim((string) $mailSettings['from_address']);
+        }
+
+        // Staff, procurement and admin users can also receive the same alert digest when email is needed.
+        if (Schema::hasTable('users') && Schema::hasTable('roles') && Schema::hasTable('model_has_roles')) {
+            $roleEmails = User::query()
+                ->where('is_active', true)
+                ->whereNotNull('email')
+                ->where('email', '!=', '')
+                ->whereHas('roles', function ($query) {
+                    $query->whereIn('name', ['admin', 'staff', 'procurement']);
+                })
+                ->pluck('email')
+                ->map(fn ($email) => trim((string) $email))
+                ->filter()
+                ->toArray();
+
+            $recipients = array_merge($recipients, $roleEmails);
+        }
+
+        return array_values(array_unique(array_filter($recipients)));
+    }
+}
+
+if (!function_exists('current_mail_settings')) {
+    function current_mail_settings(array $overrides = []): array
+    {
+        $appName = setting('app_name', env('APP_NAME', 'Pharmacy Management System'));
+
+        return [
+            'mailer' => $overrides['mail_mailer'] ?? env('MAIL_MAILER', 'smtp'),
+            'host' => $overrides['smtp_host'] ?? setting('smtp_host', env('MAIL_HOST')),
+            'port' => $overrides['smtp_port'] ?? setting('smtp_port', env('MAIL_PORT')),
+            'username' => $overrides['smtp_username'] ?? setting('smtp_username', env('MAIL_USERNAME')),
+            'password' => $overrides['smtp_password'] ?? setting('smtp_password', env('MAIL_PASSWORD')),
+            'encryption' => $overrides['smtp_encryption'] ?? setting('smtp_encryption', env('MAIL_SCHEME')),
+            'from_address' => $overrides['mail_from_address'] ?? setting('mail_from_address', env('MAIL_FROM_ADDRESS')),
+            'from_name' => $overrides['mail_from_name'] ?? setting('mail_from_name', env('MAIL_FROM_NAME', $appName)),
+            'notification_email' => $overrides['notification_email'] ?? setting('notification_email', env('MAIL_FROM_ADDRESS')),
+            'app_name' => $appName,
+        ];
+    }
+}
+
+if (!function_exists('apply_runtime_mail_settings')) {
+    function apply_runtime_mail_settings(array $overrides = []): array
+    {
+        $mailSettings = current_mail_settings($overrides);
+        $rawScheme = strtolower((string) ($mailSettings['encryption'] ?? ''));
+        $smtpScheme = in_array($rawScheme, ['ssl', 'smtps'], true) ? 'smtps' : 'smtp';
+
+        // This helper keeps controller, command and alert mails all on the same SMTP config.
+        config([
+            'app.name' => $mailSettings['app_name'] ?: config('app.name'),
+            'mail.default' => $mailSettings['mailer'] ?: 'smtp',
+            'mail.mailers.smtp.host' => $mailSettings['host'],
+            'mail.mailers.smtp.port' => $mailSettings['port'],
+            'mail.mailers.smtp.username' => $mailSettings['username'],
+            'mail.mailers.smtp.password' => $mailSettings['password'],
+            'mail.mailers.smtp.scheme' => $smtpScheme ?: null,
+            'mail.from.address' => $mailSettings['from_address'],
+            'mail.from.name' => $mailSettings['from_name'],
+        ]);
+
+        app(MailManager::class)->forgetMailers();
+
+        return $mailSettings;
     }
 }
 
 if (!function_exists('send_system_notification_mail')) {
-    function send_system_notification_mail(string $subject, string $title, string $intro, array $lines = [], ?string $recipient = null): bool
+    function send_system_notification_mail(string $subject, string $title, string $intro, array $lines = [], string|array|null $recipient = null): bool
     {
-        $emailTo = $recipient ?: notification_email_address();
+        $recipients = $recipient
+            ? (array) $recipient
+            : notification_email_recipients();
+        $recipients = array_values(array_unique(array_filter(array_map(fn ($email) => trim((string) $email), $recipients))));
 
-        if (empty($emailTo)) {
+        if (empty($recipients)) {
             return false;
         }
 
         try {
-            Mail::to($emailTo)->send(new SystemStatusMail(
+            apply_runtime_mail_settings();
+
+            $allRecipients = $recipients;
+            $primaryRecipient = array_shift($recipients);
+            $mail = Mail::to($primaryRecipient);
+
+            if (!empty($recipients)) {
+                $mail->bcc($recipients);
+            }
+
+            $mail->send(new SystemStatusMail(
                 mailSubject: $subject,
                 title: $title,
                 intro: $intro,
@@ -346,7 +441,46 @@ if (!function_exists('send_system_notification_mail')) {
             return true;
         } catch (Throwable $th) {
             Log::warning('System notification email could not be sent.', [
-                'recipient' => $emailTo,
+                'recipient' => $allRecipients ?? $recipients,
+                'message' => $th->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+}
+
+if (!function_exists('send_admin_notification_digest')) {
+    function send_admin_notification_digest(string|array|null $recipient = null): bool
+    {
+        $recipients = $recipient
+            ? (array) $recipient
+            : notification_email_recipients();
+        $notifications = admin_notifications();
+
+        $recipients = array_values(array_unique(array_filter(array_map(fn ($email) => trim((string) $email), $recipients))));
+
+        if (empty($recipients) || empty($notifications)) {
+            return false;
+        }
+
+        try {
+            apply_runtime_mail_settings();
+
+            $allRecipients = $recipients;
+            $primaryRecipient = array_shift($recipients);
+            $mail = Mail::to($primaryRecipient);
+
+            if (!empty($recipients)) {
+                $mail->bcc($recipients);
+            }
+
+            $mail->send(new AdminNotificationDigestMail($notifications));
+
+            return true;
+        } catch (Throwable $th) {
+            Log::warning('Admin notification digest could not be sent.', [
+                'recipient' => $allRecipients ?? $recipients,
                 'message' => $th->getMessage(),
             ]);
 

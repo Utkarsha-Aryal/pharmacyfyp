@@ -82,6 +82,14 @@ class SettingsController extends Controller
     {
         $validated = $request->validate([
             'email' => ['nullable', 'email'],
+            'smtp_host' => ['nullable', 'string', 'max:255'],
+            'smtp_port' => ['nullable', 'string', 'max:255'],
+            'smtp_username' => ['nullable', 'string', 'max:255'],
+            'smtp_password' => ['nullable', 'string', 'max:255'],
+            'smtp_encryption' => ['nullable', 'string', 'max:255'],
+            'mail_from_address' => ['nullable', 'email'],
+            'mail_from_name' => ['nullable', 'string', 'max:255'],
+            'notification_email' => ['nullable', 'email'],
         ]);
 
         $recipient = $validated['email']
@@ -90,35 +98,14 @@ class SettingsController extends Controller
             ?? config('mail.from.address');
 
         if (empty($recipient)) {
-            return back()->with('error', 'Please add notification email or mail from address before testing.');
+            return $this->testMailResponse($request, false, 'Please add notification email or mail from address before testing.');
         }
 
-        $smtpHost = setting('smtp_host', env('MAIL_HOST'));
-        $smtpPort = setting('smtp_port', env('MAIL_PORT'));
-        $smtpUsername = setting('smtp_username', env('MAIL_USERNAME'));
-        $smtpPassword = setting('smtp_password', env('MAIL_PASSWORD'));
-        $rawSmtpScheme = setting('smtp_encryption', env('MAIL_SCHEME'));
-        $smtpScheme = in_array(strtolower((string) $rawSmtpScheme), ['ssl', 'smtps'], true) ? 'smtps' : 'smtp';
-        $mailFromAddress = setting('mail_from_address', env('MAIL_FROM_ADDRESS'));
-        $mailFromName = setting('mail_from_name', env('MAIL_FROM_NAME', setting('app_name', config('app.name'))));
+        $mailSettings = apply_runtime_mail_settings($validated);
 
-        if (empty($smtpHost) || empty($smtpPort) || empty($smtpUsername) || empty($smtpPassword)) {
-            return back()->with('error', 'SMTP host, port, username and password are required before sending test mail.');
+        if (empty($mailSettings['host']) || empty($mailSettings['port']) || empty($mailSettings['username']) || empty($mailSettings['password'])) {
+            return $this->testMailResponse($request, false, 'SMTP host, port, username and password are required before sending test mail.');
         }
-
-        // Refresh the mailer once with the saved values so the test button checks the real current setup.
-        config([
-            'mail.default' => 'smtp',
-            'mail.mailers.smtp.host' => $smtpHost,
-            'mail.mailers.smtp.port' => $smtpPort,
-            'mail.mailers.smtp.username' => $smtpUsername,
-            'mail.mailers.smtp.password' => $smtpPassword,
-            'mail.mailers.smtp.scheme' => $smtpScheme ?: null,
-            'mail.from.address' => $mailFromAddress,
-            'mail.from.name' => $mailFromName,
-        ]);
-
-        app(MailManager::class)->forgetMailers();
 
         try {
             Mail::to($recipient)->send(new SystemStatusMail(
@@ -126,15 +113,28 @@ class SettingsController extends Controller
                 title: 'SMTP connection is working',
                 intro: 'This is a quick test mail from the pharmacy management system.',
                 lines: [
-                    'Mail host: ' . ($smtpHost ?: 'Not set'),
-                    'Mail port: ' . ($smtpPort ?: 'Not set'),
+                    'Mail host: ' . ($mailSettings['host'] ?: 'Not set'),
+                    'Mail port: ' . ($mailSettings['port'] ?: 'Not set'),
                     'Generated at: ' . now()->format('M j, Y h:i A'),
                 ]
             ));
         } catch (Throwable $throwable) {
-            return back()->with('error', 'Test mail failed: ' . $throwable->getMessage());
+            return $this->testMailResponse($request, false, 'Test mail failed: ' . $throwable->getMessage());
         }
 
-        return back()->with('success', 'Test mail sent to ' . $recipient . '.');
+        return $this->testMailResponse($request, true, 'Test mail sent to ' . $recipient . '.');
+    }
+
+    // Keep ajax and normal post response in one place, so settings page can use one test-mail endpoint.
+    private function testMailResponse(Request $request, bool $success, string $message)
+    {
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'type' => $success ? 'success' : 'error',
+                'message' => $message,
+            ], $success ? 200 : 422);
+        }
+
+        return back()->with($success ? 'success' : 'error', $message);
     }
 }
