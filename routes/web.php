@@ -1,26 +1,26 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
-use App\Http\Controllers\BackPanel\CategoryController;
-use App\Http\Controllers\BackPanel\DashboardController;
-use App\Http\Controllers\BackPanel\CustomerController;
-use App\Http\Controllers\BackPanel\ExpenseController;
-use App\Http\Controllers\BackPanel\ExportController;
-use App\Http\Controllers\BackPanel\FinanceController;
-use App\Http\Controllers\BackPanel\InventoryBatchController;
-use App\Http\Controllers\BackPanel\ProductBatchesController;
-use App\Http\Controllers\BackPanel\ProductController;
-use App\Http\Controllers\BackPanel\ProfileController;
-use App\Http\Controllers\BackPanel\PurchaseOrderController;
-use App\Http\Controllers\BackPanel\PurchaseController;
-use App\Http\Controllers\BackPanel\SalesInvoiceController;
-use App\Http\Controllers\BackPanel\ReportController;
-use App\Http\Controllers\BackPanel\RolePermissionController;
-use App\Http\Controllers\BackPanel\SettingsController;
-use App\Http\Controllers\BackPanel\StockAdjustmentController;
-use App\Http\Controllers\BackPanel\SupplierController;
-use App\Http\Controllers\BackPanel\UnitController;
-use App\Http\Controllers\BackPanel\UserManagementController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\ExportController;
+use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\InventoryBatchController;
+use App\Http\Controllers\ProductBatchesController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\SalesInvoiceController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RolePermissionController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\StockAdjustmentController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\UnitController;
+use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {

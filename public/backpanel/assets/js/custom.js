@@ -20,37 +20,31 @@
   }
 
   function showNotification(message, type) {
-    if (window.toastr) {
-      var toastType = type === "success" ? "success" : (type === "warning" ? "warning" : "error");
-      window.toastr.options = {
-        closeButton: true,
-        progressBar: false,
-        newestOnTop: true,
-        positionClass: "toast-top-right",
-        timeOut: 2800,
-        extendedTimeOut: 600,
-        preventDuplicates: true,
-        closeDuration: 180,
-        showDuration: 180,
-        hideDuration: 180,
-      };
-      window.toastr[toastType](message || "Something happened.");
+    if (!window.toastr) {
+      window.alert(message || "Something happened.");
       return;
     }
 
-    var notification = byId("customNotification");
-    if (!notification) {
-      return;
+    // One small helper is enough here because many pages already call showNotification().
+    window.toastr.options = {
+      closeButton: true,
+      progressBar: true,
+      newestOnTop: true,
+      positionClass: "toast-top-right",
+      timeOut: 3200,
+      extendedTimeOut: 900,
+      preventDuplicates: true,
+      closeDuration: 180,
+      showDuration: 180,
+      hideDuration: 180,
+    };
+
+    var toastType = "error";
+    if (type === "success" || type === "warning" || type === "info") {
+      toastType = type;
     }
 
-    notification.textContent = message || "Something happened.";
-    notification.classList.remove("notification-success", "notification-error");
-    notification.classList.add(type === "success" ? "notification-success" : "notification-error");
-    notification.style.display = "block";
-
-    window.setTimeout(function () {
-      notification.style.display = "none";
-    }, 3200);
+    window.toastr[toastType](message || "Something happened.");
   }
 
   function initBootstrapUi() {
