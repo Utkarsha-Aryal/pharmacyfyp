@@ -149,7 +149,7 @@
                 selector: '#supplierTable',
                 pageLength: 15,
                 sort: false,
-                searchColumns: [1, 2, 3, 4, 5],
+                searchColumns: [1, 2, 4],
                 columnDefs: [{
                     bSortable: false,
                     aTargets: [1]

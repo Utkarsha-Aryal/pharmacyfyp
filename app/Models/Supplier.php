@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 
 class Supplier extends Model
 {
@@ -43,51 +44,79 @@ class Supplier extends Model
     {
         try {
             $get = $post;
-            $sorting = !empty($get['order'][0]['dir']) ? $get['order'][0]['dir'] : 'asc';
-            $orderby = " id " . $sorting . "";
+            $columns = $get['columns'] ?? [];
+            $sorting = !empty($get['order'][0]['dir']) && strtolower($get['order'][0]['dir']) === 'desc' ? 'desc' : 'asc';
+            $orderColumnIndex = isset($get['order'][0]['column']) ? (int) $get['order'][0]['column'] : 0;
+            $sortableColumns = [
+                0 => 'id',
+                1 => 'supplier_name',
+                2 => 'contact_person',
+                3 => 'opening_balance',
+                4 => 'phone_number',
+                5 => 'created_at',
+            ];
+            $orderBy = $sortableColumns[$orderColumnIndex] ?? 'id';
+            $limit = isset($get['length']) ? (int) $get['length'] : 15;
+            $offset = isset($get['start']) ? (int) $get['start'] : 0;
+            $status = !empty($post['type']) && $post['type'] === 'trashed' ? 'N' : 'Y';
 
-            foreach ($get['columns'] as $key => $value) {
-                $get['columns'][$key]['search']['value'] = trim(strtolower(htmlspecialchars($value['search']['value'], ENT_QUOTES)));
-            }
+            $baseQuery = Supplier::query()->where('status', $status);
+            $filteredQuery = (clone $baseQuery);
 
-            $cond = " status = 'Y'";
+            // We only keep the useful column filters here, so the table search stays simple.
+            self::applyColumnSearch($filteredQuery, $columns);
 
-            if (!empty($post['type']) && $post['type'] === "trashed") {
-                $cond = " status = 'N'";
-            }
+            $result = (clone $filteredQuery)
+                ->orderBy($orderBy, $sorting)
+                ->when($limit > -1, function (Builder $query) use ($offset, $limit) {
+                    $query->offset($offset)->limit($limit);
+                })
+                ->get([
+                    'id',
+                    'supplier_name',
+                    'contact_person',
+                    'phone_number',
+                    'email',
+                    'pan_number',
+                    'opening_balance',
+                    'created_at',
+                    'address',
+                    'type',
+                ]);
 
-            if (!empty($get['columns'][1]['search']['value'])) {
-                $cond .= " and lower(supplier_name) like '%" . $get['columns'][1]['search']['value'] . "%'";
-            }
+            $result['totalrecs'] = (clone $baseQuery)->count();
+            $result['totalfilteredrecs'] = (clone $filteredQuery)->count();
 
-            $limit = 15;
-            $offset = 0;
-            if (!empty($get["length"])) {
-                $limit = $get['length'];
-                $offset = $get["start"];
-            }
-
-            $query = Supplier::selectRaw("(SELECT count(*) FROM suppliers WHERE {$cond}) AS totalrecs, supplier_name, contact_person, phone_number, email, pan_number, opening_balance,created_at, address, type, id")
-                ->whereRaw($cond);
-
-            if ($limit > -1) {
-                $result = $query->orderByRaw($orderby)->offset($offset)->limit($limit)->get();
-            } else {
-                $result = $query->orderByRaw($orderby)->get();
-            }
-
-            if ($result) {
-                $ndata = $result;
-                $ndata['totalrecs'] = @$result[0]->totalrecs ? $result[0]->totalrecs : 0;
-                $ndata['totalfilteredrecs'] = @$result[0]->totalrecs ? $result[0]->totalrecs : 0;
-            } else {
-                $ndata = [];
-            }
-
-            return $ndata;
+            return $result;
         } catch (Exception $e) {
             throw $e;
         }
+    }
+
+    // Keep column search in one place so the supplier table stays easy to adjust later.
+    private static function applyColumnSearch(Builder $query, array $columns): void
+    {
+        $nameSearch = self::searchValue($columns, 1);
+        $contactSearch = self::searchValue($columns, 2);
+        $phoneSearch = self::searchValue($columns, 4);
+
+        if ($nameSearch !== '') {
+            $query->where('supplier_name', 'like', '%' . $nameSearch . '%');
+        }
+
+        if ($contactSearch !== '') {
+            $query->whereRaw('LOWER(COALESCE(contact_person, "")) like ?', ['%' . $contactSearch . '%']);
+        }
+
+        if ($phoneSearch !== '') {
+            $query->whereRaw('LOWER(COALESCE(phone_number, "")) like ?', ['%' . $phoneSearch . '%']);
+        }
+    }
+
+    // This helper keeps DataTable search input cleanup small and reusable.
+    private static function searchValue(array $columns, int $index): string
+    {
+        return trim(strtolower((string) data_get($columns, $index . '.search.value', '')));
     }
 
     public static function restoreData($post)

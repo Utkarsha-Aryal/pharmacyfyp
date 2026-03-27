@@ -65,6 +65,7 @@ class PurchaseController extends Controller
                 $array[$i]['due'] = number_format($row->due_amount, 2);
                 $array[$i]['order_status'] = $this->statusBadgeHtml($row->order_status);
                 $array[$i]['added_date'] = $row->purchase_date_show;
+                $array[$i]['action'] = '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn viewPurchaseBillBtn" title="View Bill Summary" data-reference="' . e($row->reference?->reference_no ?? '-') . '" data-invoice="' . e($row->invoice_no ?: '-') . '" data-supplier="' . e($row->supplier?->supplier_name ?? '-') . '" data-items="' . e($row->batches_count) . '" data-total="' . e(number_format((float) $row->grand_total, 2)) . '" data-paid="' . e(number_format((float) $row->paid_amount, 2)) . '" data-due="' . e(number_format($row->due_amount, 2)) . '" data-status="' . e($row->order_status_label) . '" data-date="' . e($row->purchase_date_show) . '" data-remarks="' . e($row->remarks ?: '-') . '"><i class="fa-solid fa-eye"></i></button>';
                 $i++;
             }
 

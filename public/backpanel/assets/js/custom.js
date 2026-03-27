@@ -511,6 +511,16 @@
         searchable = false;
       }
 
+      // DataTables breaks when Blade prints one fallback row with colspan for empty state.
+      // We remove that placeholder first and let DataTables show its own empty message.
+      $table.find("tbody tr").each(function () {
+        var $cells = $(this).children("td, th");
+
+        if ($cells.length === 1 && $cells.eq(0).is("[colspan]")) {
+          $(this).remove();
+        }
+      });
+
       $table.DataTable({
         sPaginationType: "full_numbers",
         lengthMenu: [
@@ -575,6 +585,16 @@
     var ajaxData = options.ajaxData;
     var searchColumns = Array.isArray(options.searchColumns) ? options.searchColumns : [];
     var searchable = options.searchable === true;
+
+    // Some older Blade pages still print one empty fallback row.
+    // Removing that row first keeps server-side DataTables from complaining about column counts.
+    $table.find("tbody tr").each(function () {
+      var $cells = $(this).children("td, th");
+
+      if ($cells.length === 1 && $cells.eq(0).is("[colspan]")) {
+        $(this).remove();
+      }
+    });
 
     return $table.DataTable({
       sPaginationType: options.paginationType || "full_numbers",
@@ -649,6 +669,7 @@
         { data: "due" },
         { data: "order_status" },
         { data: "added_date" },
+        { data: "action" },
       ],
       ajaxUrl: tableElement.dataset.listUrl,
       ajaxData: function (request) {

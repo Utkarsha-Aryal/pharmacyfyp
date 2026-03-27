@@ -1,15 +1,15 @@
 @extends('backend.layouts.main')
 
 @section('title')
-    Add Purchase
+    New Purchase Bill
 @endsection
 
 @section('main-content')
     <div class="admin-page-wrap">
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
-                <h5 class="page-title fs-21 mb-1">Add Purchase Entry</h5>
-                <p class="mb-0 text-muted">Save supplier bill and create stock batch at the same time.</p>
+                <h5 class="page-title fs-21 mb-1">New Purchase Bill</h5>
+                <p class="mb-0 text-muted">Save received supplier bill and create stock batch in the same step.</p>
             </div>
             <div class="d-flex my-xl-auto right-content">
                 <a href="{{ route('admin.purchase') }}" class="btn btn-outline-secondary">

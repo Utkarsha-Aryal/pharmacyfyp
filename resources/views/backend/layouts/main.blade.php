@@ -233,6 +233,14 @@
             }, 3200);
         };
 
+        window.fireFlashToastr = function(type, message) {
+            if (!message) {
+                return;
+            }
+
+            window.showNotification(message, type || 'success');
+        };
+
         var baseurl = '{{ url('/') }}';
         var token = "<?= csrf_token() ?>";
         $.ajaxSetup({
@@ -243,13 +251,25 @@
 
         @if (session('success'))
             window.setTimeout(function() {
-                window.showNotification(@json(session('success')), 'success');
+                window.fireFlashToastr('success', @json(session('success')));
             }, 120);
         @endif
 
         @if (session('error'))
             window.setTimeout(function() {
-                window.showNotification(@json(session('error')), 'error');
+                window.fireFlashToastr('error', @json(session('error')));
+            }, 120);
+        @endif
+
+        @if (session('warning'))
+            window.setTimeout(function() {
+                window.fireFlashToastr('warning', @json(session('warning')));
+            }, 120);
+        @endif
+
+        @if (session('info'))
+            window.setTimeout(function() {
+                window.fireFlashToastr('success', @json(session('info')));
             }, 120);
         @endif
     </script>

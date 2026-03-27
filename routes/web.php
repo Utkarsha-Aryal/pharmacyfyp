@@ -75,6 +75,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
         Route::get('/adjustments', [StockAdjustmentController::class, 'index'])->middleware('permission:inventory.adjustment')->name('adjustments.index');
         Route::post('/adjustments', [StockAdjustmentController::class, 'store'])->middleware('permission:inventory.adjustment')->name('adjustments.store');
+        Route::post('/adjustments/{stockAdjustment}/delete', [StockAdjustmentController::class, 'delete'])->middleware('permission:inventory.adjustment')->name('adjustments.delete');
     });
 
     Route::group(['prefix' => 'batch', 'middleware' => 'permission:inventory.batch'], function () {

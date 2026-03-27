@@ -87,12 +87,10 @@ class SupplierController extends Controller
             if (!$totalrecs)
                 $totalrecs = 0;
         } catch (QueryException $e) {
-            dd($e);
             $array = [];
             $totalrecs = 0;
             $filtereddata = 0;
         } catch (Exception $e) {
-            dd($e);
             $array = [];
             $totalrecs = 0;
             $filtereddata = 0;

@@ -125,7 +125,7 @@
                             @endcan
                             @can('purchase.entry')
                                 <li class="slide {{ request()->routeIs('admin.purchase', 'admin.purchase.*') ? 'active' : '' }}">
-                                    <a href="{{ route('admin.purchase') }}" class="side-menu__item">Purchase Entry</a>
+                                    <a href="{{ route('admin.purchase') }}" class="side-menu__item">Purchase Bills</a>
                                 </li>
                             @endcan
                             @can('purchase.orders')
