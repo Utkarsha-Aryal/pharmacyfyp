@@ -7,8 +7,11 @@ use App\Models\ProductBatch;
 use App\Models\PurchaseOrder;
 use App\Models\SalesInvoice;
 use App\Models\Setting;
+use App\Mail\SystemStatusMail;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 
@@ -225,7 +228,7 @@ if (!function_exists('admin_notifications')) {
 if (!function_exists('currency_symbol')) {
     function currency_symbol()
     {
-        return setting('currency_symbol', 'NPR');
+        return trim((string) setting('currency_symbol', 'NPR'));
     }
 }
 
@@ -268,11 +271,13 @@ if (!function_exists('human_date')) {
 if (!function_exists('money_value')) {
     function money_value($value, $default = '0.00')
     {
-        if ($value === null || $value === '') {
-            return $default;
-        }
+        $formattedValue = $value === null || $value === ''
+            ? (string) $default
+            : number_format((float) $value, 2);
 
-        return number_format((float) $value, 2);
+        $symbol = currency_symbol();
+
+        return $symbol !== '' ? $symbol . ' ' . $formattedValue : $formattedValue;
     }
 }
 
@@ -309,5 +314,43 @@ if (!function_exists('record_account_transaction')) {
             'notes' => $payload['notes'] ?? null,
             'created_by' => $payload['created_by'] ?? auth()->id(),
         ]);
+    }
+}
+
+if (!function_exists('notification_email_address')) {
+    function notification_email_address(): ?string
+    {
+        return setting('notification_email')
+            ?: setting('mail_from_address')
+            ?: config('mail.from.address');
+    }
+}
+
+if (!function_exists('send_system_notification_mail')) {
+    function send_system_notification_mail(string $subject, string $title, string $intro, array $lines = [], ?string $recipient = null): bool
+    {
+        $emailTo = $recipient ?: notification_email_address();
+
+        if (empty($emailTo)) {
+            return false;
+        }
+
+        try {
+            Mail::to($emailTo)->send(new SystemStatusMail(
+                mailSubject: $subject,
+                title: $title,
+                intro: $intro,
+                lines: $lines
+            ));
+
+            return true;
+        } catch (Throwable $th) {
+            Log::warning('System notification email could not be sent.', [
+                'recipient' => $emailTo,
+                'message' => $th->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 }

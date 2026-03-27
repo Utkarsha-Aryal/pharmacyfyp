@@ -10,6 +10,7 @@ use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
 {
+    // Show the main user list page.
     public function index()
     {
         return view('backend.user.index', [
@@ -17,9 +18,14 @@ class UserManagementController extends Controller
         ]);
     }
 
+    // Return user rows for the server-side DataTable.
     public function list(Request $request)
     {
         $keyword = trim((string) $request->input('search.value', ''));
+        $columns = (array) $request->input('columns', []);
+        $nameKeyword = trim((string) data_get($columns, '1.search.value', ''));
+        $emailKeyword = trim((string) data_get($columns, '2.search.value', ''));
+        $roleKeyword = trim((string) data_get($columns, '3.search.value', ''));
         $start = max((int) $request->input('start', 0), 0);
         $length = max((int) $request->input('length', 10), 1);
 
@@ -36,6 +42,20 @@ class UserManagementController extends Controller
             });
         }
 
+        if ($nameKeyword !== '') {
+            $query->where('name', 'like', '%' . $nameKeyword . '%');
+        }
+
+        if ($emailKeyword !== '') {
+            $query->where('email', 'like', '%' . $emailKeyword . '%');
+        }
+
+        if ($roleKeyword !== '') {
+            $query->whereHas('roles', function ($roleQuery) use ($roleKeyword) {
+                $roleQuery->where('name', 'like', '%' . $roleKeyword . '%');
+            });
+        }
+
         $recordsFiltered = (clone $query)->count();
         $users = $query->skip($start)->take($length)->get();
 
@@ -43,19 +63,18 @@ class UserManagementController extends Controller
 
         foreach ($users as $index => $user) {
             $role = $user->getRoleNames()->first() ?? 'staff';
+            $roleOptions = collect(available_roles())->map(function ($label, $value) use ($role) {
+                return '<option value="' . e($value) . '"' . ($role === $value ? ' selected' : '') . '>' . e($label) . '</option>';
+            })->implode('');
             $isCurrentUser = auth()->id() === $user->id;
             $statusLabel = $user->is_active ? 'Active' : 'Inactive';
-            $statusClass = $user->is_active ? 'text-success' : 'text-secondary';
-            $toggleClass = $user->is_active ? 'btn-outline-success' : 'btn-outline-secondary';
+            $statusClass = $user->is_active ? 'text-success' : 'text-danger';
+            $toggleButtonClass = $user->is_active ? 'btn-outline-success' : 'btn-outline-danger';
             $toggleIcon = $user->is_active ? 'fa-toggle-on' : 'fa-toggle-off';
-            $toggleTitle = $user->is_active ? 'Deactivate User' : 'Activate User';
-
-            $statusHtml = '<div class="d-inline-flex align-items-center gap-2">';
-
-            if (! $isCurrentUser) {
-                $statusHtml .= '<form action="' . route('admin.user.toggle-active', $user) . '" method="POST" class="js-confirm-submit" data-confirm-title="Change user status?" data-confirm-text="This will switch the account access." data-confirm-button="Yes, update status">' . csrf_field() . '<button type="submit" class="btn btn-sm ' . $toggleClass . ' table-action-btn status-toggle-btn" title="' . e($toggleTitle) . '" aria-label="' . e($toggleTitle) . '"><i class="fa-solid ' . $toggleIcon . '"></i></button></form>';
-            }
-
+            $statusHtml = '<div class="d-flex align-items-center gap-2">';
+            $statusHtml .= '<button type="button" class="btn btn-sm ' . $toggleButtonClass . ' table-action-btn status-toggle-btn js-user-status-toggle" data-url="' . route('admin.user.update-status', $user) . '" data-next-value="' . ($user->is_active ? '0' : '1') . '" data-confirm-title="' . e($user->is_active ? 'Deactivate this user?' : 'Activate this user?') . '" data-confirm-text="This will switch whether the account can login."' . ($isCurrentUser ? ' disabled' : '') . '>';
+            $statusHtml .= '<i class="fa-solid ' . $toggleIcon . '"></i>';
+            $statusHtml .= '</button>';
             $statusHtml .= '<span class="status-state-text ' . $statusClass . '">' . e($statusLabel) . '</span>';
             $statusHtml .= '</div>';
 
@@ -72,7 +91,7 @@ class UserManagementController extends Controller
                 'sno' => $start + $index + 1,
                 'name' => e($user->name),
                 'email' => e($user->email),
-                'role' => '<span class="report-badge ' . ($role === 'admin' ? 'report-badge-danger' : 'report-badge-success') . '">' . e(ucfirst($role)) . '</span>',
+                'role' => '<div class="d-flex align-items-center gap-2 user-inline-select-wrap"><select class="form-select form-select-sm js-user-role-select" data-url="' . route('admin.user.update-role', $user) . '" data-current-value="' . e($role) . '"' . ($isCurrentUser ? ' disabled' : '') . '>' . $roleOptions . '</select><span class="report-badge ' . ($role === 'admin' ? 'report-badge-danger' : 'report-badge-success') . '">' . e(ucfirst($role)) . '</span></div>',
                 'status' => $statusHtml,
                 'created' => Carbon::parse($user->created_at)->format('M j, Y'),
                 'action' => $action,
@@ -87,6 +106,7 @@ class UserManagementController extends Controller
         ]);
     }
 
+    // Open the full create page for bigger user changes like password and email.
     public function create()
     {
         return view('backend.user.create', [
@@ -94,6 +114,7 @@ class UserManagementController extends Controller
         ]);
     }
 
+    // Save a new user from the full form.
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -117,6 +138,7 @@ class UserManagementController extends Controller
         return redirect()->route('admin.user.index')->with('success', 'User added successfully.');
     }
 
+    // Open the full edit page.
     public function edit(User $user)
     {
         return view('backend.user.edit', [
@@ -125,6 +147,7 @@ class UserManagementController extends Controller
         ]);
     }
 
+    // Update the user from the full edit form.
     public function update(Request $request, User $user)
     {
         $validated = $request->validate([
@@ -149,6 +172,7 @@ class UserManagementController extends Controller
         return redirect()->route('admin.user.index')->with('success', 'User updated successfully.');
     }
 
+    // Delete a user if it is not the currently logged in account.
     public function delete(User $user, Request $request)
     {
         if ($request->user()->id === $user->id) {
@@ -160,11 +184,51 @@ class UserManagementController extends Controller
         return redirect()->route('admin.user.index')->with('success', 'User deleted successfully.');
     }
 
+    // Keep the old toggle endpoint for places where button-based status update is still used.
     public function toggleActive(User $user)
     {
         $user->is_active = ! (bool) $user->is_active;
         $user->save();
 
         return back()->with('success', 'User status updated successfully.');
+    }
+
+    // Quick role change from the list page so admin does not need to open the edit form for small updates.
+    public function updateRole(Request $request, User $user)
+    {
+        if ($request->user()->id === $user->id) {
+            return response()->json(['type' => 'error', 'message' => 'You cannot change your own role from the list.'], 422);
+        }
+
+        $validated = $request->validate([
+            'role' => ['required', Rule::in(array_keys(available_roles()))],
+        ]);
+
+        $user->syncRoles([$validated['role']]);
+
+        return response()->json([
+            'type' => 'success',
+            'message' => 'User role updated successfully.',
+        ]);
+    }
+
+    // Quick status change from the list page for faster admin work.
+    public function updateStatus(Request $request, User $user)
+    {
+        if ($request->user()->id === $user->id) {
+            return response()->json(['type' => 'error', 'message' => 'You cannot change your own status from the list.'], 422);
+        }
+
+        $validated = $request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $user->is_active = (bool) $validated['is_active'];
+        $user->save();
+
+        return response()->json([
+            'type' => 'success',
+            'message' => 'User status updated successfully.',
+        ]);
     }
 }

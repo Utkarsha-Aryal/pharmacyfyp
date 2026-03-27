@@ -17,6 +17,7 @@ use Illuminate\Validation\ValidationException;
 
 class PurchaseOrderController extends Controller
 {
+    // Show the purchase order list with summary cards and filters.
     public function index(Request $request)
     {
         $query = PurchaseOrder::with(['supplier', 'orderedBy', 'items.product']);
@@ -55,6 +56,7 @@ class PurchaseOrderController extends Controller
         ]);
     }
 
+    // Open the create order screen with supplier and product helpers.
     public function create()
     {
         return view('backend.purchase-order.create', [
@@ -64,6 +66,7 @@ class PurchaseOrderController extends Controller
         ]);
     }
 
+    // Search supplier names for select2 on the purchase order form.
     public function supplierOptions(Request $request)
     {
         $keyword = trim((string) $request->input('q'));
@@ -89,6 +92,7 @@ class PurchaseOrderController extends Controller
         return response()->json(['results' => $suppliers]);
     }
 
+    // Search products for select2 so order entry stays fast even with more records.
     public function productOptions(Request $request)
     {
         $keyword = trim((string) $request->input('q'));
@@ -115,6 +119,7 @@ class PurchaseOrderController extends Controller
         return response()->json(['results' => $products]);
     }
 
+    // Save one purchase order with item rows and payment snapshot.
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -183,6 +188,7 @@ class PurchaseOrderController extends Controller
         return redirect()->route('admin.purchase-orders.index')->with('success', 'Purchase order saved successfully.');
     }
 
+    // Show one purchase order with items and current statuses.
     public function show(PurchaseOrder $purchaseOrder)
     {
         return view('backend.purchase-order.show', [
@@ -190,6 +196,7 @@ class PurchaseOrderController extends Controller
         ]);
     }
 
+    // Approve a pending order before goods receiving starts.
     public function approve(PurchaseOrder $purchaseOrder)
     {
         if ($purchaseOrder->status !== 'pending') {
@@ -204,6 +211,7 @@ class PurchaseOrderController extends Controller
         return back()->with('success', 'Purchase order approved.');
     }
 
+    // Open the goods receive screen only for approved orders.
     public function receive(PurchaseOrder $purchaseOrder)
     {
         if ($purchaseOrder->status !== 'approved') {
@@ -215,6 +223,7 @@ class PurchaseOrderController extends Controller
         ]);
     }
 
+    // Receive goods, create live batches and sync finance in one transaction.
     public function receiveStore(Request $request, PurchaseOrder $purchaseOrder)
     {
         if ($purchaseOrder->status !== 'approved') {
@@ -280,9 +289,22 @@ class PurchaseOrderController extends Controller
             $this->syncPurchaseOrderAccounts($purchaseOrder, $request->user()->id);
         });
 
+        send_system_notification_mail(
+            subject: 'Purchase Order Received',
+            title: 'Goods received into inventory',
+            intro: 'One purchase order has been fully received and batches were created.',
+            lines: [
+                'Reference: ' . $purchaseOrder->reference,
+                'Supplier: ' . ($purchaseOrder->supplier?->supplier_name ?? '-'),
+                'Received at: ' . now()->format('M j, Y h:i A'),
+                'Total amount: ' . money_value($purchaseOrder->total_amount),
+            ]
+        );
+
         return redirect()->route('admin.purchase-orders.show', $purchaseOrder)->with('success', 'Goods received and batches created successfully.');
     }
 
+    // Update payment snapshot so payable balance and reports stay correct.
     public function updatePayment(Request $request, PurchaseOrder $purchaseOrder)
     {
         $validated = $request->validate([

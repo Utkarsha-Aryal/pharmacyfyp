@@ -12,8 +12,11 @@
                 <p class="mb-0 text-muted">Filter purchase orders by supplier, date, status and payment.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="{{ route('admin.export.purchase-history', request()->query()) }}" class="btn btn-outline-primary">
+                <a href="{{ route('admin.export.purchase-history', request()->query()) }}" class="btn btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
+                </a>
+                <a href="{{ route('admin.export.purchase-history-pdf', request()->query()) }}" class="btn btn-pdf">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>
             </div>
         </div>
@@ -76,7 +79,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="15">
+                    <table class="table table-bordered align-middle js-datatable" data-page-length="15" data-searchable="true">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -98,8 +101,8 @@
                                     <td>{{ $order->order_date_show }}</td>
                                     <td>{{ $order->status_label }}</td>
                                     <td>{{ $order->payment_label }}</td>
-                                    <td>{{ number_format((float) $order->total_amount, 2) }}</td>
-                                    <td>{{ number_format((float) $order->outstanding_amount, 2) }}</td>
+                                    <td>{{ money_value($order->total_amount) }}</td>
+                                    <td>{{ money_value($order->outstanding_amount) }}</td>
                                 </tr>
                             @empty
                                 <tr>

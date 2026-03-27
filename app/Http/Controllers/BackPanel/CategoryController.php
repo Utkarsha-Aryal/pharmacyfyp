@@ -15,15 +15,14 @@ use App\Http\Requests\CategoryRequest;
 
 class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    // Show the category page with modal form and server-side list.
     public function index()
     {
         return view('backend.category.index');
     }
 
-     public function save(CategoryRequest $request)
+    // Save and update category from the same endpoint because the modal form is shared.
+    public function save(CategoryRequest $request)
     {
         try {
             $post = $request->all();
@@ -50,7 +49,7 @@ class CategoryController extends Controller
         return response()->json(['type' => $type, 'message' => $message]);
     }
 
-     // Get list
+    // Return category rows for DataTable.
     public function list(Request $request)
     {
         try {
@@ -74,13 +73,11 @@ class CategoryController extends Controller
                 $array[$i]["image"] = '<img src="' . $image . '" height="30px" width="30px" alt="' . ' image"/>';
                 $action = '<div class="table-action-group">';
                 if (!empty($post['type']) && $post['type'] != 'trashed') {
-                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editCategory" title="Edit Category" data-id="' . $row->id . '" data-name="' . $row->name . '" data-keywords="' . $row->keywords . '" data-designation="' . $row->designation . '" data-order_number="' . $row->order_number . '" data-image="' . $image . '" data-course="' . $row->student_course . '" data-rating="' . $row->rating . '"><i class="fa-solid fa-pen-to-square"></i></button>';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editCategory" title="Edit Category" data-id="' . $row->id . '" data-name="' . $row->name . '" data-order_number="' . $row->order_number . '" data-image="' . $image . '"><i class="fa-solid fa-pen-to-square"></i></button>';
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
                     $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreCategory" title="Restore Category" data-id="' . $row->id . '"><i class="fa-solid fa-undo"></i></button>';
                 }
-                // $category_id = $row->id;
-                // $categoryCheck = Product::where('category_id', $category_id)->first();
-               
+
                 $action .= '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deletecategory" title="Delete Category" data-id="' . $row->id . '"><i class="fa fa-trash"></i></button>';
                 $action .= '</div>';
                 $array[$i]["action"] = $action;
@@ -102,7 +99,8 @@ class CategoryController extends Controller
         return response()->json(array("recordsFiltered" => $filtereddata, "recordsTotal" => $totalrecs, "data" => $array));
     }
 
-     public function delete(Request $request)
+    // Soft delete or force delete based on the current trash mode.
+    public function delete(Request $request)
     {
         try {
             $type = 'success';
@@ -128,7 +126,8 @@ class CategoryController extends Controller
         return response()->json(['type' => $type, 'message' => $message]);
     }
 
-     public function restore(Request $request)
+    // Bring back a deleted category from the trash list.
+    public function restore(Request $request)
     {
         try {
             $post = $request->all();

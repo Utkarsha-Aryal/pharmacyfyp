@@ -20,6 +20,8 @@ use Illuminate\Support\Str;
 
 class DemoDataSeeder extends Seeder
 {
+    // This demo seeder gives the project both fresh activity and older history,
+    // so reports do not look empty when someone tests finance and analytics pages.
     public function run(): void
     {
         if (DB::table('categories')->count() > 0) {
@@ -596,6 +598,7 @@ class DemoDataSeeder extends Seeder
             ]);
         }
 
+        // These recent purchase orders are used by dashboard cards and normal daily flow screens.
         $purchaseOrderRows = [
             [
                 'supplier_id' => $supplierIds[0],
@@ -701,6 +704,115 @@ class DemoDataSeeder extends Seeder
             $order->update([
                 'total_amount' => $grandTotal,
                 'paid_amount' => $orderRow['paid_amount'],
+            ]);
+        }
+
+        // Older finance and purchase history helps the reports feel real during viva/demo time.
+        foreach (range(1, 5) as $yearOffset) {
+            $historyBaseDate = now()->copy()->subYears($yearOffset)->setMonth(6)->setDay(12);
+            $supplierIndex = ($yearOffset - 1) % count($supplierIds);
+            $productIndex = ($yearOffset - 1) % count($productIds);
+            $quantity = 10 + $yearOffset;
+            $unitPrice = (float) ($productRows[$productIndex]['purchase_price'] ?? 100);
+            $historicalTotal = round($quantity * $unitPrice, 2);
+
+            $historicalOrder = PurchaseOrder::query()->create([
+                'reference' => PurchaseOrder::makeReference(),
+                'supplier_id' => $supplierIds[$supplierIndex],
+                'ordered_by' => $adminId,
+                'created_by' => $adminId,
+                'updated_by' => $adminId,
+                'order_date' => $historyBaseDate->toDateString(),
+                'expected_delivery_date' => $historyBaseDate->copy()->addDays(6)->toDateString(),
+                'status' => 'received',
+                'payment_status' => 'paid',
+                'notes' => 'Historical demo order kept for yearly reporting view.',
+                'total_amount' => $historicalTotal,
+                'paid_amount' => $historicalTotal,
+                'received_at' => $historyBaseDate->copy()->addDays(3),
+            ]);
+
+            $historicalItem = PurchaseOrderItem::query()->create([
+                'purchase_order_id' => $historicalOrder->id,
+                'product_id' => $productIds[$productIndex],
+                'quantity_ordered' => $quantity,
+                'quantity_received' => $quantity,
+                'unit_price' => $unitPrice,
+                'batch_number' => 'HIST-' . $historyBaseDate->format('ym') . '-' . str_pad((string) $yearOffset, 2, '0', STR_PAD_LEFT),
+                'expiry_date' => $historyBaseDate->copy()->addMonths(18)->toDateString(),
+                'subtotal' => $historicalTotal,
+            ]);
+
+            Batch::query()->create([
+                'product_id' => $productIds[$productIndex],
+                'supplier_id' => $supplierIds[$supplierIndex],
+                'purchase_order_item_id' => $historicalItem->id,
+                'batch_number' => 'HIST-BATCH-' . $historyBaseDate->format('ymd') . '-' . $yearOffset,
+                'manufacturing_date' => $historyBaseDate->copy()->subMonths(5)->toDateString(),
+                'expiry_date' => $historyBaseDate->copy()->addMonths(18)->toDateString(),
+                'quantity_received' => $quantity,
+                'quantity_available' => 0,
+                'purchase_price' => $unitPrice,
+                'storage_location' => 'Archive Rack ' . $yearOffset,
+                'is_active' => false,
+            ]);
+
+            $historicalExpense = Expense::create([
+                'expense_date' => $historyBaseDate->copy()->addMonths(2)->toDateString(),
+                'category' => 'Maintenance',
+                'vendor_name' => 'Historical Service Vendor ' . $yearOffset,
+                'payment_mode' => $yearOffset % 2 === 0 ? 'bank' : 'cash',
+                'amount' => 1400 + ($yearOffset * 250),
+                'notes' => 'Older seeded expense for long term finance report demo.',
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $historicalExpense->expense_date,
+                'reference_type' => 'Expense',
+                'reference_id' => $historicalExpense->id,
+                'entry_type' => 'debit',
+                'account_type' => 'expense',
+                'amount' => $historicalExpense->amount,
+                'notes' => 'Historical expense record for year wise reporting.',
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $historicalExpense->expense_date,
+                'reference_type' => 'Expense',
+                'reference_id' => $historicalExpense->id,
+                'entry_type' => 'credit',
+                'account_type' => $historicalExpense->payment_mode === 'bank' ? 'bank' : 'cash',
+                'amount' => $historicalExpense->amount,
+                'notes' => 'Historical expense payment entry.',
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $historyBaseDate->copy()->addMonths(3)->toDateString(),
+                'reference_type' => 'HistoricalSale',
+                'reference_id' => $yearOffset,
+                'party_type' => 'customer',
+                'party_id' => $customerIds[$yearOffset % count($customerIds)],
+                'entry_type' => 'debit',
+                'account_type' => $yearOffset % 2 === 0 ? 'bank' : 'cash',
+                'amount' => 3800 + ($yearOffset * 420),
+                'notes' => 'Historical received sale amount added for older finance trend.',
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $historyBaseDate->copy()->addMonths(3)->toDateString(),
+                'reference_type' => 'HistoricalSale',
+                'reference_id' => $yearOffset,
+                'party_type' => 'customer',
+                'party_id' => $customerIds[$yearOffset % count($customerIds)],
+                'entry_type' => 'credit',
+                'account_type' => 'income',
+                'amount' => 3800 + ($yearOffset * 420),
+                'notes' => 'Historical income entry added for yearly report view.',
+                'created_by' => $adminId,
             ]);
         }
     }

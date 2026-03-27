@@ -15,8 +15,11 @@
         </div>
         <div class="d-flex my-xl-auto right-content">
             <div class="pe-1 mb-xl-0 d-flex gap-2">
-                <a href="{{ route('admin.export.product') }}" class="btn btn-outline-primary">
+                <a href="{{ route('admin.export.product') }}" class="btn btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
+                </a>
+                <a href="{{ route('admin.export.product-pdf') }}" class="btn btn-pdf">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>
                 <button type="button" class="btn btn-primary addProductBtn"><i class="fa fa-add"></i> Add Product</button>
             </div>
@@ -44,7 +47,7 @@
                             <input class="form-check-input" type="checkbox" value="Y" id="trashed_file"
                                 name="trashed_file">
                             <label class="form-check-label" for="trashed_file">
-                                Show Deleted
+                                View Deleted
                             </label>
                         </div>
                     </div>

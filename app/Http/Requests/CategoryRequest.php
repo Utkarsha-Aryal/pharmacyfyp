@@ -19,11 +19,12 @@ class CategoryRequest extends FormRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
-     public function rules(): array
+    // Category display order is numeric because we use it for sorting inside the admin.
+    public function rules(): array
     {
         $rules = [
             'name' => 'required|string|min:2|max:50',
-            'order_number' => 'required|string|min:1|max:50',
+            'order_number' => 'required|integer|min:1|max:9999',
         ];
         if (!$this->has('id')) {
             $rules['image'] = 'required|image|mimes:jpg,jpeg,png|max:512';
@@ -40,12 +41,15 @@ class CategoryRequest extends FormRequest
             'name.string' => 'The category name must be a valid string.',
             'name.min' => 'The category name must not be less than 2 characters.',
             'name.max' => 'The category name must not exceed 50 characters.',
+            'order_number.required' => 'The display order field is required.',
+            'order_number.integer' => 'The display order must be a valid number.',
+            'order_number.min' => 'The display order must be at least 1.',
+            'order_number.max' => 'The display order is too large.',
 
-            'images.required' => 'The image field is required.',
-            'images.file' => 'The image must be a file.',
-
-            'images.mimes' => 'The image must be a file of type: JPG, PNG AND JPEG',
-            'images.max' => 'The image size must not exceed 512MB.',
+            'image.required' => 'The image field is required.',
+            'image.file' => 'The image must be a file.',
+            'image.mimes' => 'The image must be a file of type: JPG, PNG AND JPEG.',
+            'image.max' => 'The image size must not exceed 512KB.',
         ];
     }
 }

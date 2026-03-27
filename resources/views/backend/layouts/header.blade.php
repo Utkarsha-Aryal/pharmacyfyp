@@ -36,12 +36,9 @@
                     data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
                     data-notification-user="{{ $currentUser?->id ?? 'guest' }}">
                     <i class="fe fe-bell fs-18"></i>
-                    @if ($notificationCount > 0)
-                        <span id="headerNotificationCount"
-                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                            {{ $notificationCount }}
-                        </span>
-                    @endif
+                    <span id="headerNotificationCount"
+                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none notification-count-badge notification-count-pending"
+                        data-total-count="{{ $notificationCount }}"></span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end p-0 header-notification-dropdown" aria-labelledby="mainHeaderNotification">
                     <li class="dropdown-header border-bottom py-2 px-3">
@@ -49,7 +46,7 @@
                             <div>
                                 <strong>Notifications</strong>
                                 <span class="notification-summary-line text-muted" id="notificationStateLabel">
-                                    {{ $notificationCount > 0 ? $notificationCount . ' alerts' : 'All caught up' }}
+                                    {{ $notificationCount > 0 ? 'Checking unread items...' : 'All caught up' }}
                                 </span>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-primary notification-mark-all-btn"
@@ -127,32 +124,10 @@
                         </div>
                     </li>
                     <li>
-                        <a class="dropdown-item d-flex" href="{{ route('admin.dashboard') }}">
-                            <i class="bx bx-grid-alt fs-18 me-2 op-7"></i>Dashboard
-                        </a>
-                    </li>
-                    <li>
                         <a class="dropdown-item d-flex" href="{{ route('admin.profile.index') }}">
                             <i class="bx bx-user-circle fs-18 me-2 op-7"></i>Profile
                         </a>
                     </li>
-                    @if (is_admin_user())
-                        <li>
-                            <a class="dropdown-item d-flex" href="{{ route('admin.user.index') }}">
-                                <i class="bx bx-group fs-18 me-2 op-7"></i>Users
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex" href="{{ route('admin.role-permission.index') }}">
-                                <i class="bx bx-shield-quarter fs-18 me-2 op-7"></i>Role Access
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex" href="{{ route('admin.settings.index') }}">
-                                <i class="bx bx-cog fs-18 me-2 op-7"></i>Settings
-                            </a>
-                        </li>
-                    @endif
                     <li>
                         <form action="{{ route('logout') }}" method="POST">
                             @csrf

@@ -89,7 +89,7 @@
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-bordered js-datatable" data-page-length="10">
+                            <table class="table table-bordered js-datatable" data-page-length="10" data-searchable="true">
                                 <thead>
                                     <tr>
                                         <th style="width: 70px;">S.No</th>
@@ -134,7 +134,7 @@
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-bordered js-datatable" data-page-length="10">
+                            <table class="table table-bordered js-datatable" data-page-length="10" data-searchable="true">
                                 <thead>
                                     <tr>
                                         <th style="width: 70px;">S.No</th>

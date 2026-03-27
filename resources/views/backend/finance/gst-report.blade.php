@@ -15,6 +15,9 @@
                 <a href="{{ route('admin.export.gst-report', request()->query()) }}" class="btn btn-outline-primary btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
+                <a href="{{ route('admin.export.gst-report-pdf', request()->query()) }}" class="btn btn-pdf">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
+                </a>
                 <button type="button" class="btn btn-print js-print-trigger" data-print-target="#gstReportPrintArea">
                     <i class="fa-solid fa-print"></i> Print
                 </button>
@@ -94,7 +97,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="15">
+                    <table class="table table-bordered align-middle js-datatable" data-page-length="15" data-searchable="true">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>

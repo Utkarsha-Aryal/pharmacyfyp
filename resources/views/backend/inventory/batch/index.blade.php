@@ -12,8 +12,11 @@
                 <p class="mb-0 text-muted">Batch-wise stock with expiry and storage location.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="{{ route('admin.export.inventory-batches', request()->query()) }}" class="btn btn-outline-primary">
+                <a href="{{ route('admin.export.inventory-batches', request()->query()) }}" class="btn btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
+                </a>
+                <a href="{{ route('admin.export.inventory-batches-pdf', request()->query()) }}" class="btn btn-pdf">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>
                 <button type="button" class="btn btn-primary addBatchBtn">
                     <i class="fa fa-plus"></i> Add Batch

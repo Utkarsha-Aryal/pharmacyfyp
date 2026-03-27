@@ -26,28 +26,38 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $settings = Setting::query()->pluck('value', 'key');
+        $appName = $settings->get('app_name') ?: env('APP_NAME', 'Pharmacy Management System');
+        $mailFromAddress = $settings->get('mail_from_address') ?: env('MAIL_FROM_ADDRESS');
+        $mailFromName = $settings->get('mail_from_name') ?: env('MAIL_FROM_NAME', $appName);
+        $smtpHost = $settings->get('smtp_host') ?: env('MAIL_HOST');
+        $smtpPort = $settings->get('smtp_port') ?: env('MAIL_PORT');
+        $smtpUsername = $settings->get('smtp_username') ?: env('MAIL_USERNAME');
+        $smtpPassword = $settings->get('smtp_password') ?: env('MAIL_PASSWORD');
+        $rawSmtpScheme = $settings->get('smtp_encryption') ?: env('MAIL_SCHEME');
+        $smtpScheme = in_array(strtolower((string) $rawSmtpScheme), ['ssl', 'smtps'], true) ? 'smtps' : 'smtp';
 
-        if ($settings->has('app_name')) {
-            config(['app.name' => $settings->get('app_name')]);
+        // Use DB values first, but keep env fallback so a fresh install works before settings are saved.
+        if (!empty($appName)) {
+            config(['app.name' => $appName]);
         }
 
-        if ($settings->has('mail_from_address')) {
-            config(['mail.from.address' => $settings->get('mail_from_address')]);
+        if (!empty($mailFromAddress)) {
+            config(['mail.from.address' => $mailFromAddress]);
         }
 
-        if ($settings->has('mail_from_name')) {
-            config(['mail.from.name' => $settings->get('mail_from_name')]);
+        if (!empty($mailFromName)) {
+            config(['mail.from.name' => $mailFromName]);
         }
 
-        // use smtp config only when admin has filled it from settings page
-        if ($settings->has('smtp_host') && !empty($settings->get('smtp_host'))) {
+        // Keep SMTP settings dynamic so admin can change them from settings without editing code.
+        if (!empty($smtpHost)) {
             config([
                 'mail.default' => 'smtp',
-                'mail.mailers.smtp.host' => $settings->get('smtp_host'),
-                'mail.mailers.smtp.port' => $settings->get('smtp_port'),
-                'mail.mailers.smtp.username' => $settings->get('smtp_username'),
-                'mail.mailers.smtp.password' => $settings->get('smtp_password'),
-                'mail.mailers.smtp.encryption' => $settings->get('smtp_encryption'),
+                'mail.mailers.smtp.host' => $smtpHost,
+                'mail.mailers.smtp.port' => $smtpPort,
+                'mail.mailers.smtp.username' => $smtpUsername,
+                'mail.mailers.smtp.password' => $smtpPassword,
+                'mail.mailers.smtp.scheme' => $smtpScheme ?: null,
             ]);
         }
     }

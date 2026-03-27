@@ -56,7 +56,8 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Currency Symbol</label>
-                                    <input type="text" name="currency_symbol" class="form-control" value="{{ old('currency_symbol', $settings['currency_symbol']) }}" placeholder="NPR">
+                                    <input type="text" name="currency_symbol" class="form-control" value="{{ old('currency_symbol', $settings['currency_symbol']) }}" placeholder="NPR or Rs.">
+                                    <small class="text-muted">This symbol will show before amounts across reports, sales, purchase and finance.</small>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Low Stock Threshold</label>
@@ -109,7 +110,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Encryption</label>
-                                    <input type="text" name="smtp_encryption" class="form-control" value="{{ old('smtp_encryption', $settings['smtp_encryption']) }}" placeholder="tls / ssl">
+                                    <input type="text" name="smtp_encryption" class="form-control" value="{{ old('smtp_encryption', $settings['smtp_encryption']) }}" placeholder="smtp / smtps (tls / ssl also works)">
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Mail From Name</label>
@@ -118,6 +119,26 @@
                                 <div class="col-md-12">
                                     <label class="form-label">Mail From Address</label>
                                     <input type="email" name="mail_from_address" class="form-control" value="{{ old('mail_from_address', $settings['mail_from_address']) }}" placeholder="from@example.com">
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="smtp-test-box">
+                                        <div>
+                                            <h6 class="mb-1">SMTP Test</h6>
+                                            <p class="mb-0 text-muted">Save settings first, then send one test email to confirm Mailtrap or real SMTP is working.</p>
+                                        </div>
+                                        <form action="{{ route('admin.settings.test-mail') }}" method="POST" class="row g-2 align-items-end mt-2">
+                                            @csrf
+                                            <div class="col-md-8">
+                                                <label class="form-label">Test Recipient</label>
+                                                <input type="email" name="email" class="form-control" value="{{ old('email', $settings['notification_email']) }}" placeholder="mailbox@example.com">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <button type="submit" class="btn btn-pdf w-100">
+                                                    <i class="fa-solid fa-paper-plane"></i> Send Test Mail
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>

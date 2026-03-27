@@ -35,7 +35,7 @@
                     <a href="{{ route('admin.inventory.products.index') }}" class="btn btn-primary">
                         <i class="fa-solid fa-capsules"></i> Open Products
                     </a>
-                    <a href="{{ route('admin.export.inventory-products') }}" class="btn btn-outline-primary">
+                    <a href="{{ route('admin.export.inventory-products') }}" class="btn btn-excel">
                         <i class="fa-solid fa-file-excel"></i> Inventory Excel
                     </a>
                 @elseif ($canUserManage)
@@ -77,7 +77,7 @@
                         <div class="dashboard-hero-stat">
                             @if ($canPurchaseView)
                                 <span>This Month's Purchase Value</span>
-                                <strong>{{ number_format((float) $thisMonthPurchaseValue, 2) }}</strong>
+                                <strong>{{ money_value($thisMonthPurchaseValue) }}</strong>
                                 <small>Received purchase value for {{ now()->format('F Y') }} only.</small>
                             @elseif ($canInventoryView)
                                 <span>Total Stock Qty</span>
@@ -175,7 +175,7 @@
                                     <i class="fa-solid fa-calendar-day"></i>
                                 </span>
                             </div>
-                            <div class="dashboard-mini-value">{{ number_format((float) $thisMonthPurchaseValue, 2) }}</div>
+                            <div class="dashboard-mini-value">{{ money_value($thisMonthPurchaseValue) }}</div>
                             <p class="dashboard-mini-note">Received purchase value this month.</p>
                         </div>
                     </div>
@@ -190,7 +190,7 @@
                                     <i class="fa-solid fa-file-invoice-dollar"></i>
                                 </span>
                             </div>
-                            <div class="dashboard-mini-value">{{ number_format((float) $totalPurchaseValue, 2) }}</div>
+                            <div class="dashboard-mini-value">{{ money_value($totalPurchaseValue) }}</div>
                             <p class="dashboard-mini-note">All purchase orders together.</p>
                         </div>
                     </div>
@@ -295,14 +295,14 @@
                                         </ul>
                                         <div class="dashboard-link-grid">
                                             @if ($canInventoryView)
-                                                <a href="{{ route('admin.inventory.batches.index') }}" class="btn btn-sm btn-outline-primary">Batches</a>
+                                                <a href="{{ route('admin.inventory.batches.index') }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-boxes-stacked me-1"></i>Batches</a>
                                             @endif
                                             @if ($canPurchaseView)
-                                                <a href="{{ route('admin.purchase-orders.index') }}" class="btn btn-sm btn-outline-primary">Purchase Orders</a>
+                                                <a href="{{ route('admin.purchase-orders.index') }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-file-invoice me-1"></i>Purchase Orders</a>
                                             @endif
                                             @if ($canUserManage)
-                                                <a href="{{ route('admin.user.index') }}" class="btn btn-sm btn-outline-primary">Users</a>
-                                                <a href="{{ route('admin.settings.index') }}" class="btn btn-sm btn-outline-primary">Settings</a>
+                                                <a href="{{ route('admin.user.index') }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-users me-1"></i>Users</a>
+                                                <a href="{{ route('admin.settings.index') }}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-gear me-1"></i>Settings</a>
                                             @endif
                                         </div>
                                     </div>
@@ -320,7 +320,7 @@
                                         </div>
                                         <div class="card-body">
                                             <div class="table-responsive dashboard-table-wrap">
-                                                <table class="table table-striped summary-table mb-0 js-datatable" data-page-length="5">
+                                                <table class="table table-striped summary-table mb-0">
                                                     <thead>
                                                         <tr>
                                                             <th style="width: 70px;">S.No</th>
@@ -336,11 +336,11 @@
                                                                 <td>{{ $index + 1 }}</td>
                                                                 <td>{{ $supplier->supplier_name }}</td>
                                                                 <td>{{ $supplier->total_bill }}</td>
-                                                                <td>{{ number_format((float) $supplier->total_amount, 2) }}</td>
+                                                                <td>{{ money_value($supplier->total_amount) }}</td>
                                                                 <td>
                                                                     @if ((float) $supplier->outstanding_amount > 0)
                                                                         <span class="text-danger fw-semibold">
-                                                                            {{ number_format((float) $supplier->outstanding_amount, 2) }}
+                                                                            {{ money_value($supplier->outstanding_amount) }}
                                                                         </span>
                                                                     @else
                                                                         <span class="report-badge report-badge-success">Paid</span>
@@ -383,7 +383,7 @@
                                         </div>
                                         <div class="card-body">
                                             <div class="table-responsive dashboard-table-wrap">
-                                                <table class="table table-striped summary-table mb-0 js-datatable" data-page-length="5">
+                                                <table class="table table-striped summary-table mb-0">
                                                     <thead>
                                                         <tr>
                                                             <th style="width: 70px;">S.No</th>
@@ -408,7 +408,7 @@
                                                                     <span class="report-badge {{ $purchase->payment_status === 'unpaid' ? 'report-badge-danger' : ($purchase->payment_status === 'partial' ? 'report-badge-warning' : 'report-badge-success') }}">{{ $purchase->payment_label }}</span>
                                                                 </td>
                                                                 <td>{{ $purchase->order_date_show }}</td>
-                                                                <td>{{ number_format((float) $purchase->total_amount, 2) }}</td>
+                                                                <td>{{ money_value($purchase->total_amount) }}</td>
                                                             </tr>
                                                         @empty
                                                             <tr>
@@ -428,6 +428,17 @@
                     @if ($showAnalyticsTab)
                     <div class="tab-pane fade" id="dashboard-analytics" role="tabpanel">
                         <div class="row g-4">
+                            <div class="col-xl-5">
+                                <div class="card custom-card dashboard-inner-card analytics-overview-card">
+                                    <div class="card-header justify-content-between">
+                                        <div class="card-title">Overview Bar Chart</div>
+                                    </div>
+                                    <div class="card-body dashboard-chart-box">
+                                        <canvas id="overviewBarChart" data-labels='@json($overviewChart["labels"])' data-values='@json($overviewChart["values"])'></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
                             @if ($canPurchaseView)
                                 <div class="{{ $canInventoryView ? 'col-xl-7' : 'col-xl-12' }}">
                                     <div class="card custom-card dashboard-inner-card">
@@ -442,7 +453,7 @@
                             @endif
 
                             @if ($canInventoryView)
-                                <div class="{{ $canPurchaseView ? 'col-xl-5' : 'col-xl-12' }}">
+                                <div class="{{ $canPurchaseView ? 'col-xl-7' : 'col-xl-12' }}">
                                     <div class="card custom-card dashboard-inner-card">
                                         <div class="card-header justify-content-between">
                                             <div class="card-title">Stock by Category</div>
@@ -470,7 +481,7 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive dashboard-table-wrap">
-                                            <table class="table table-striped summary-table mb-0 js-datatable" data-page-length="5">
+                                            <table class="table table-striped summary-table mb-0">
                                                 <thead>
                                                     <tr>
                                                         <th style="width: 70px;">S.No</th>
@@ -516,7 +527,7 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive dashboard-table-wrap">
-                                            <table class="table table-striped summary-table mb-0 js-datatable" data-page-length="5">
+                                            <table class="table table-striped summary-table mb-0">
                                                 <thead>
                                                     <tr>
                                                         <th style="width: 70px;">S.No</th>

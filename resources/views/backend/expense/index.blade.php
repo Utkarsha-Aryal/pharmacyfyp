@@ -117,6 +117,32 @@
         </div>
 
         <div class="card custom-card">
+            <div class="card-body border-bottom">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Category</label>
+                        <select id="expenseCategoryFilter" class="form-select js-select2" data-placeholder="All category" data-allow-clear="1">
+                            <option value="">All</option>
+                            @foreach ($expenseCategories as $category)
+                                <option value="{{ $category }}">{{ $category }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Payment Mode</label>
+                        <select id="expensePaymentFilter" class="form-select js-select2" data-placeholder="All payment" data-allow-clear="1">
+                            <option value="">All</option>
+                            <option value="cash">Cash</option>
+                            <option value="bank">Bank</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex justify-content-md-end">
+                        <button type="button" class="btn btn-outline-secondary mt-md-4" id="resetExpenseFilters">
+                            <i class="fa-solid fa-rotate-right me-1"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div class="card-header justify-content-between">
                 <div class="card-title">Expense List</div>
             </div>
@@ -187,6 +213,7 @@
                 selector: '#expenseTable',
                 pageLength: 10,
                 sort: false,
+                searchable: true,
                 columns: [
                     { data: 'sno' },
                     { data: 'date' },
@@ -198,7 +225,22 @@
                     { data: 'created_by' },
                     { data: 'action' },
                 ],
-                ajaxUrl: '{{ route('admin.expenses.list') }}'
+                ajaxUrl: '{{ route('admin.expenses.list') }}',
+                ajaxData: function(request) {
+                    request.category = $('#expenseCategoryFilter').val() || '';
+                    request.payment_mode = $('#expensePaymentFilter').val() || '';
+                }
+            });
+
+            $(document).on('change', '#expenseCategoryFilter, #expensePaymentFilter', function () {
+                if (window.expenseTable) {
+                    window.expenseTable.draw();
+                }
+            });
+
+            $(document).on('click', '#resetExpenseFilters', function () {
+                $('#expenseCategoryFilter').val('').trigger('change');
+                $('#expensePaymentFilter').val('').trigger('change');
             });
         });
     </script>

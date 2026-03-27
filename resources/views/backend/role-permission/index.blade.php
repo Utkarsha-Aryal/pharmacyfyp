@@ -50,7 +50,8 @@
                 selector: '#roleTable',
                 pageLength: 10,
                 sort: false,
-                searchable: true,
+                searchable: false,
+                searchColumns: [1],
                 columns: [
                     { data: 'sno' },
                     { data: 'role' },

@@ -20,6 +20,24 @@
   }
 
   function showNotification(message, type) {
+    if (window.toastr) {
+      var toastType = type === "success" ? "success" : (type === "warning" ? "warning" : "error");
+      window.toastr.options = {
+        closeButton: true,
+        progressBar: false,
+        newestOnTop: true,
+        positionClass: "toast-top-right",
+        timeOut: 2800,
+        extendedTimeOut: 600,
+        preventDuplicates: true,
+        closeDuration: 180,
+        showDuration: 180,
+        hideDuration: 180,
+      };
+      window.toastr[toastType](message || "Something happened.");
+      return;
+    }
+
     var notification = byId("customNotification");
     if (!notification) {
       return;
@@ -120,6 +138,8 @@
 
     var countBadge = byId("headerNotificationCount");
     if (countBadge) {
+      countBadge.classList.remove("notification-count-pending");
+
       if (unreadCount > 0) {
         countBadge.textContent = unreadCount;
         countBadge.classList.remove("d-none");
@@ -397,6 +417,28 @@
     updateButtonLabel();
   }
 
+  function getSharedTableDom(searchable) {
+    if (searchable === false) {
+      return "<'row align-items-center g-2 mb-3'<'col-md-12 dataTables-left'l>>" +
+        "t" +
+        "<'row align-items-center g-2 mt-3'<'col-md-6'i><'col-md-6'p>>";
+    }
+
+    return "<'row align-items-center g-2 mb-3'<'col-md-4 dataTables-left'l><'col-md-8 dataTables-search-wrap'f>>" +
+      "t" +
+      "<'row align-items-center g-2 mt-3'<'col-md-6'i><'col-md-6'p>>";
+  }
+
+  function decorateDataTableUi($wrapper) {
+    if (!$wrapper || !$wrapper.length) {
+      return;
+    }
+
+    $wrapper.find(".dataTables_filter input").attr("placeholder", "Search here").addClass("datatable-search-input");
+    $wrapper.find(".dataTables_length select").addClass("datatable-length-select");
+    $wrapper.find(".dataTables_info").addClass("datatable-info-text");
+  }
+
   function initConfirmForms() {
     if (!window.jQuery || typeof Swal === "undefined") {
       return;
@@ -466,23 +508,33 @@
       }
 
       if (searchable === undefined) {
-        searchable = true;
+        searchable = false;
       }
 
       $table.DataTable({
         sPaginationType: "full_numbers",
         lengthMenu: [
-          [5, 10, 15, 20, 25, -1],
-          [5, 10, 15, 20, 25, "All"],
+          [10, 15, 25, 50, -1],
+          [10, 15, 25, 50, "All"],
         ],
         iDisplayLength: pageLength,
-        sDom: searchable ? "lfrtip" : "lrtip",
+        sDom: getSharedTableDom(searchable),
         bAutoWidth: false,
         aaSorting: Number.isNaN(orderColumn) ? [] : [[orderColumn, orderDirection]],
         bSort: true,
         bProcessing: false,
+        searchDelay: 300,
         oLanguage: {
+          sSearch: "",
+          sSearchPlaceholder: "Search here",
+          sLengthMenu: "Show _MENU_ entries",
           sEmptyTable: "<p class='no_data_message'>No data available.</p>",
+        },
+        initComplete: function () {
+          decorateDataTableUi($(this.api().table().container()));
+        },
+        drawCallback: function () {
+          decorateDataTableUi($(this.api().table().container()));
         },
       });
     });
@@ -522,22 +574,27 @@
     var $table = $(tableElement);
     var ajaxData = options.ajaxData;
     var searchColumns = Array.isArray(options.searchColumns) ? options.searchColumns : [];
+    var searchable = options.searchable === true;
 
     return $table.DataTable({
       sPaginationType: options.paginationType || "full_numbers",
       bSearchable: false,
       lengthMenu: options.lengthMenu || [
-        [5, 10, 15, 20, 25, -1],
-        [5, 10, 15, 20, 25, "All"],
+        [10, 15, 25, 50, -1],
+        [10, 15, 25, 50, "All"],
       ],
       iDisplayLength: options.pageLength || 15,
-      sDom: options.searchable === false ? "lrtip" : (options.dom || "lfrtip"),
+      sDom: options.dom || getSharedTableDom(searchable),
       bAutoWidth: false,
       aaSorting: Array.isArray(options.order) ? options.order : [],
       bSort: options.sort !== false,
       bProcessing: options.processing !== false,
       bServerSide: options.serverSide !== false,
+      searchDelay: 300,
       oLanguage: {
+        sSearch: "",
+        sSearchPlaceholder: "Search here",
+        sLengthMenu: "Show _MENU_ entries",
         sEmptyTable: "<p class='no_data_message'>No data available.</p>",
       },
       aoColumns: options.columns || [],
@@ -553,6 +610,8 @@
         },
       },
       initComplete: function () {
+        decorateDataTableUi($(this.api().table().container()));
+
         if (searchColumns.length > 0) {
           addColumnSearch(this.api(), searchColumns);
         }
@@ -560,6 +619,9 @@
         if (typeof options.afterInit === "function") {
           options.afterInit.call(this, this.api());
         }
+      },
+      drawCallback: function () {
+        decorateDataTableUi($(this.api().table().container()));
       },
     });
   }
@@ -917,23 +979,37 @@
     form.submit();
   }
 
-  function initPurchaseShortcuts() {
-    if (window.__purchaseShortcutBound) {
+  function initEntryFormShortcuts() {
+    if (window.__entryShortcutBound) {
       return;
     }
 
     var pageTitle = String(document.body.dataset.page || "").trim().toLowerCase();
+    var shortcutMap = {
+      "create purchase order": {
+        addRowButtonId: "addPurchaseRow",
+        formSelector: "#purchaseForm"
+      },
+      "sales invoice create": {
+        addRowButtonId: "addSalesRow",
+        formSelector: "#salesForm"
+      },
+      "receive purchase order": {
+        formSelector: "form[action*='/receive']"
+      }
+    };
+    var shortcutConfig = shortcutMap[pageTitle];
 
-    if (pageTitle !== "create purchase order" && pageTitle !== "receive purchase order") {
+    if (!shortcutConfig) {
       return;
     }
 
     document.addEventListener("keydown", function (event) {
       var targetTag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : "";
 
-      if (pageTitle === "create purchase order" && event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "a") {
+      if (shortcutConfig.addRowButtonId && event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "a") {
         event.preventDefault();
-        var addRowButton = byId("addPurchaseRow");
+        var addRowButton = byId(shortcutConfig.addRowButtonId);
         if (addRowButton) {
           addRowButton.click();
         }
@@ -947,20 +1023,55 @@
 
         event.preventDefault();
 
-        if (pageTitle === "create purchase order") {
-          submitFormSafely(byId("purchaseForm"));
-        } else if (pageTitle === "receive purchase order") {
-          submitFormSafely(document.querySelector("form[action*='/receive']"));
+        if (shortcutConfig.formSelector) {
+          submitFormSafely(document.querySelector(shortcutConfig.formSelector));
         }
       }
     });
 
-    window.__purchaseShortcutBound = true;
+    window.__entryShortcutBound = true;
   }
 
   function initPrintActions() {
     if (window.__printActionBound) {
       return;
+    }
+
+    function expandDataTablesForPrint(targetElement) {
+      var states = [];
+
+      if (!window.jQuery || !$.fn.DataTable) {
+        return states;
+      }
+
+      $(targetElement).find("table").each(function () {
+        if (!$.fn.DataTable.isDataTable(this)) {
+          return;
+        }
+
+        var api = $(this).DataTable();
+        var pageInfo = api.page.info();
+
+        states.push({
+          api: api,
+          length: api.page.len(),
+          page: pageInfo ? pageInfo.page : 0,
+        });
+
+        api.page.len(-1).draw(false);
+      });
+
+      return states;
+    }
+
+    function restoreDataTablesAfterPrint(states) {
+      (states || []).forEach(function (state) {
+        state.api.page.len(state.length).draw(false);
+
+        if (state.length !== -1) {
+          state.api.page(state.page).draw("page");
+        }
+      });
     }
 
     $(document).on("click.printArea", ".js-print-trigger", function (event) {
@@ -976,10 +1087,12 @@
 
       document.body.classList.add("print-target-active");
       printTarget.classList.add("print-active-target");
+      var tableStates = expandDataTablesForPrint(printTarget);
 
       var cleanup = function () {
         document.body.classList.remove("print-target-active");
         printTarget.classList.remove("print-active-target");
+        restoreDataTablesAfterPrint(tableStates);
       };
 
       window.addEventListener("afterprint", cleanup, { once: true });
@@ -1036,6 +1149,48 @@
   }
 
   function initDashboardCharts() {
+    var overviewBarChart = byId("overviewBarChart");
+    if (overviewBarChart) {
+      createChart(overviewBarChart, {
+        type: "bar",
+        data: {
+          labels: JSON.parse(overviewBarChart.dataset.labels || "[]"),
+          datasets: [
+            {
+              label: "Overview Count",
+              data: JSON.parse(overviewBarChart.dataset.values || "[]"),
+              backgroundColor: ["#2563eb", "#16a34a", "#f97316", "#7c3aed", "#ef4444"],
+              borderRadius: 8,
+              maxBarThickness: 36,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: "rgba(148, 163, 184, 0.18)",
+              },
+              ticks: {
+                precision: 0,
+              },
+            },
+            x: {
+              grid: {
+                display: false,
+              },
+            },
+          },
+        },
+      });
+    }
+
     var purchaseTrendChart = byId("purchaseTrendChart");
     if (purchaseTrendChart) {
       createChart(purchaseTrendChart, {
@@ -1110,6 +1265,40 @@
     }
   }
 
+  // Add one reusable print button on list pages so we do not repeat the same Blade code everywhere.
+  function initAutoTablePrintButtons() {
+    if (!document.querySelector(".page-header-breadcrumb")) {
+      return;
+    }
+
+    // dashboard has charts and tabs, so the auto list print button is more confusing than helpful there
+    if (document.querySelector(".dashboard-wrap")) {
+      return;
+    }
+
+    if (document.querySelector(".page-header-breadcrumb .js-print-trigger")) {
+      return;
+    }
+
+    var actionGroup = document.querySelector(".page-header-breadcrumb .d-flex.gap-2, .page-header-breadcrumb .right-content.gap-2, .page-header-breadcrumb .d-flex");
+    var tableCard = document.querySelector(".card.custom-card table") ? document.querySelector(".card.custom-card table").closest(".card.custom-card") : null;
+
+    if (!actionGroup || !tableCard) {
+      return;
+    }
+
+    if (!tableCard.id) {
+      tableCard.id = "autoPrintCard" + String(Date.now());
+    }
+
+    var printButton = document.createElement("button");
+    printButton.type = "button";
+    printButton.className = "btn btn-print js-print-trigger js-auto-print-list";
+    printButton.setAttribute("data-print-target", "#" + tableCard.id);
+    printButton.innerHTML = '<i class="fa-solid fa-print"></i> Print';
+    actionGroup.insertBefore(printButton, actionGroup.firstChild);
+  }
+
   window.showLoader = showLoader;
   window.hideLoader = hideLoader;
   window.showNotification = showNotification;
@@ -1139,8 +1328,9 @@
     initAjaxForms();
     initDataTableTabAdjust();
     initStandardDataTables();
+    initAutoTablePrintButtons();
     initPrintActions();
-    initPurchaseShortcuts();
+    initEntryFormShortcuts();
   });
 
   window.addEventListener("load", function () {

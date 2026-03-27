@@ -20,6 +20,8 @@ class RolePermissionController extends Controller
     public function list(Request $request)
     {
         $keyword = trim((string) $request->input('search.value', ''));
+        $columns = (array) $request->input('columns', []);
+        $roleKeyword = trim((string) data_get($columns, '1.search.value', ''));
         $start = max((int) $request->input('start', 0), 0);
         $length = max((int) $request->input('length', 10), 1);
 
@@ -33,6 +35,10 @@ class RolePermissionController extends Controller
                         $permissionQuery->where('name', 'like', '%' . $keyword . '%');
                     });
             });
+        }
+
+        if ($roleKeyword !== '') {
+            $query->where('name', 'like', '%' . $roleKeyword . '%');
         }
 
         $recordsFiltered = (clone $query)->count();

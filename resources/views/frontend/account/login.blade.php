@@ -87,12 +87,12 @@
           <button type="button" class="demo-fill-btn" data-fill-email="admin@pharmacy.com" data-fill-password="admin12345">
             <span>
               <strong>Admin Login</strong>
-              <small>admin@email.com / password</small>
+              <small>admin@pharmacy.com / admin12345</small>
             </span>
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
           </button>
 
-          <button type="button" class="demo-fill-btn" data-fill-email="staff@pharmacy.com" data-fill-password="staff12345">
+          <button type="button" class="demo-fill-btn" data-fill-email="staff@email.com" data-fill-password="password">
             <span>
               <strong>Staff Login</strong>
               <small>staff@email.com / password</small>

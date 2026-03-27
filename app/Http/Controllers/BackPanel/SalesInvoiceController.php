@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
 use App\Models\SalesReturn;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
@@ -106,6 +107,8 @@ class SalesInvoiceController extends Controller
 
             $action = '<div class="table-action-group">';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Invoice" aria-label="View Invoice"><i class="fa-solid fa-eye"></i></a>';
+            $action .= '<a href="' . route('admin.sales.print', $invoice) . '" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print Invoice" aria-label="Print Invoice"><i class="fa-solid fa-print"></i></a>';
+            $action .= '<a href="' . route('admin.sales.pdf', $invoice) . '" class="btn btn-sm btn-outline-danger table-action-btn" title="Invoice PDF" aria-label="Invoice PDF"><i class="fa-solid fa-file-pdf"></i></a>';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '#paymentModal" class="btn btn-sm btn-outline-success table-action-btn" title="Payment" aria-label="Payment"><i class="fa-solid fa-wallet"></i></a>';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '#returnModal" class="btn btn-sm btn-outline-danger table-action-btn" title="Return" aria-label="Return"><i class="fa-solid fa-rotate-left"></i></a>';
             $action .= '</div>';
@@ -411,21 +414,24 @@ class SalesInvoiceController extends Controller
     // Show one invoice with items, payment and return history.
     public function show(SalesInvoice $salesInvoice)
     {
-        $salesInvoice->load(['customer', 'soldBy', 'creator', 'items.product', 'items.batch', 'returns.product', 'returns.batch']);
+        return view('backend.sales.show', $this->invoiceViewData($salesInvoice));
+    }
 
-        return view('backend.sales.show', [
-            'invoice' => $salesInvoice,
-            'paymentMethods' => [
-                'cash' => 'Cash',
-                'bank' => 'Bank',
-                'mixed' => 'Mixed',
-            ],
-            'saleTypes' => [
-                'retail' => 'Retail',
-                'wholesale' => 'Wholesale',
-                'credit' => 'Credit',
-            ],
-        ]);
+    // Open one focused invoice page in a new tab so the user prints only the bill.
+    public function printView(SalesInvoice $salesInvoice)
+    {
+        return view('backend.sales.print', $this->invoiceViewData($salesInvoice));
+    }
+
+    // Download the invoice as PDF for customer copy or office record.
+    public function pdf(SalesInvoice $salesInvoice)
+    {
+        $invoice = $this->loadInvoiceRelations($salesInvoice);
+
+        return Pdf::loadView('backend.sales.pdf.invoice', [
+            'invoice' => $invoice,
+            'company' => $this->invoiceCompanyDetails(),
+        ])->setPaper('a4', 'portrait')->download($invoice->reference . '.pdf');
     }
 
     // Update payment status and keep customer balance in sync.
@@ -598,5 +604,49 @@ class SalesInvoiceController extends Controller
         }
 
         return 0.00;
+    }
+
+    // Keep invoice loading in one place so show, print and pdf use the same data.
+    private function loadInvoiceRelations(SalesInvoice $salesInvoice): SalesInvoice
+    {
+        return $salesInvoice->load([
+            'customer',
+            'soldBy',
+            'creator',
+            'items.product',
+            'items.batch',
+            'returns.product',
+            'returns.batch',
+        ]);
+    }
+
+    // Build the common screen data once because invoice screens reuse the same labels and company details.
+    private function invoiceViewData(SalesInvoice $salesInvoice): array
+    {
+        return [
+            'invoice' => $this->loadInvoiceRelations($salesInvoice),
+            'company' => $this->invoiceCompanyDetails(),
+            'paymentMethods' => [
+                'cash' => 'Cash',
+                'bank' => 'Bank',
+                'mixed' => 'Mixed',
+            ],
+            'saleTypes' => [
+                'retail' => 'Retail',
+                'wholesale' => 'Wholesale',
+                'credit' => 'Credit',
+            ],
+        ];
+    }
+
+    // Read basic company details from settings so invoice copy still looks proper with fallback values.
+    private function invoiceCompanyDetails(): array
+    {
+        return [
+            'name' => setting('app_name', 'Pharmacy Management System'),
+            'email' => setting('company_email', 'info@pharmacy.com'),
+            'phone' => setting('company_phone', ''),
+            'address' => trim(strip_tags((string) setting('company_address', ''))),
+        ];
     }
 }

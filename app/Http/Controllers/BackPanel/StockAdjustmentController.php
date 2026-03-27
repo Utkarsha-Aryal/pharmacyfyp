@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 class StockAdjustmentController extends Controller
 {
+    // Show the adjustment page with the latest stock movement history.
     public function index(Request $request)
     {
         $productId = $request->input('product_id');
@@ -29,6 +30,7 @@ class StockAdjustmentController extends Controller
         ]);
     }
 
+    // Save one stock adjustment and make sure the selected batch really belongs to the selected product.
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -39,9 +41,15 @@ class StockAdjustmentController extends Controller
             'reason' => ['nullable', 'string'],
         ]);
 
+        $batch = Batch::query()->findOrFail($validated['batch_id']);
+
+        if ((int) $batch->product_id !== (int) $validated['product_id']) {
+            return back()->withInput()->with('error', 'Selected batch does not belong to the chosen product.');
+        }
+
         StockAdjustment::applyAdjustment([
             'product_id' => $validated['product_id'],
-            'batch_id' => $validated['batch_id'],
+            'batch_id' => $batch->id,
             'adjusted_by' => $request->user()->id,
             'created_by' => $request->user()->id,
             'updated_by' => $request->user()->id,

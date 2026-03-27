@@ -15,9 +15,12 @@
                 <a href="{{ route('admin.sales.index') }}" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-arrow-left"></i> Back
                 </a>
-                <button type="button" class="btn btn-print js-print-trigger" data-print-target="#salesInvoicePrintArea">
+                <a href="{{ route('admin.sales.print', $invoice) }}" target="_blank" class="btn btn-print">
                     <i class="fa-solid fa-print"></i> Print
-                </button>
+                </a>
+                <a href="{{ route('admin.sales.pdf', $invoice) }}" class="btn btn-pdf">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
+                </a>
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#paymentModal">
                     <i class="fa-solid fa-wallet"></i> Payment
                 </button>
@@ -128,8 +131,8 @@
                                     <td>{{ $item->batch?->batch_number ?? '-' }}</td>
                                     <td>{{ $item->quantity }}</td>
                                     <td>{{ money_value($item->unit_price) }}</td>
-                                    <td>{{ money_value($item->discount_percent) }}</td>
-                                    <td>{{ money_value($item->tax_percent) }}</td>
+                                    <td>{{ number_format((float) $item->discount_percent, 2) }}%</td>
+                                    <td>{{ number_format((float) $item->tax_percent, 2) }}%</td>
                                     <td>{{ money_value($item->subtotal) }}</td>
                                 </tr>
                             @endforeach

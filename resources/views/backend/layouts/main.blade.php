@@ -49,11 +49,11 @@
     <!-- Choices Css -->
     <link rel="stylesheet" href="{{ asset('backpanel/assets/libs/choices.js/public/assets/styles/choices.min.css') }}">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 
     <!-- Jsvector Maps -->
     <link rel="stylesheet" href="{{ asset('backpanel/assets/libs/jsvectormap/css/jsvectormap.min.css') }}">
 
-    <link rel="stylesheet" href="{{ asset('backpanel/assets/js/quill-editor.js') }}">
     <script src="https://cdn.jsdelivr.net/npm/quill@2.0.0-rc.2/dist/quill.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.0-rc.2/dist/quill.snow.css" rel="stylesheet">
     <!-- Nepali date picker -->
@@ -62,13 +62,10 @@
 
     <link rel="stylesheet" href="{{ asset('backpanel/assets/css/fontawesome-iconpicker.min.css') }}">
 
-    <link rel="stylesheet" href="path/to/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/fontawesome.min.css"
-        integrity="sha512-d0olNN35C6VLiulAobxYHZiXJmq+vl+BGIgAxQtD5+kqudro/xNMvv2yIHAciGHpExsIbKX3iLg+0B6d0k4+ZA=="
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <!-- cropper -->
-    <link href="{{ asset('backpanel/assets/css/cropper/cropper.css') }}" rel="stylesheet">
     <link href="{{ asset('backpanel/assets/css/cropper/cropper.min.css') }}" rel="stylesheet">
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.6.4/css/bootstrap-datepicker.css"
@@ -76,6 +73,7 @@
 
     <!-- Sweetalerts CSS -->
     <link rel="stylesheet" href="{{ asset('backpanel/assets/libs/sweetalert2/sweetalert2.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('backpanel/assets/libs/toastr/toastr.min.css') }}">
 
     @yield('styles')
 
@@ -108,14 +106,6 @@
         <!-- Start::app-content -->
         <div class="main-content app-content">
             <div class="container-fluid">
-                @if (session('success'))
-                    <div class="alert alert-success mt-3">{{ session('success') }}</div>
-                @endif
-
-                @if (session('error'))
-                    <div class="alert alert-danger mt-3">{{ session('error') }}</div>
-                @endif
-
                 @yield('main-content')
             </div>
         </div>
@@ -161,16 +151,6 @@
     <!-- Apex Charts JS -->
     <script src="{{ asset('backpanel/assets/libs/apexcharts/apexcharts.min.js') }}"></script>
 
-    <!-- JSVector Maps JS -->
-    <script src="{{ asset('backpanel/assets/libs/jsvectormap/js/jsvectormap.min.js') }}"></script>
-
-    <!-- JSVector Maps MapsJS -->
-    <script src="{{ asset('backpanel/assets/libs/jsvectormap/maps/world-merc.js') }}"></script>
-    <script src="{{ asset('backpanel/assets/js/us-merc-en.js') }}"></script>
-
-    <!-- Chartjs Chart JS -->
-    <script src="{{ asset('backpanel/assets/js/index.js') }}"></script>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
         integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -182,11 +162,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.form/4.3.0/jquery.form.min.js"></script>
 
     <!-- DataTables -->
-    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 
     <script src="{{ asset('backpanel/assets/libs/chart.js/chart.min.js') }}"></script>
+    <script src="{{ asset('backpanel/assets/libs/jsvectormap/js/jsvectormap.min.js') }}"></script>
+    <script src="{{ asset('backpanel/assets/libs/jsvectormap/maps/world-merc.js') }}"></script>
 
     <script type="text/javascript" src="{{ asset('backpanel/assets/js/fontawesome-iconpicker.min.js') }}"></script>
 
@@ -198,17 +179,12 @@
     <script src="{{ asset('backpanel/assets/js/jquery-validate.js') }}"></script>
 
     <!-- cropper js-->
-    <script src="{{ asset('backpanel/assets/js/cropper/cropper.common.js') }}"></script>
-    <script src="{{ asset('backpanel/assets/js/cropper/cropper.esm.js') }}"></script>
-    <script src="{{ asset('backpanel/assets/js/cropper/cropper.js') }}"></script>
     <script src="{{ asset('backpanel/assets/js/cropper/cropper.min.js') }}"></script>
 
     <!-- Sweetalerts JS -->
     <script src="{{ asset('backpanel/assets/libs/sweetalert2/sweetalert2.min.js') }}"></script>
-    <script src="{{ asset('backpanel/assets/js/sweet-alerts.js') }}"></script>
+    <script src="{{ asset('backpanel/assets/libs/toastr/toastr.min.js') }}"></script>
 
-    <!-- Custom-Switcher JS -->
-    <script src="{{ asset('backpanel/assets/js/custom-switcher.min.js') }}"></script>
     <!-- Custom JS -->
     <script src="{{ asset('backpanel/assets/js/custom.js') }}?v={{ $adminCustomJsVersion }}"></script>
 
@@ -228,6 +204,20 @@
         };
 
         window.showNotification = window.showNotification || function(message, type) {
+            if (window.toastr) {
+                toastr.options = {
+                    closeButton: true,
+                    progressBar: false,
+                    newestOnTop: true,
+                    positionClass: 'toast-top-right',
+                    timeOut: 2800,
+                    extendedTimeOut: 600,
+                    preventDuplicates: true
+                };
+                toastr[type === 'success' ? 'success' : (type === 'warning' ? 'warning' : 'error')](message || 'Action completed.');
+                return;
+            }
+
             var notification = document.getElementById('customNotification');
             if (!notification) {
                 return;
@@ -250,6 +240,18 @@
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
         });
+
+        @if (session('success'))
+            window.setTimeout(function() {
+                window.showNotification(@json(session('success')), 'success');
+            }, 120);
+        @endif
+
+        @if (session('error'))
+            window.setTimeout(function() {
+                window.showNotification(@json(session('error')), 'error');
+            }, 120);
+        @endif
     </script>
     @yield('script')
 

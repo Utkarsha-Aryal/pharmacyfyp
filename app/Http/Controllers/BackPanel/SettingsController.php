@@ -3,12 +3,17 @@
 namespace App\Http\Controllers\BackPanel;
 
 use App\Http\Controllers\Controller;
+use App\Mail\SystemStatusMail;
 use App\Models\Common;
 use App\Models\Setting;
+use Illuminate\Mail\MailManager;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class SettingsController extends Controller
 {
+    // Show all app settings in one place with env fallback for the first setup.
     public function index()
     {
         return view('backend.settings.index', [
@@ -19,14 +24,14 @@ class SettingsController extends Controller
                 'company_phone' => setting('company_phone'),
                 'company_address' => setting('company_address'),
                 'favicon' => setting('favicon'),
-                'smtp_host' => setting('smtp_host'),
-                'smtp_port' => setting('smtp_port'),
-                'smtp_username' => setting('smtp_username'),
-                'smtp_password' => setting('smtp_password'),
-                'smtp_encryption' => setting('smtp_encryption'),
-                'mail_from_address' => setting('mail_from_address'),
-                'mail_from_name' => setting('mail_from_name'),
-                'notification_email' => setting('notification_email'),
+                'smtp_host' => setting('smtp_host', env('MAIL_HOST')),
+                'smtp_port' => setting('smtp_port', env('MAIL_PORT')),
+                'smtp_username' => setting('smtp_username', env('MAIL_USERNAME')),
+                'smtp_password' => setting('smtp_password', env('MAIL_PASSWORD')),
+                'smtp_encryption' => setting('smtp_encryption', env('MAIL_SCHEME')),
+                'mail_from_address' => setting('mail_from_address', env('MAIL_FROM_ADDRESS')),
+                'mail_from_name' => setting('mail_from_name', env('MAIL_FROM_NAME')),
+                'notification_email' => setting('notification_email', env('MAIL_FROM_ADDRESS')),
                 'currency_symbol' => setting('currency_symbol', 'NPR'),
                 'low_stock_threshold' => setting('low_stock_threshold', 10),
                 'tax_rate' => setting('tax_rate', 13),
@@ -34,6 +39,7 @@ class SettingsController extends Controller
         ]);
     }
 
+    // Save settings and keep the values simple so the admin panel stays easy to maintain.
     public function update(Request $request)
     {
         $validated = $request->validate([
@@ -69,5 +75,66 @@ class SettingsController extends Controller
         }
 
         return redirect()->route('admin.settings.index')->with('success', 'Settings updated successfully.');
+    }
+
+    // Send one SMTP test mail so admin can confirm the inbox is wired correctly.
+    public function testMail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['nullable', 'email'],
+        ]);
+
+        $recipient = $validated['email']
+            ?? setting('notification_email')
+            ?? setting('mail_from_address')
+            ?? config('mail.from.address');
+
+        if (empty($recipient)) {
+            return back()->with('error', 'Please add notification email or mail from address before testing.');
+        }
+
+        $smtpHost = setting('smtp_host', env('MAIL_HOST'));
+        $smtpPort = setting('smtp_port', env('MAIL_PORT'));
+        $smtpUsername = setting('smtp_username', env('MAIL_USERNAME'));
+        $smtpPassword = setting('smtp_password', env('MAIL_PASSWORD'));
+        $rawSmtpScheme = setting('smtp_encryption', env('MAIL_SCHEME'));
+        $smtpScheme = in_array(strtolower((string) $rawSmtpScheme), ['ssl', 'smtps'], true) ? 'smtps' : 'smtp';
+        $mailFromAddress = setting('mail_from_address', env('MAIL_FROM_ADDRESS'));
+        $mailFromName = setting('mail_from_name', env('MAIL_FROM_NAME', setting('app_name', config('app.name'))));
+
+        if (empty($smtpHost) || empty($smtpPort) || empty($smtpUsername) || empty($smtpPassword)) {
+            return back()->with('error', 'SMTP host, port, username and password are required before sending test mail.');
+        }
+
+        // Refresh the mailer once with the saved values so the test button checks the real current setup.
+        config([
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.host' => $smtpHost,
+            'mail.mailers.smtp.port' => $smtpPort,
+            'mail.mailers.smtp.username' => $smtpUsername,
+            'mail.mailers.smtp.password' => $smtpPassword,
+            'mail.mailers.smtp.scheme' => $smtpScheme ?: null,
+            'mail.from.address' => $mailFromAddress,
+            'mail.from.name' => $mailFromName,
+        ]);
+
+        app(MailManager::class)->forgetMailers();
+
+        try {
+            Mail::to($recipient)->send(new SystemStatusMail(
+                mailSubject: 'SMTP Test Mail',
+                title: 'SMTP connection is working',
+                intro: 'This is a quick test mail from the pharmacy management system.',
+                lines: [
+                    'Mail host: ' . ($smtpHost ?: 'Not set'),
+                    'Mail port: ' . ($smtpPort ?: 'Not set'),
+                    'Generated at: ' . now()->format('M j, Y h:i A'),
+                ]
+            ));
+        } catch (Throwable $throwable) {
+            return back()->with('error', 'Test mail failed: ' . $throwable->getMessage());
+        }
+
+        return back()->with('success', 'Test mail sent to ' . $recipient . '.');
     }
 }

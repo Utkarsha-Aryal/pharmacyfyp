@@ -179,6 +179,9 @@
                                 <li class="slide {{ request()->routeIs('admin.finance.ledger') ? 'active' : '' }}">
                                     <a href="{{ route('admin.finance.ledger') }}" class="side-menu__item">Ledger</a>
                                 </li>
+                                <li class="slide {{ request()->routeIs('admin.finance.account-tree') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.finance.account-tree') }}" class="side-menu__item">Account Tree</a>
+                                </li>
                             @endcan
                             @can('accounting.trial_balance')
                                 <li class="slide {{ request()->routeIs('admin.finance.trial-balance') ? 'active' : '' }}">

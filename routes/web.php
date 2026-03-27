@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\BackPanel\CategoryController;
 use App\Http\Controllers\BackPanel\DashboardController;
 use App\Http\Controllers\BackPanel\CustomerController;
@@ -20,7 +21,6 @@ use App\Http\Controllers\BackPanel\StockAdjustmentController;
 use App\Http\Controllers\BackPanel\SupplierController;
 use App\Http\Controllers\BackPanel\UnitController;
 use App\Http\Controllers\BackPanel\UserManagementController;
-use App\Http\Controllers\frontend\AccountController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -30,11 +30,11 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware('guest')->group(function () {
-    Route::get('/admin/login', [AccountController::class, 'login'])->name('login');
-    Route::post('/admin/login', [AccountController::class, 'authenticate'])->name('login.submit');
+    Route::get('/admin/login', [AuthController::class, 'login'])->name('login');
+    Route::post('/admin/login', [AuthController::class, 'authenticate'])->name('login.submit');
 });
 
-Route::post('/admin/logout', [AccountController::class, 'logout'])->middleware('auth')->name('logout');
+Route::post('/admin/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 Route::redirect('/admin', '/admin/dashboard');
 
@@ -137,6 +137,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('/invoices/create', [SalesInvoiceController::class, 'create'])->name('create');
         Route::post('/invoices/store', [SalesInvoiceController::class, 'store'])->name('store');
         Route::get('/invoices/{salesInvoice}', [SalesInvoiceController::class, 'show'])->name('show');
+        Route::get('/invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'printView'])->name('print');
+        Route::get('/invoices/{salesInvoice}/pdf', [SalesInvoiceController::class, 'pdf'])->name('pdf');
         Route::post('/invoices/{salesInvoice}/payment', [SalesInvoiceController::class, 'updatePayment'])->name('payment');
         Route::post('/invoices/{salesInvoice}/returns', [SalesInvoiceController::class, 'returnStore'])->name('return.store');
         Route::get('/customer-options', [SalesInvoiceController::class, 'customerOptions'])->name('customer-options');
@@ -153,6 +155,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     Route::prefix('finance')->name('finance.')->group(function () {
         Route::get('/ledger', [FinanceController::class, 'ledger'])->middleware('permission:accounting.ledger')->name('ledger');
+        Route::get('/account-tree', [FinanceController::class, 'accountTree'])->middleware('permission:accounting.ledger')->name('account-tree');
         Route::get('/trial-balance', [FinanceController::class, 'trialBalance'])->middleware('permission:accounting.trial_balance')->name('trial-balance');
         Route::get('/cash-book', [FinanceController::class, 'cashBook'])->middleware('permission:accounting.cash_book')->name('cash-book');
         Route::get('/bank-book', [FinanceController::class, 'bankBook'])->middleware('permission:accounting.bank_book')->name('bank-book');
@@ -176,6 +179,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::post('/{user}/update', [UserManagementController::class, 'update'])->name('update');
             Route::post('/{user}/delete', [UserManagementController::class, 'delete'])->name('delete');
             Route::post('/{user}/toggle-active', [UserManagementController::class, 'toggleActive'])->name('toggle-active');
+            Route::post('/{user}/update-role', [UserManagementController::class, 'updateRole'])->name('update-role');
+            Route::post('/{user}/update-status', [UserManagementController::class, 'updateStatus'])->name('update-status');
         });
 
         Route::prefix('role-permission')->name('role-permission.')->middleware('permission:role.manage')->group(function () {
@@ -191,31 +196,50 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::prefix('settings')->name('settings.')->middleware('permission:settings.manage')->group(function () {
             Route::get('/', [SettingsController::class, 'index'])->name('index');
             Route::post('/update', [SettingsController::class, 'update'])->name('update');
+            Route::post('/test-mail', [SettingsController::class, 'testMail'])->name('test-mail');
         });
 
         Route::prefix('export')->name('export.')->group(function () {
             Route::get('/category', [ExportController::class, 'categories'])->name('category');
+            Route::get('/category/pdf', [ExportController::class, 'categoriesPdf'])->name('category-pdf');
             Route::get('/unit', [ExportController::class, 'units'])->name('unit');
+            Route::get('/unit/pdf', [ExportController::class, 'unitsPdf'])->name('unit-pdf');
             Route::get('/supplier', [ExportController::class, 'suppliers'])->name('supplier');
+            Route::get('/supplier/pdf', [ExportController::class, 'suppliersPdf'])->name('supplier-pdf');
             Route::get('/product', [ExportController::class, 'products'])->name('product');
+            Route::get('/product/pdf', [ExportController::class, 'productsPdf'])->name('product-pdf');
             Route::get('/customers', [ExportController::class, 'customers'])->name('customers');
+            Route::get('/customers/pdf', [ExportController::class, 'customersPdf'])->name('customers-pdf');
             Route::get('/sales-invoices', [ExportController::class, 'salesInvoices'])->name('sales-invoices');
             Route::get('/expenses', [ExportController::class, 'expenses'])->name('expenses');
             Route::get('/ledger', [ExportController::class, 'ledger'])->name('ledger');
+            Route::get('/ledger/pdf', [ExportController::class, 'ledgerPdf'])->name('ledger-pdf');
             Route::get('/trial-balance', [ExportController::class, 'trialBalance'])->name('trial-balance');
+            Route::get('/trial-balance/pdf', [ExportController::class, 'trialBalancePdf'])->name('trial-balance-pdf');
             Route::get('/cash-book', [ExportController::class, 'cashBook'])->name('cash-book');
+            Route::get('/cash-book/pdf', [ExportController::class, 'cashBookPdf'])->name('cash-book-pdf');
             Route::get('/bank-book', [ExportController::class, 'bankBook'])->name('bank-book');
+            Route::get('/bank-book/pdf', [ExportController::class, 'bankBookPdf'])->name('bank-book-pdf');
             Route::get('/gst-report', [ExportController::class, 'gstReport'])->name('gst-report');
+            Route::get('/gst-report/pdf', [ExportController::class, 'gstReportPdf'])->name('gst-report-pdf');
+            Route::get('/account-tree/pdf', [ExportController::class, 'accountTreePdf'])->name('account-tree-pdf');
             Route::get('/purchase', [ExportController::class, 'purchases'])->name('purchase');
             Route::get('/purchase-supplier-summary', [ExportController::class, 'purchaseSupplierSummary'])->name('purchase-supplier-summary');
             Route::get('/purchase-orders', [ExportController::class, 'purchaseOrders'])->name('purchase-orders');
             Route::get('/purchase-history', [ExportController::class, 'purchaseHistory'])->name('purchase-history');
+            Route::get('/purchase-history/pdf', [ExportController::class, 'purchaseHistoryPdf'])->name('purchase-history-pdf');
             Route::get('/supplier-performance', [ExportController::class, 'supplierPerformance'])->name('supplier-performance');
+            Route::get('/supplier-performance/pdf', [ExportController::class, 'supplierPerformancePdf'])->name('supplier-performance-pdf');
             Route::get('/inventory-products', [ExportController::class, 'inventoryProducts'])->name('inventory-products');
+            Route::get('/inventory-products/pdf', [ExportController::class, 'inventoryProductsPdf'])->name('inventory-products-pdf');
             Route::get('/inventory-batches', [ExportController::class, 'inventoryBatches'])->name('inventory-batches');
+            Route::get('/inventory-batches/pdf', [ExportController::class, 'inventoryBatchesPdf'])->name('inventory-batches-pdf');
             Route::get('/user', [ExportController::class, 'users'])->name('user');
+            Route::get('/user/pdf', [ExportController::class, 'usersPdf'])->name('user-pdf');
             Route::get('/low-stock', [ExportController::class, 'lowStock'])->name('low-stock');
+            Route::get('/low-stock/pdf', [ExportController::class, 'lowStockPdf'])->name('low-stock-pdf');
             Route::get('/expiry-alert', [ExportController::class, 'expiryAlert'])->name('expiry-alert');
+            Route::get('/expiry-alert/pdf', [ExportController::class, 'expiryAlertPdf'])->name('expiry-alert-pdf');
             Route::get('/batch/{slug}', [ExportController::class, 'batches'])->name('batch');
         });
     });

@@ -13,6 +13,7 @@ use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
+    // Keep dashboard data in one method so the overview screen can stay fast and easy to follow.
     public function index()
     {
         $today = Carbon::today();
@@ -75,9 +76,9 @@ class DashboardController extends Controller
         $pendingPurchaseOrdersCount = PurchaseOrder::where('status', 'pending')->count();
 
         $purchaseStatusCounts = [
-            'pending' => (clone $purchaseBaseQuery)->where('status', 'pending')->count(),
-            'approved' => (clone $purchaseBaseQuery)->where('status', 'approved')->count(),
-            'received' => (clone $purchaseBaseQuery)->where('status', 'received')->count(),
+            'pending'   => (clone $purchaseBaseQuery)->where('status', 'pending')->count(),
+            'approved'  => (clone $purchaseBaseQuery)->where('status', 'approved')->count(),
+            'received'  => (clone $purchaseBaseQuery)->where('status', 'received')->count(),
         ];
 
         $recentPurchases = PurchaseOrder::with(['supplier'])

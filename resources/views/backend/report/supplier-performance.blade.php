@@ -12,8 +12,11 @@
                 <p class="mb-0 text-muted">See total orders, value and outstanding amount per supplier.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="{{ route('admin.export.supplier-performance') }}" class="btn btn-outline-primary">
+                <a href="{{ route('admin.export.supplier-performance') }}" class="btn btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
+                </a>
+                <a href="{{ route('admin.export.supplier-performance-pdf') }}" class="btn btn-pdf">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>
             </div>
         </div>
@@ -24,7 +27,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="10">
+                    <table class="table table-bordered align-middle js-datatable" data-page-length="10" data-searchable="true">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -40,10 +43,10 @@
                                     <td>{{ $index + 1 }}</td>
                                     <td>{{ $supplier->supplier_name }}</td>
                                     <td>{{ $supplier->total_orders }}</td>
-                                    <td>{{ number_format((float) $supplier->total_value, 2) }}</td>
+                                    <td>{{ money_value($supplier->total_value) }}</td>
                                     <td>
                                         @if ((float) $supplier->outstanding_amount > 0)
-                                            <span class="text-danger fw-semibold">{{ number_format((float) $supplier->outstanding_amount, 2) }}</span>
+                                            <span class="text-danger fw-semibold">{{ money_value($supplier->outstanding_amount) }}</span>
                                         @else
                                             <span class="report-badge report-badge-success">Paid</span>
                                         @endif

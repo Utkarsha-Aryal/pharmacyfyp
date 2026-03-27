@@ -12,8 +12,11 @@
                 <p class="mb-0 text-muted">Customer and institution master with ledger access and quick status control.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="{{ route('admin.export.customers') }}" class="btn btn-outline-primary btn-excel">
+                <a href="{{ route('admin.export.customers') }}" class="btn btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
+                </a>
+                <a href="{{ route('admin.export.customers-pdf') }}" class="btn btn-pdf">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>
                 <button type="button" class="btn btn-primary addCustomerBtn">
                     <i class="fa fa-plus"></i> Add Party
@@ -121,6 +124,31 @@
         </div>
 
         <div class="card custom-card">
+            <div class="card-body border-bottom">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Party Type</label>
+                        <select name="party_type" id="customerPartyTypeFilter" class="form-select js-select2" data-placeholder="All type" data-allow-clear="1">
+                            <option value="">All</option>
+                            <option value="customer" @selected(($filters['party_type'] ?? '') === 'customer')>Customer</option>
+                            <option value="institution" @selected(($filters['party_type'] ?? '') === 'institution')>Institution</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Status</label>
+                        <select name="status" id="customerStatusFilter" class="form-select js-select2" data-placeholder="All status" data-allow-clear="1">
+                            <option value="">All</option>
+                            <option value="active" @selected(($filters['status'] ?? '') === 'active')>Active</option>
+                            <option value="inactive" @selected(($filters['status'] ?? '') === 'inactive')>Inactive</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex justify-content-md-end">
+                        <a href="{{ route('admin.customers.index') }}" class="btn btn-outline-secondary mt-md-4">
+                            <i class="fa-solid fa-rotate-right me-1"></i> Reset
+                        </a>
+                    </div>
+                </div>
+            </div>
             <div class="card-header justify-content-between">
                 <div class="card-title">Party List</div>
             </div>
@@ -195,6 +223,7 @@
                 selector: '#customerTable',
                 pageLength: 10,
                 sort: false,
+                searchable: true,
                 columns: [
                     { data: 'sno' },
                     { data: 'name' },
@@ -207,7 +236,17 @@
                     { data: 'status' },
                     { data: 'action' },
                 ],
-                ajaxUrl: '{{ route('admin.customers.list') }}'
+                ajaxUrl: '{{ route('admin.customers.list') }}',
+                ajaxData: function(request) {
+                    request.party_type = $('#customerPartyTypeFilter').val() || '';
+                    request.status = $('#customerStatusFilter').val() || '';
+                }
+            });
+
+            $(document).on('change', '#customerPartyTypeFilter, #customerStatusFilter', function () {
+                if (window.customerTable) {
+                    window.customerTable.draw();
+                }
             });
         });
     </script>

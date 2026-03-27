@@ -11,8 +11,11 @@
             <h5 class="page-title fs-21 mb-1">Category</h5>
         </div>
         <div class="d-flex gap-2 mt-3 mt-md-0">
-            <a href="{{ route('admin.export.category') }}" class="btn btn-outline-primary">
+            <a href="{{ route('admin.export.category') }}" class="btn btn-excel">
                 <i class="fa-solid fa-file-excel"></i> Excel
+            </a>
+            <a href="{{ route('admin.export.category-pdf') }}" class="btn btn-pdf">
+                <i class="fa-solid fa-file-pdf"></i> PDF
             </a>
             <button type="button" class="btn btn-primary addCategoryBtn">
                 <i class="fa fa-plus"></i> Add Category
@@ -38,8 +41,8 @@
                                 <input type="text" class="form-control" id="name" placeholder="Enter name..." name="name">
                             </div>
                             <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6">
-                                <label for="order_number" class="form-label">Order <span class="required-field">*</span></label>
-                                <input type="number" class="form-control" id="order_number" placeholder="Enter order..." name="order_number">
+                                <label for="order_number" class="form-label">Display Order <span class="required-field">*</span></label>
+                                <input type="number" class="form-control" id="order_number" placeholder="1, 2, 3..." name="order_number">
                             </div>
                             <div class="col-12">
                                 <label for="photo" class="form-label">Photo</label>
@@ -82,7 +85,7 @@
                             <input class="form-check-input" type="checkbox" value="Y" id="trashed_file"
                                 name="trashed_file">
                             <label class="form-check-label" for="trashed_file">
-                                View Trashed
+                                View Deleted
                             </label>
                         </div>
                     </div>
@@ -94,7 +97,7 @@
                                 <tr>
                                     <th>S.No</th>
                                     <th>Name</th>
-                                    <th>Order</th>
+                                    <th>Display Order</th>
                                     <th>Image</th>
                                     <th>Action</th>
                                 </tr>

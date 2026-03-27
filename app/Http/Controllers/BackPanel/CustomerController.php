@@ -25,6 +25,10 @@ class CustomerController extends Controller
 
         return view('backend.customer.index', [
             'partySummary' => $partySummary,
+            'filters' => [
+                'party_type' => request('party_type', ''),
+                'status' => request('status', ''),
+            ],
         ]);
     }
 
@@ -47,6 +51,14 @@ class CustomerController extends Controller
             });
         }
 
+        if ($request->filled('party_type')) {
+            $query->where('party_type', $request->party_type);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('is_active', $request->status === 'active');
+        }
+
         $recordsFiltered = (clone $query)->count();
         $customers = $query->skip($start)->take($length)->get();
 
@@ -54,8 +66,8 @@ class CustomerController extends Controller
 
         foreach ($customers as $index => $customer) {
             $statusLabel = $customer->is_active ? 'Active' : 'Inactive';
-            $statusClass = $customer->is_active ? 'text-success' : 'text-secondary';
-            $toggleClass = $customer->is_active ? 'btn-outline-success' : 'btn-outline-secondary';
+            $statusClass = $customer->is_active ? 'text-success' : 'text-danger';
+            $toggleClass = $customer->is_active ? 'btn-outline-success' : 'btn-outline-danger';
             $toggleIcon = $customer->is_active ? 'fa-toggle-on' : 'fa-toggle-off';
             $agingDays = $this->customerAgingDays($customer);
             $agingBadge = $agingDays > 60 ? 'report-badge-danger' : ($agingDays > 30 ? 'report-badge-warning' : 'report-badge-info');
@@ -224,6 +236,6 @@ class CustomerController extends Controller
             return 0;
         }
 
-        return max(0, Carbon::parse($oldestDueInvoice)->diffInDays(now(), false));
+        return (int) max(0, round(Carbon::parse($oldestDueInvoice)->diffInDays(now(), false)));
     }
 }

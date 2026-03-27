@@ -23,19 +23,25 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label">Product</label>
-                            <select name="product_id" class="form-select js-select2" required>
+                            <select name="product_id" id="adjustmentProductSelect" class="form-select js-select2" required>
                                 <option value="">Select Product</option>
                                 @foreach ($products as $product)
-                                    <option value="{{ $product->id }}">{{ $product->display_name }}</option>
+                                    <option value="{{ $product->id }}" @selected((string) old('product_id', $selectedProductId) === (string) $product->id)>{{ $product->display_name }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Batch</label>
-                            <select name="batch_id" class="form-select js-select2" required>
+                            <select name="batch_id" id="adjustmentBatchSelect" class="form-select js-select2" required>
                                 <option value="">Select Batch</option>
                                 @foreach ($batches as $batch)
-                                    <option value="{{ $batch->id }}">{{ $batch->product?->display_name ?? '-' }} - {{ $batch->batch_number }}</option>
+                                    <option
+                                        value="{{ $batch->id }}"
+                                        data-product-id="{{ $batch->product_id }}"
+                                        @selected((string) old('batch_id', $selectedBatchId) === (string) $batch->id)
+                                    >
+                                        {{ $batch->product?->display_name ?? '-' }} - {{ $batch->batch_number }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -107,4 +113,46 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function () {
+            var $productSelect = $('#adjustmentProductSelect');
+            var $batchSelect = $('#adjustmentBatchSelect');
+
+            // keep batch dropdown matched with the selected product so wrong pair is not picked by mistake
+            function syncAdjustmentBatchOptions() {
+                var selectedProductId = $productSelect.val() || '';
+                var keepCurrentBatch = false;
+
+                $batchSelect.find('option').each(function () {
+                    var $option = $(this);
+                    var optionProductId = String($option.data('productId') || '');
+
+                    if (!$option.val()) {
+                        $option.prop('hidden', false);
+                        return;
+                    }
+
+                    var shouldShow = selectedProductId === '' || optionProductId === String(selectedProductId);
+                    $option.prop('hidden', !shouldShow);
+                    $option.prop('disabled', !shouldShow);
+
+                    if (shouldShow && $option.is(':selected')) {
+                        keepCurrentBatch = true;
+                    }
+                });
+
+                if (!keepCurrentBatch) {
+                    $batchSelect.val('');
+                }
+
+                $batchSelect.trigger('change.select2');
+            }
+
+            $productSelect.on('change', syncAdjustmentBatchOptions);
+            syncAdjustmentBatchOptions();
+        });
+    </script>
 @endsection

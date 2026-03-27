@@ -11,8 +11,11 @@
             <h5 class="page-title fs-21 mb-1">Unit</h5>
         </div>
         <div class="d-flex gap-2 mt-3 mt-md-0">
-            <a href="{{ route('admin.export.unit') }}" class="btn btn-outline-primary">
+            <a href="{{ route('admin.export.unit') }}" class="btn btn-excel">
                 <i class="fa-solid fa-file-excel"></i> Excel
+            </a>
+            <a href="{{ route('admin.export.unit-pdf') }}" class="btn btn-pdf">
+                <i class="fa-solid fa-file-pdf"></i> PDF
             </a>
             <button type="button" class="btn btn-primary addUnitBtn">
                 <i class="fa fa-plus"></i> Add Unit
@@ -65,7 +68,7 @@
                             <input class="form-check-input" type="checkbox" value="Y" id="trashed_file"
                                 name="trashed_file">
                             <label class="form-check-label" for="trashed_file">
-                                View Trashed
+                                View Deleted
                             </label>
                         </div>
                     </div>

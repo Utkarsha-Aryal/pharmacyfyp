@@ -12,8 +12,11 @@
                 <p class="mb-0 text-muted">Products that are below or equal to alert quantity.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="{{ route('admin.export.low-stock') }}" class="btn btn-outline-primary">
+                <a href="{{ route('admin.export.low-stock') }}" class="btn btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
+                </a>
+                <a href="{{ route('admin.export.low-stock-pdf') }}" class="btn btn-pdf">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>
             </div>
         </div>
@@ -54,7 +57,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered js-datatable" data-page-length="10">
+                    <table class="table table-bordered js-datatable" data-page-length="10" data-searchable="true">
                         <thead>
                             <tr>
                                 <th>S.No</th>
