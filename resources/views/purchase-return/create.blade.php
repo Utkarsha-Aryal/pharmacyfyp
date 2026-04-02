@@ -55,7 +55,7 @@
                         <thead>
                             <tr>
                                 <th>Product Name</th>
-                                <th>Batch No</th>
+                                <th>Batch Selection</th>
                                 <th>Original Qty</th>
                                 <th>Already Returned</th>
                                 <th>Max Returnable</th>
@@ -117,15 +117,42 @@
                         return;
                     }
 
+                    function escapeHtml(text) {
+                        return String(text ?? '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#039;');
+                    }
+
+                    function buildBatchSelect(row, index) {
+                        var options = '<option value="">Select batch</option>';
+
+                        (row.batch_options || []).forEach(function (batch) {
+                            var selected = String(row.selected_batch_id || '') === String(batch.id) ? 'selected' : '';
+                            var disabled = batch.disabled ? 'disabled' : '';
+
+                            options += '<option value="' + escapeHtml(batch.id) + '" data-badge-class="' + escapeHtml(batch.badge_class) + '" data-badge-label="' + escapeHtml(batch.badge_label) + '" ' + selected + ' ' + disabled + '>' + escapeHtml(batch.text) + '</option>';
+                        });
+
+                        return '' +
+                            '<div class="d-flex flex-column gap-1">' +
+                                '<select name="items[' + index + '][batch_id]" class="form-select form-select-sm purchase-return-batch-select" required>' +
+                                    options +
+                                '</select>' +
+                                '<span class="badge purchase-return-batch-badge ' + escapeHtml(row.batch_badge_class || 'bg-warning text-dark') + '">' + escapeHtml(row.batch_badge_label || 'Choose a batch') + '</span>' +
+                            '</div>';
+                    }
+
                     response.forEach(function (row, index) {
                         tbody.append(
                             '<tr>' +
                                 '<td>' + row.product_name +
                                     '<input type="hidden" name="items[' + index + '][purchase_item_id]" value="' + row.purchase_item_id + '">' +
-                                    '<input type="hidden" name="items[' + index + '][batch_id]" value="' + row.batch_id + '">' +
                                     '<input type="hidden" name="items[' + index + '][product_id]" value="' + row.product_id + '">' +
                                 '</td>' +
-                                '<td>' + row.batch_no + '</td>' +
+                                '<td>' + buildBatchSelect(row, index) + '</td>' +
                                 '<td>' + row.original_qty + '</td>' +
                                 '<td>' + row.already_returned + '</td>' +
                                 '<td>' + row.max_returnable + '</td>' +
@@ -134,6 +161,16 @@
                         );
                     });
                 });
+            });
+
+            $(document).on('change', '.purchase-return-batch-select', function () {
+                var $select = $(this);
+                var $badge = $select.closest('td').find('.purchase-return-batch-badge');
+                var $option = $select.find('option:selected');
+                var badgeClass = $option.data('badge-class') || 'bg-warning text-dark';
+                var badgeLabel = $option.data('badge-label') || 'Choose a batch';
+
+                $badge.attr('class', 'badge purchase-return-batch-badge ' + badgeClass).text(badgeLabel);
             });
         });
     </script>

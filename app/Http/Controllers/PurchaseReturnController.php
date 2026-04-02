@@ -89,14 +89,19 @@ class PurchaseReturnController extends Controller
             'purchase_id' => ['required', 'exists:purchases,id'],
         ]);
 
+        $purchase = Purchase::query()->findOrFail($validated['purchase_id']);
+
         $items = PurchaseItem::query()
             ->with(['product', 'batch', 'returns'])
-            ->where('purchase_id', $validated['purchase_id'])
+            ->where('purchase_id', $purchase->id)
             ->get()
-            ->map(function (PurchaseItem $item) {
+            ->map(function (PurchaseItem $item) use ($purchase) {
                 $returnedQty = (int) $item->returns->sum('return_qty');
                 $originalQty = (int) $item->quantity + (int) $item->free_qty;
                 $maxReturnable = max(0, $originalQty - $returnedQty);
+                $batchOptions = $this->buildReturnBatchOptions($purchase, $item);
+                $selectedBatchId = $this->selectedReturnBatchId($item->batch_id, $batchOptions);
+                $batchBadge = $this->selectedReturnBatchBadge($selectedBatchId, $batchOptions);
 
                 return [
                     'purchase_item_id' => $item->id,
@@ -108,6 +113,10 @@ class PurchaseReturnController extends Controller
                     'already_returned' => $returnedQty,
                     'max_returnable' => $maxReturnable,
                     'rate' => round((float) $item->rate, 2),
+                    'batch_options' => $batchOptions,
+                    'selected_batch_id' => $selectedBatchId,
+                    'batch_badge_class' => $batchBadge['class'],
+                    'batch_badge_label' => $batchBadge['label'],
                 ];
             })
             ->values();
@@ -141,14 +150,15 @@ class PurchaseReturnController extends Controller
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.purchase_item_id' => ['nullable', 'exists:purchase_items,id'],
-            'items.*.batch_id' => ['nullable', 'exists:batches,id'],
+            'items.*.batch_id' => ['nullable', 'integer', 'min:1'],
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.return_qty' => ['nullable', 'integer', 'min:0'],
         ], [
             'items.required' => 'Please add at least one return row.',
             'items.min' => 'Please add at least one return row.',
             'items.*.purchase_item_id.exists' => 'Please reload the purchase bill and try again.',
-            'items.*.batch_id.exists' => 'Please select a valid batch for each return row.',
+            'items.*.batch_id.integer' => 'Please choose a batch from the dropdown for each return row.',
+            'items.*.batch_id.min' => 'Please choose a batch from the dropdown for each return row.',
             'items.*.product_id.exists' => 'Please select a valid product for each return row.',
             'items.*.return_qty.min' => 'Return quantity cannot be less than zero.',
         ]);
@@ -168,7 +178,7 @@ class PurchaseReturnController extends Controller
         foreach ($rows as $row) {
             if (empty($row['purchase_item_id']) || empty($row['batch_id']) || empty($row['product_id'])) {
                 throw ValidationException::withMessages([
-                    'items' => 'Every return line needs a valid purchase item and batch.',
+                    'items' => 'Every return row needs a product, purchase item and batch selected from the dropdown.',
                 ]);
             }
         }
@@ -212,9 +222,16 @@ class PurchaseReturnController extends Controller
 
                 $batch = Batch::query()->lockForUpdate()->findOrFail($row['batch_id']);
 
-                if ((int) $purchaseItem->batch_id !== (int) $batch->id) {
+                $allowedBatchIds = Batch::query()
+                    ->where('supplier_id', $purchase->supplier_id)
+                    ->where('product_id', $purchaseItem->product_id)
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+
+                if (! in_array((int) $batch->id, $allowedBatchIds, true)) {
                     throw ValidationException::withMessages([
-                        'items' => 'Selected batch does not belong to the chosen purchase line.',
+                        'items' => 'Please choose a valid batch from the dropdown for ' . ($purchaseItem->product?->display_name ?? 'this row') . '.',
                     ]);
                 }
 
@@ -224,6 +241,12 @@ class PurchaseReturnController extends Controller
                 if ((int) $row['return_qty'] > $maxReturnable) {
                     throw ValidationException::withMessages([
                         'items' => 'Return quantity cannot be more than the remaining returnable quantity.',
+                    ]);
+                }
+
+                if ((int) $batch->quantity_available < (int) $row['return_qty']) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Selected batch does not have enough stock available for this return.',
                     ]);
                 }
 
@@ -279,6 +302,9 @@ class PurchaseReturnController extends Controller
             $originalQty = (int) $purchaseItem?->quantity + (int) $purchaseItem?->free_qty;
             $otherReturnedQty = (int) ($purchaseItem?->returns->sum('return_qty') ?? 0) - (int) $item->return_qty;
             $maxReturnable = max(0, $originalQty - $otherReturnedQty);
+            $batchOptions = $this->buildReturnBatchOptions($purchaseReturn->purchase, $purchaseItem);
+            $selectedBatchId = $this->selectedReturnBatchId($item->batch_id, $batchOptions);
+            $batchBadge = $this->selectedReturnBatchBadge($selectedBatchId, $batchOptions);
 
             return [
                 'purchase_item_id' => $item->purchase_item_id,
@@ -291,8 +317,79 @@ class PurchaseReturnController extends Controller
                 'max_returnable' => $maxReturnable,
                 'return_qty' => (int) $item->return_qty,
                 'rate' => round((float) $item->rate, 2),
+                'batch_options' => $batchOptions,
+                'selected_batch_id' => $selectedBatchId,
+                'batch_badge_class' => $batchBadge['class'],
+                'batch_badge_label' => $batchBadge['label'],
             ];
         })->values()->all();
+    }
+
+    // Build batch choices so the return row shows a real dropdown instead of a hidden id.
+    private function buildReturnBatchOptions(Purchase $purchase, ?PurchaseItem $purchaseItem): array
+    {
+        if (!$purchaseItem) {
+            return [];
+        }
+
+        return Batch::query()
+            ->where('supplier_id', $purchase->supplier_id)
+            ->where('product_id', $purchaseItem->product_id)
+            ->orderBy('expiry_date')
+            ->orderBy('batch_number')
+            ->get()
+            ->map(function (Batch $batch) {
+                $quantityAvailable = (int) $batch->quantity_available;
+                $daysRemaining = (int) $batch->days_remaining;
+                $state = $daysRemaining < 0 ? 'expired' : ($daysRemaining <= 30 ? 'warning' : 'valid');
+
+                return [
+                    'id' => $batch->id,
+                    'text' => trim(($batch->batch_number ?: '-') . ' | Exp: ' . ($batch->expiry_show ?: '-') . ' | Qty: ' . $quantityAvailable),
+                    'badge_class' => $quantityAvailable <= 0 ? 'bg-secondary' : ($state === 'expired' ? 'bg-danger' : ($state === 'warning' ? 'bg-warning text-dark' : 'bg-success')),
+                    'badge_label' => $quantityAvailable <= 0 ? 'No stock left' : ($state === 'expired' ? 'Expired batch' : ($state === 'warning' ? 'Expiring soon' : 'Valid batch')),
+                    'disabled' => false,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    // Keep the current batch highlighted if it exists, otherwise show a clear warning ribbon.
+    private function selectedReturnBatchId(?int $batchId, array $batchOptions): ?int
+    {
+        if (!$batchId) {
+            return null;
+        }
+
+        return collect($batchOptions)->contains(fn (array $batch) => (int) $batch['id'] === (int) $batchId) ? (int) $batchId : null;
+    }
+
+    // Decide which badge text the row should show while the batch dropdown is being used.
+    private function selectedReturnBatchBadge(?int $selectedBatchId, array $batchOptions): array
+    {
+        if ($selectedBatchId) {
+            $batch = collect($batchOptions)->firstWhere('id', $selectedBatchId);
+
+            if ($batch) {
+                return [
+                    'class' => $batch['badge_class'],
+                    'label' => $batch['badge_label'],
+                ];
+            }
+        }
+
+        if (empty($batchOptions)) {
+            return [
+                'class' => 'bg-danger',
+                'label' => 'No valid batch found',
+            ];
+        }
+
+        return [
+            'class' => 'bg-warning text-dark',
+            'label' => 'Choose a batch',
+        ];
     }
 
     // Show one return voucher with all returned line items.
