@@ -1,0 +1,4 @@
+notes,Required columns: product_code product_name. Optional columns: category_name generic_name mrp cc_rate reorder_level purchase_price unit manufacturer description
+product_code,product_name,category_name,generic_name,mrp,cc_rate,reorder_level,purchase_price,unit,manufacturer,description
+PRD-001,Notebook A5,Office Supplies,Paper Notebook,120,7.5,20,80,Box,Acme Office Co.,Everyday stationery item
+PRD-002,Pen Pack Blue,General Goods,Ballpoint Pen,350,5,10,240,Pack,Metro Trading,Reusable sample item

@@ -1,0 +1,4 @@
+notes,Required columns: unit_name. Optional: description. Example rows below.
+unit_name,description
+Box,Packaged stock unit
+Piece,Single item unit

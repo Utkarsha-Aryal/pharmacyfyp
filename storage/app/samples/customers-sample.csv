@@ -1,0 +1,4 @@
+notes,Required columns: name phone. Optional columns: party_type contact_person email address credit_limit opening_balance
+name,party_type,contact_person,phone,email,address,credit_limit,opening_balance
+Alpha Retail,customer,Ramesh,9801000001,alpha@example.com,Kathmandu,10000,500
+Beta Trading,institution,Sabin,9801000002,beta@example.com,Lalitpur,25000,0

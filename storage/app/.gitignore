@@ -1,4 +1,7 @@
 *
 !private/
 !public/
+!samples/
+!samples/*.csv
+!samples/*.xlsx
 !.gitignore
