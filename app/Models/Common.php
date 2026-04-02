@@ -7,7 +7,7 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 class Common extends Model
@@ -18,15 +18,29 @@ class Common extends Model
     public static function uploadFile($location, $file)
     {
         try {
-            $extension = $file->getClientOriginalExtension();
-            if (!in_array($extension, ['png', 'jpg', 'jpeg']))
-                throw new Exception('File format is not matched, upload in list (PNG/JPG/JPEG', 1);
+            if (empty($file)) {
+                throw new Exception('Please choose a file to upload.', 1);
+            }
+
+            $extension = strtolower($file->getClientOriginalExtension());
+            if (!in_array($extension, ['png', 'jpg', 'jpeg', 'ico'], true)) {
+                throw new Exception('File format is not matched, upload in list (PNG/JPG/JPEG/ICO)', 1);
+            }
+
+            $folder = trim((string) $location, '/');
+            $targetDirectory = public_path('storage/' . $folder);
+
+            if (!File::exists($targetDirectory)) {
+                File::makeDirectory($targetDirectory, 0755, true, true);
+            }
 
             $tempName = Str::random(30) . '-' . time() . '.' . $extension;
-            $storeFile = $file->storeAs($location, $tempName, 'public');
+            // Save the file in a browser-facing public folder so the stored path can load directly in views.
+            $file->move($targetDirectory, $tempName);
 
-            if (empty($storeFile))
-                return false;
+            if (!File::exists($targetDirectory . DIRECTORY_SEPARATOR . $tempName)) {
+                throw new Exception('File upload failed. Please try again.', 1);
+            }
 
             return $tempName;
         } catch (Exception $e) {
@@ -42,7 +56,14 @@ class Common extends Model
                 $image_parts = explode(";base64,", $file);
                 $image_base64 = base64_decode($image_parts[1]);
                 $imageName = Str::random(30) . '-' . time() . '.png';
-                $storeFile = Storage::disk('public')->put($location . '/' . $imageName, $image_base64);
+                $folder = trim((string) $location, '/');
+                $targetDirectory = public_path('storage/' . $folder);
+
+                if (!File::exists($targetDirectory)) {
+                    File::makeDirectory($targetDirectory, 0755, true, true);
+                }
+
+                $storeFile = File::put($targetDirectory . DIRECTORY_SEPARATOR . $imageName, $image_base64);
             }
             if (empty($storeFile))
                 return false;
@@ -57,15 +78,30 @@ class Common extends Model
     public static function uploadPDF($location, $file)
     {
         try {
-            $extension = $file->getClientOriginalExtension();
+            if (empty($file)) {
+                throw new Exception('Please choose a file to upload.', 1);
+            }
+
+            $extension = strtolower($file->getClientOriginalExtension());
             if (!in_array($extension, ['pdf', 'doc'])) {
                 throw new Exception('File format is not matched, upload in list (PDF/DOC', 1);
             }
+
+            $folder = trim((string) $location, '/');
+            $targetDirectory = public_path('storage/' . $folder);
+
+            if (!File::exists($targetDirectory)) {
+                File::makeDirectory($targetDirectory, 0755, true, true);
+            }
+
             $tempName = Str::random(30) . '-' . time() . '.' . $extension;
-            $storeFile = $file->storeAs($location, $tempName, 'public');
-            if (empty($storeFile)) {
+            // PDFs and documents follow the same public-storage path so the admin can open them from a URL.
+            $file->move($targetDirectory, $tempName);
+
+            if (!File::exists($targetDirectory . DIRECTORY_SEPARATOR . $tempName)) {
                 return false;
             }
+
             return $tempName;
         } catch (Exception $e) {
             throw $e;

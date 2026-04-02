@@ -122,31 +122,65 @@
     <div class="modal fade" id="quickPaymentModeModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <form action="{{ route('admin.payment-modes.store') }}" method="POST" class="js-quick-create-form" data-result-kind="payment-mode">
+                <form method="POST"
+                    id="quickPaymentModeForm"
+                    class="js-quick-payment-mode-form"
+                    data-list-url="{{ route('admin.payment-modes.index') }}"
+                    data-store-url="{{ route('admin.payment-modes.store') }}"
+                    data-update-url-template="{{ url('admin/payment-modes/__ID__/update') }}"
+                    data-delete-url-template="{{ url('admin/payment-modes/__ID__/delete') }}">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title">Quick Payment Mode Add</h5>
+                        <h5 class="modal-title" id="quickPaymentModeModalTitle">Manage Payment Modes</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
+                        <input type="hidden" name="payment_mode_id" id="quick_payment_mode_id">
                         <div class="row g-3">
                             <div class="col-md-7">
                                 <label class="form-label">Mode Name</label>
-                                <input type="text" name="name" class="form-control" required>
+                                <input type="text" name="name" id="quick_payment_mode_name" class="form-control" required>
                             </div>
                             <div class="col-md-5">
                                 <label class="form-label">Type</label>
-                                <select name="type" class="form-select" required>
+                                <select name="type" id="quick_payment_mode_type" class="form-select" required>
                                     <option value="cash">Cash</option>
                                     <option value="bank">Bank</option>
                                     <option value="digital">Digital</option>
                                 </select>
                             </div>
+                            <div class="col-12 d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="quickPaymentModeResetBtn">Reset</button>
+                                <button type="submit" class="btn btn-primary btn-sm" id="quickPaymentModeSubmitBtn"><i class="fa-solid fa-save"></i> Save Mode</button>
+                            </div>
+                            <div class="col-12">
+                                <hr class="my-1">
+                            </div>
+                            <div class="col-12">
+                                <div class="small text-muted mb-2">Quick manage is handy here because sales, purchase, and payments all use the same mode list.</div>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered align-middle mb-0" id="quickPaymentModeTable">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 60px;">S.No</th>
+                                                <th>Name</th>
+                                                <th>Type</th>
+                                                <th>Status</th>
+                                                <th style="width: 150px;">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">Loading payment modes...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Save Mode</button>
                     </div>
                 </form>
             </div>

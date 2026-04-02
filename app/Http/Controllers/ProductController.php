@@ -45,8 +45,6 @@ public function globalSearch(Request $request)
     $html = '';
 
     foreach ($products as $product) {
-        $imageUrl = asset('storage/' . $product->image); // Adjust path if needed
-
         $imageUrl = asset('storage/product/' . $product->image);
         $slug = $product->slug;
 
@@ -250,7 +248,7 @@ public function globalSearch(Request $request)
                 // $array[$i]['sold_qty'] = $row->orderDetails->sum('qty');
                 // $array[$i]['available_qty'] = $row->stock_quantity - $row->orderDetails->sum('qty');
                 $image = asset('images/no-image.jpg');
-                if (!empty($row->image) && file_exists(public_path('/storage/product/' . $row->image))) {
+                if (!empty($row->image) && file_exists(public_path('storage/product/' . $row->image))) {
                     $image = asset("storage/product/" . $row->image);
                 }
                 $array[$i]["image"] = '<img src="' . $image . '" height="30px" width="30px" alt="image"/>';
@@ -331,7 +329,7 @@ public function globalSearch(Request $request)
             $message = 'Record deleted successfully';
             $post = $request->all();
             $class = new Product();
-            $directory = storage_path('app/public/product');
+            $directory = public_path('storage/product');
             DB::beginTransaction();
             $result = Common::deleteSingleData($post, $class, $directory);
             if (!$result) {

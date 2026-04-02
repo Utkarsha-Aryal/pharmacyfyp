@@ -49,7 +49,7 @@ class SettingsController extends Controller
             'company_email' => ['nullable', 'email'],
             'company_phone' => ['nullable', 'string', 'max:255'],
             'company_address' => ['nullable', 'string', 'max:5000'],
-            'favicon' => ['nullable', 'file', 'mimes:png,jpg,jpeg'],
+            'favicon' => ['nullable', 'file', 'mimes:png,jpg,jpeg,ico'],
             'smtp_host' => ['nullable', 'string', 'max:255'],
             'smtp_port' => ['nullable', 'string', 'max:255'],
             'smtp_username' => ['nullable', 'string', 'max:255'],

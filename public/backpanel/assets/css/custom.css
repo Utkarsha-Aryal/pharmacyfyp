@@ -3,6 +3,7 @@
 :root {
     --app-font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
     --sidebar-open-width: 20rem;
+    --sidebar-collapsed-width: 5rem;
 }
 
 html {
@@ -231,18 +232,44 @@ input#trashed_file {
     line-height: 2rem;
 }
 
-/* Keep sidebar readable even after the compact font pass. */
+/* Keep the overlay sidebar readable and let it stay visible on desktop. */
 @media (min-width: 992px) {
-    html[data-nav-layout="vertical"]:not([data-toggled*="closed"]) .app-sidebar,
-    html[data-nav-layout="vertical"]:not([data-toggled*="closed"]) .app-sidebar .main-sidebar-header {
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"]:not([data-toggled="icon-overlay-close"]) .app-sidebar,
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"]:not([data-toggled="icon-overlay-close"]) .app-sidebar .main-sidebar-header {
         width: var(--sidebar-open-width);
     }
 
-    html[data-nav-layout="vertical"]:not([data-toggled*="closed"]) .app-content {
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"]:not([data-toggled="icon-overlay-close"]) .app-content {
         margin-inline-start: var(--sidebar-open-width);
     }
 
-    html[data-nav-layout="vertical"]:not([data-toggled*="closed"]) .app-header {
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"]:not([data-toggled="icon-overlay-close"]) .app-header {
+        padding-inline-start: var(--sidebar-open-width);
+    }
+
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"][data-toggled="icon-overlay-close"] .app-sidebar,
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"][data-toggled="icon-overlay-close"] .app-sidebar .main-sidebar-header {
+        width: var(--sidebar-collapsed-width);
+    }
+
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"][data-toggled="icon-overlay-close"] .app-content {
+        margin-inline-start: var(--sidebar-collapsed-width);
+    }
+
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"][data-toggled="icon-overlay-close"] .app-header {
+        padding-inline-start: var(--sidebar-collapsed-width);
+    }
+
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"][data-toggled="icon-overlay-close"][data-icon-overlay="open"] .app-sidebar,
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"][data-toggled="icon-overlay-close"][data-icon-overlay="open"] .app-sidebar .main-sidebar-header {
+        width: var(--sidebar-open-width);
+    }
+
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"][data-toggled="icon-overlay-close"][data-icon-overlay="open"] .app-content {
+        margin-inline-start: var(--sidebar-open-width);
+    }
+
+    html[data-nav-layout="vertical"][data-vertical-style="overlay"][data-toggled="icon-overlay-close"][data-icon-overlay="open"] .app-header {
         padding-inline-start: var(--sidebar-open-width);
     }
 }
@@ -397,6 +424,113 @@ input#trashed_file {
 
 body.workspace-form-page .admin-page-wrap {
     padding-right: 0.25rem;
+}
+
+body.workspace-form-page .table-responsive {
+    overflow-x: auto;
+}
+
+body.workspace-form-page #salesItemsTable {
+    min-width: 1540px;
+}
+
+body.workspace-form-page #purchaseItemsTable {
+    min-width: 1680px;
+}
+
+body.workspace-form-page #paymentInBillTable,
+body.workspace-form-page #paymentOutBillTable {
+    min-width: 920px;
+}
+
+body.workspace-form-page .purchase-item-table th,
+body.workspace-form-page .purchase-item-table td {
+    white-space: normal;
+}
+
+body.workspace-form-page .purchase-item-table .form-control,
+body.workspace-form-page .purchase-item-table .form-select,
+body.workspace-form-page .purchase-item-table .select2-container--default .select2-selection--single {
+    min-height: 2.55rem;
+    font-size: 0.9rem;
+}
+
+body.workspace-form-page .purchase-item-table .select2-container {
+    min-width: 100% !important;
+}
+
+body.workspace-form-page #salesItemsTable th:nth-child(2),
+body.workspace-form-page #salesItemsTable td:nth-child(2) {
+    min-width: 310px;
+    width: 310px;
+}
+
+body.workspace-form-page #salesItemsTable th:nth-child(3),
+body.workspace-form-page #salesItemsTable td:nth-child(3) {
+    min-width: 170px;
+    width: 170px;
+}
+
+body.workspace-form-page #salesItemsTable th:nth-child(4),
+body.workspace-form-page #salesItemsTable td:nth-child(4),
+body.workspace-form-page #salesItemsTable th:nth-child(5),
+body.workspace-form-page #salesItemsTable td:nth-child(5) {
+    min-width: 86px;
+    width: 86px;
+}
+
+body.workspace-form-page #salesItemsTable th:nth-child(6),
+body.workspace-form-page #salesItemsTable td:nth-child(6),
+body.workspace-form-page #salesItemsTable th:nth-child(7),
+body.workspace-form-page #salesItemsTable td:nth-child(7),
+body.workspace-form-page #salesItemsTable th:nth-child(8),
+body.workspace-form-page #salesItemsTable td:nth-child(8),
+body.workspace-form-page #salesItemsTable th:nth-child(9),
+body.workspace-form-page #salesItemsTable td:nth-child(9),
+body.workspace-form-page #salesItemsTable th:nth-child(10),
+body.workspace-form-page #salesItemsTable td:nth-child(10),
+body.workspace-form-page #salesItemsTable th:nth-child(11),
+body.workspace-form-page #salesItemsTable td:nth-child(11) {
+    min-width: 118px;
+    width: 118px;
+}
+
+body.workspace-form-page #purchaseItemsTable th:nth-child(2),
+body.workspace-form-page #purchaseItemsTable td:nth-child(2) {
+    min-width: 320px;
+    width: 320px;
+}
+
+body.workspace-form-page #purchaseItemsTable th:nth-child(3),
+body.workspace-form-page #purchaseItemsTable td:nth-child(3),
+body.workspace-form-page #purchaseItemsTable th:nth-child(4),
+body.workspace-form-page #purchaseItemsTable td:nth-child(4) {
+    min-width: 150px;
+    width: 150px;
+}
+
+body.workspace-form-page #purchaseItemsTable th:nth-child(5),
+body.workspace-form-page #purchaseItemsTable td:nth-child(5),
+body.workspace-form-page #purchaseItemsTable th:nth-child(6),
+body.workspace-form-page #purchaseItemsTable td:nth-child(6) {
+    min-width: 86px;
+    width: 86px;
+}
+
+body.workspace-form-page #purchaseItemsTable th:nth-child(7),
+body.workspace-form-page #purchaseItemsTable td:nth-child(7),
+body.workspace-form-page #purchaseItemsTable th:nth-child(8),
+body.workspace-form-page #purchaseItemsTable td:nth-child(8),
+body.workspace-form-page #purchaseItemsTable th:nth-child(9),
+body.workspace-form-page #purchaseItemsTable td:nth-child(9),
+body.workspace-form-page #purchaseItemsTable th:nth-child(10),
+body.workspace-form-page #purchaseItemsTable td:nth-child(10),
+body.workspace-form-page #purchaseItemsTable th:nth-child(11),
+body.workspace-form-page #purchaseItemsTable td:nth-child(11),
+body.workspace-form-page #purchaseItemsTable th:nth-child(12),
+body.workspace-form-page #purchaseItemsTable td:nth-child(12) {
+    min-width: 118px;
+    width: 118px;
 }
 
 .quick-add-inline-btn {

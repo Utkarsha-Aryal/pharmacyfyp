@@ -59,9 +59,10 @@ if (!function_exists('app_favicon_url')) {
     function app_favicon_url()
     {
         $favicon = setting('favicon');
+        $faviconPath = ltrim((string) $favicon, '/');
 
-        if (!empty($favicon)) {
-            return asset($favicon);
+        if (!empty($faviconPath) && file_exists(public_path($faviconPath))) {
+            return asset($faviconPath);
         }
 
         return asset('favicon.ico');
@@ -72,9 +73,10 @@ if (!function_exists('app_logo_url')) {
     function app_logo_url()
     {
         $logo = setting('app_logo');
+        $logoPath = ltrim((string) $logo, '/');
 
-        if (!empty($logo)) {
-            return asset($logo);
+        if (!empty($logoPath) && file_exists(public_path($logoPath))) {
+            return asset($logoPath);
         }
 
         return asset('assets/img/logo/pharmacy.png');

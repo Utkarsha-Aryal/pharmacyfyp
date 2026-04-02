@@ -67,7 +67,7 @@ class CategoryController extends Controller
                 $array[$i]["keywords"] = $row->keywords;
                 $array[$i]["order_number"] = $row->order_number;
                 $image = asset('/images/no-image.jpg');
-                if (!empty($row->image) && file_exists(public_path('/storage/category/' . $row->image))) {
+                if (!empty($row->image) && file_exists(public_path('storage/category/' . $row->image))) {
                     $image = asset('/storage/category') . '/' . $row->image;
                 }
                 $array[$i]["image"] = '<img src="' . $image . '" height="30px" width="30px" alt="' . ' image"/>';
@@ -107,7 +107,7 @@ class CategoryController extends Controller
             $message = 'Record deleted successfully';
             $post = $request->all();
             $class = new Category();
-            $directory = storage_path('app/public/category');
+            $directory = public_path('storage/category');
             DB::beginTransaction();
             $result = Common::deleteSingleData($post, $class, $directory);
             if (!$result) {

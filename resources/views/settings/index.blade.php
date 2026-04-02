@@ -80,7 +80,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Favicon</label>
-                                    <input type="file" name="favicon" class="form-control" accept=".png,.jpg,.jpeg" data-image-preview-input="#faviconPreview">
+                                    <input type="file" name="favicon" class="form-control" accept=".png,.jpg,.jpeg,.ico" data-image-preview-input="#faviconPreview">
                                     <div class="settings-image-preview mt-3">
                                         <img src="{{ !empty($settings['favicon']) ? asset($settings['favicon']) : app_favicon_url() }}" alt="Favicon" id="faviconPreview">
                                     </div>

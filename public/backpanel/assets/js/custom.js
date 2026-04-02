@@ -1267,16 +1267,321 @@
     });
   }
 
-  function initWorkspaceLayout() {
-    var html = document.documentElement;
+  function renderQuickPaymentModeRow(mode, index) {
+    var canDelete = ["cash", "bank"].indexOf(String(mode.name).toLowerCase()) === -1;
+    var deleteButton = canDelete
+      ? '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn quickPaymentModeDeleteBtn" data-id="' + mode.id + '" title="Delete"><i class="fa-solid fa-trash"></i></button>'
+      : "";
 
-    if (!html || !document.body) {
+    return '<tr data-id="' + mode.id + '">' +
+      '<td>' + index + '</td>' +
+      '<td>' + mode.name + '</td>' +
+      '<td>' + String(mode.type || "").charAt(0).toUpperCase() + String(mode.type || "").slice(1) + '</td>' +
+      '<td><span class="report-badge ' + (mode.is_active ? "report-badge-success" : "report-badge-danger") + '">' + (mode.is_active ? "Active" : "Inactive") + '</span></td>' +
+      '<td><div class="table-action-group">' +
+        '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn quickPaymentModeEditBtn" data-id="' + mode.id + '" data-name="' + mode.name + '" data-type="' + mode.type + '" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>' +
+        '<button type="button" class="btn btn-sm ' + (mode.is_active ? "btn-outline-warning" : "btn-outline-success") + ' table-action-btn quickPaymentModeToggleBtn" data-id="' + mode.id + '" data-active="' + (mode.is_active ? 1 : 0) + '" title="Toggle"><i class="fa-solid ' + (mode.is_active ? "fa-toggle-on" : "fa-toggle-off") + '"></i></button>' +
+        deleteButton +
+      '</div></td>' +
+    '</tr>';
+  }
+
+  function syncPaymentModeSelects(paymentModes, preferredModeId, preferredTargetSelector) {
+    if (!window.jQuery) {
       return;
     }
 
-    if (document.body.classList.contains("workspace-form-page") && window.innerWidth >= 992) {
-      html.setAttribute("data-vertical-style", "closed");
-      html.setAttribute("data-toggled", "close-menu-close");
+    var activeModes = (paymentModes || []).filter(function (mode) {
+      return !!mode.is_active;
+    });
+    var preferredValue = preferredModeId != null ? String(preferredModeId) : "";
+
+    $("select[name='payment_mode_id']").each(function () {
+      var $select = $(this);
+      var placeholderOption = $select.find("option:first");
+      var placeholderText = placeholderOption.length ? placeholderOption.text() : "Select mode";
+      var currentValue = String($select.val() || "");
+      var keepValue = currentValue;
+
+      if (preferredValue && preferredTargetSelector && $select.is(preferredTargetSelector)) {
+        keepValue = preferredValue;
+      }
+
+      $select.empty().append(new Option(placeholderText, "", false, false));
+
+      activeModes.forEach(function (mode) {
+        var optionValue = String(mode.id);
+        var isSelected = keepValue === optionValue;
+        $select.append(new Option(mode.name, optionValue, isSelected, isSelected));
+      });
+
+      if (keepValue && !activeModes.some(function (mode) { return String(mode.id) === keepValue; })) {
+        $select.val("");
+      }
+
+      $select.trigger("change");
+    });
+  }
+
+  function initQuickPaymentModeCrud() {
+    if (!window.jQuery || typeof bootstrap === "undefined") {
+      return;
+    }
+
+    var modalElement = byId("quickPaymentModeModal");
+    var form = byId("quickPaymentModeForm");
+
+    if (!modalElement || !form || modalElement.dataset.quickCrudReady === "true") {
+      return;
+    }
+
+    var modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+    var $form = $(form);
+    var $tableBody = $("#quickPaymentModeTable tbody");
+    var $title = $("#quickPaymentModeModalTitle");
+    var $submitButton = $("#quickPaymentModeSubmitBtn");
+    var $idField = $("#quick_payment_mode_id");
+    var $nameField = $("#quick_payment_mode_name");
+    var $typeField = $("#quick_payment_mode_type");
+
+    function quickPaymentModeUrl(template, id) {
+      return String(template || "").replace("__ID__", String(id || ""));
+    }
+
+    // This small reset keeps the modal simple: empty form means create, filled form means edit.
+    function resetQuickPaymentModeForm() {
+      $idField.val("");
+      $nameField.val("");
+      $typeField.val("cash");
+      $title.text("Manage Payment Modes");
+      $submitButton.html('<i class="fa-solid fa-save"></i> Save Mode');
+    }
+
+    function refreshQuickPaymentModeTable(preferredModeId) {
+      return $.get($form.data("listUrl"), function (response) {
+        var rows = response.data || [];
+        $tableBody.empty();
+
+        if (!rows.length) {
+          $tableBody.append('<tr><td colspan="5" class="text-center text-muted">No payment modes added yet.</td></tr>');
+        } else {
+          rows.forEach(function (mode, index) {
+            $tableBody.append(renderQuickPaymentModeRow(mode, index + 1));
+          });
+        }
+
+        syncPaymentModeSelects(rows, preferredModeId, modalElement.dataset.quickTargetSelect || "");
+      });
+    }
+
+    modalElement.addEventListener("show.bs.modal", function () {
+      resetQuickPaymentModeForm();
+      refreshQuickPaymentModeTable();
+    });
+
+    $(document).off("click.quickPaymentModeReset", "#quickPaymentModeResetBtn");
+    $(document).on("click.quickPaymentModeReset", "#quickPaymentModeResetBtn", function () {
+      resetQuickPaymentModeForm();
+    });
+
+    $(document).off("click.quickPaymentModeEdit", ".quickPaymentModeEditBtn");
+    $(document).on("click.quickPaymentModeEdit", ".quickPaymentModeEditBtn", function () {
+      $idField.val($(this).data("id"));
+      $nameField.val($(this).data("name"));
+      $typeField.val($(this).data("type"));
+      $title.text("Edit Payment Mode");
+      $submitButton.html('<i class="fa-solid fa-save"></i> Update Mode');
+    });
+
+    $(document).off("click.quickPaymentModeToggle", ".quickPaymentModeToggleBtn");
+    $(document).on("click.quickPaymentModeToggle", ".quickPaymentModeToggleBtn", function () {
+      var modeId = $(this).data("id");
+      var nextState = $(this).data("active") == 1 ? 0 : 1;
+
+      showLoader();
+
+      $.post(quickPaymentModeUrl($form.data("updateUrlTemplate"), modeId), {
+        _token: $form.find('input[name="_token"]').val(),
+        is_active: nextState
+      }, function (response) {
+        hideLoader();
+        showNotification(response.message || "Payment mode updated.", response.type || "success");
+        refreshQuickPaymentModeTable();
+      }).fail(function (xhr) {
+        hideLoader();
+        var response = xhr.responseJSON || {};
+        showNotification(response.message || "Could not update payment mode.", "error");
+      });
+    });
+
+    $(document).off("click.quickPaymentModeDelete", ".quickPaymentModeDeleteBtn");
+    $(document).on("click.quickPaymentModeDelete", ".quickPaymentModeDeleteBtn", function () {
+      var modeId = $(this).data("id");
+
+      function runDelete() {
+        showLoader();
+
+        $.post(quickPaymentModeUrl($form.data("deleteUrlTemplate"), modeId), {
+          _token: $form.find('input[name="_token"]').val()
+        }, function (response) {
+          hideLoader();
+          showNotification(response.message || "Payment mode deleted.", response.type || "success");
+          resetQuickPaymentModeForm();
+          refreshQuickPaymentModeTable();
+        }).fail(function (xhr) {
+          hideLoader();
+          var response = xhr.responseJSON || {};
+          showNotification(response.message || "Could not delete payment mode.", "error");
+        });
+      }
+
+      if (typeof Swal !== "undefined") {
+        Swal.fire({
+          title: "Delete payment mode?",
+          text: "This will remove the custom mode from the list.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#DB1F48",
+          cancelButtonColor: "#6b7280",
+          confirmButtonText: "Delete",
+        }).then(function (result) {
+          if (result.isConfirmed) {
+            runDelete();
+          }
+        });
+        return;
+      }
+
+      if (window.confirm("Delete this payment mode?")) {
+        runDelete();
+      }
+    });
+
+    $form.off("submit.quickPaymentModeCrud");
+    $form.on("submit.quickPaymentModeCrud", function (event) {
+      event.preventDefault();
+
+      var modeId = $idField.val();
+      var submitUrl = modeId
+        ? quickPaymentModeUrl($form.data("updateUrlTemplate"), modeId)
+        : $form.data("storeUrl");
+
+      showLoader();
+
+      $.post(submitUrl, {
+        _token: $form.find('input[name="_token"]').val(),
+        name: $nameField.val(),
+        type: $typeField.val()
+      }, function (response) {
+        hideLoader();
+        showNotification(response.message || "Payment mode saved.", response.type || "success");
+        resetQuickPaymentModeForm();
+        refreshQuickPaymentModeTable(response && response.data ? response.data.id : "");
+        modalInstance.hide();
+      }).fail(function (xhr) {
+        hideLoader();
+        var response = xhr.responseJSON || {};
+        showNotification(response.message || "Could not save payment mode.", "error");
+      });
+    });
+
+    modalElement.dataset.quickCrudReady = "true";
+  }
+
+  function getSidebarPreferenceStorageKey() {
+    return "pharmacy:sidebar:state";
+  }
+
+  function applySidebarPreference(state) {
+    var html = document.documentElement;
+
+    if (!html) {
+      return;
+    }
+
+    // The theme uses this attribute to show the sidebar preview on hover when it is collapsed.
+    html.removeAttribute("data-icon-overlay");
+
+    if (window.innerWidth < 992) {
+      html.setAttribute("data-toggled", "close");
+      return;
+    }
+
+    if (state === "collapsed") {
+      html.setAttribute("data-toggled", "icon-overlay-close");
+      return;
+    }
+
+    html.setAttribute("data-toggled", "close");
+  }
+
+  function initSidebarPreference() {
+    var html = document.documentElement;
+    var toggleButton = document.querySelector(".sidemenu-toggle");
+
+    if (!html || !toggleButton) {
+      return;
+    }
+
+    var storageKey = getSidebarPreferenceStorageKey();
+    var savedState = "open";
+
+    try {
+      savedState = window.localStorage.getItem(storageKey) || "open";
+    } catch (error) {
+      savedState = "open";
+    }
+
+    if (window.innerWidth >= 992) {
+      applySidebarPreference(savedState === "collapsed" ? "collapsed" : "open");
+    } else if (!html.getAttribute("data-toggled")) {
+      html.setAttribute("data-toggled", "close");
+    }
+
+    if (toggleButton.dataset.sidebarPreferenceReady !== "true") {
+      // We listen in capture phase so the theme's default click handler does not fight our saved state.
+      toggleButton.addEventListener("click", function (event) {
+        if (window.innerWidth < 992) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        var isCollapsed = html.getAttribute("data-toggled") === "icon-overlay-close";
+        var nextState = isCollapsed ? "open" : "collapsed";
+
+        applySidebarPreference(nextState);
+
+        try {
+          window.localStorage.setItem(storageKey, nextState);
+        } catch (error) {
+          // localStorage can be blocked in private browsing modes.
+        }
+      }, true);
+
+      if (!window.__sidebarPreferenceResizeBound) {
+        window.addEventListener("resize", function () {
+          if (window.innerWidth >= 992) {
+            var currentState = "open";
+
+            try {
+              currentState = window.localStorage.getItem(storageKey) || "open";
+            } catch (error) {
+              currentState = "open";
+            }
+
+            applySidebarPreference(currentState === "collapsed" ? "collapsed" : "open");
+          } else {
+            html.setAttribute("data-toggled", "close");
+            html.removeAttribute("data-icon-overlay");
+          }
+        });
+
+        window.__sidebarPreferenceResizeBound = true;
+      }
+
+      toggleButton.dataset.sidebarPreferenceReady = "true";
     }
   }
 
@@ -1622,10 +1927,11 @@
     initAjaxForms();
     initImportPreview();
     initQuickCreateModals();
-    initWorkspaceLayout();
-    initDataTableTabAdjust();
-    initStandardDataTables();
-    initEntryFormShortcuts();
+      initQuickPaymentModeCrud();
+      initSidebarPreference();
+      initDataTableTabAdjust();
+      initStandardDataTables();
+      initEntryFormShortcuts();
   });
 
   window.addEventListener("load", function () {

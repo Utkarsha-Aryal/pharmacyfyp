@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr" data-nav-layout="vertical" data-theme-mode="light" data-header-styles="light"
+<html lang="en" dir="ltr" data-nav-layout="vertical" data-vertical-style="overlay" data-theme-mode="light" data-header-styles="light"
     data-menu-styles="light" data-toggled="close">
 
 @php
@@ -12,6 +12,18 @@
 @endphp
 
 <head>
+    <script>
+        (function() {
+            try {
+                if (window.localStorage) {
+                    localStorage.setItem("valexlayout", "vertical");
+                    localStorage.setItem("valexverticalstyles", "overlay");
+                }
+            } catch (error) {
+                // Local storage can be blocked, so we keep the default markup working too.
+            }
+        })();
+    </script>
 
     <!-- Meta Data -->
     <meta charset="UTF-8">
@@ -19,7 +31,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>@yield('title') | {{ setting('app_name', 'Pharmacy Management System') }}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="icon" href="{{ app_favicon_url() }}" type="image/x-icon">
+    <link rel="icon" href="{{ app_favicon_url() }}">
     <!-- Choices JS -->
     <script src="{{ asset('backpanel/assets/libs/choices.js/public/assets/scripts/choices.min.js') }}"></script>
 

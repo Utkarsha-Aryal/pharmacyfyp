@@ -19,7 +19,8 @@
         'admin.supplier.*',
         'admin.purchase',
         'admin.purchase.*',
-        'admin.purchase-orders.*'
+        'admin.purchase-orders.*',
+        'admin.purchase-returns.*'
     );
     $isPartyMenu = request()->routeIs('admin.customers.*');
     $isSalesMenu = request()->routeIs('admin.sales.*');
@@ -101,7 +102,7 @@
                     </li>
                 @endif
 
-                @if (auth()->user()->can('purchase.supplier') || auth()->user()->can('purchase.entry'))
+                @if (auth()->user()->can('purchase.supplier') || auth()->user()->can('purchase.entry') || auth()->user()->can('purchase.orders') || auth()->user()->hasRole(['admin', 'superadmin']))
                     <li class="slide has-sub {{ $isPurchaseMenu ? 'open active' : '' }}">
                         <a href="javascript:void(0);" class="side-menu__item">
                             <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">

@@ -50,7 +50,7 @@
             let html = document.querySelector('html');
             html.setAttribute('data-theme-mode', 'dark');
         }
-        if (localStorage.valexlayout) {
+        if (localStorage.getItem("valexlayout") === "horizontal") {
             let html = document.querySelector('html');
             let layoutValue = localStorage.getItem('valexlayout');
             html.setAttribute('data-nav-layout', 'horizontal');

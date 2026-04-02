@@ -14,7 +14,7 @@
         : time();
   @endphp
 
-  <link rel="icon" href="{{ app_favicon_url() }}" type="image/x-icon">
+  <link rel="icon" href="{{ app_favicon_url() }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="{{ asset('backpanel/assets/libs/toastr/toastr.min.css') }}">
   <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
