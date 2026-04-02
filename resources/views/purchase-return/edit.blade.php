@@ -73,29 +73,36 @@
                                         <input type="hidden" name="items[{{ $index }}][product_id]" value="{{ $row['product_id'] }}">
                                     </td>
                                     <td>
-                                        <div class="d-flex flex-column gap-1">
-                                            <select name="items[{{ $index }}][batch_id]" class="form-select form-select-sm purchase-return-batch-select" required>
-                                                <option value="">Select batch</option>
-                                                @foreach ($row['batch_options'] as $batchOption)
-                                                    <option
-                                                        value="{{ $batchOption['id'] }}"
-                                                        data-badge-class="{{ $batchOption['badge_class'] }}"
-                                                        data-badge-label="{{ $batchOption['badge_label'] }}"
-                                                        @selected((int) $row['selected_batch_id'] === (int) $batchOption['id'])
-                                                        @disabled(!empty($batchOption['disabled']))
-                                                    >
-                                                        {{ $batchOption['text'] }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <span class="badge purchase-return-batch-badge {{ $row['batch_badge_class'] }}">{{ $row['batch_badge_label'] }}</span>
-                                        </div>
+                                        @if (!empty($row['batch_options']))
+                                            <div class="d-flex flex-column gap-1">
+                                                <select name="items[{{ $index }}][batch_id]" class="form-select form-select-sm purchase-return-batch-select">
+                                                    <option value="">Select batch</option>
+                                                    @foreach ($row['batch_options'] as $batchOption)
+                                                        <option
+                                                            value="{{ $batchOption['id'] }}"
+                                                            data-badge-class="{{ $batchOption['badge_class'] }}"
+                                                            data-badge-label="{{ $batchOption['badge_label'] }}"
+                                                            @selected((int) $row['selected_batch_id'] === (int) $batchOption['id'])
+                                                        >
+                                                            {{ $batchOption['text'] }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                <span class="badge purchase-return-batch-badge {{ $row['batch_badge_class'] }}">{{ $row['batch_badge_label'] }}</span>
+                                            </div>
+                                        @else
+                                            <div class="d-flex flex-column gap-1">
+                                                <span class="badge bg-danger">No returnable batch available</span>
+                                                <small class="text-muted">This row cannot be returned because the stock in the batch is already used.</small>
+                                                <input type="hidden" name="items[{{ $index }}][batch_id]" value="">
+                                            </div>
+                                        @endif
                                     </td>
                                     <td>{{ $row['original_qty'] }}</td>
                                     <td>{{ $row['already_returned'] }}</td>
                                     <td>{{ $row['max_returnable'] }}</td>
                                     <td>
-                                        <input type="number" name="items[{{ $index }}][return_qty]" class="form-control" min="0" max="{{ $row['max_returnable'] }}" value="{{ $row['return_qty'] }}">
+                                        <input type="number" name="items[{{ $index }}][return_qty]" class="form-control purchase-return-qty-input" min="0" max="{{ $row['max_returnable'] }}" value="{{ $row['return_qty'] }}">
                                     </td>
                                 </tr>
                             @empty
@@ -164,18 +171,25 @@
                     }
 
                     function buildBatchSelect(row, index) {
+                        if (!(row.batch_options || []).length) {
+                            return '' +
+                                '<div class="d-flex flex-column gap-1">' +
+                                    '<span class="badge bg-danger">No returnable batch available</span>' +
+                                    '<small class="text-muted">This row cannot be returned because the stock in the batch is already used.</small>' +
+                                    '<input type="hidden" name="items[' + index + '][batch_id]" value="">' +
+                                '</div>';
+                        }
+
                         var options = '<option value="">Select batch</option>';
 
                         (row.batch_options || []).forEach(function (batch) {
                             var selected = String(row.selected_batch_id || '') === String(batch.id) ? 'selected' : '';
-                            var disabled = batch.disabled ? 'disabled' : '';
-
-                            options += '<option value="' + escapeHtml(batch.id) + '" data-badge-class="' + escapeHtml(batch.badge_class) + '" data-badge-label="' + escapeHtml(batch.badge_label) + '" ' + selected + ' ' + disabled + '>' + escapeHtml(batch.text) + '</option>';
+                            options += '<option value="' + escapeHtml(batch.id) + '" data-badge-class="' + escapeHtml(batch.badge_class) + '" data-badge-label="' + escapeHtml(batch.badge_label) + '" ' + selected + '>' + escapeHtml(batch.text) + '</option>';
                         });
 
                         return '' +
                             '<div class="d-flex flex-column gap-1">' +
-                                '<select name="items[' + index + '][batch_id]" class="form-select form-select-sm purchase-return-batch-select" required>' +
+                                '<select name="items[' + index + '][batch_id]" class="form-select form-select-sm purchase-return-batch-select">' +
                                     options +
                                 '</select>' +
                                 '<span class="badge purchase-return-batch-badge ' + escapeHtml(row.batch_badge_class || 'bg-warning text-dark') + '">' + escapeHtml(row.batch_badge_label || 'Choose a batch') + '</span>' +
@@ -193,7 +207,7 @@
                                 '<td>' + row.original_qty + '</td>' +
                                 '<td>' + row.already_returned + '</td>' +
                                 '<td>' + row.max_returnable + '</td>' +
-                                '<td><input type="number" name="items[' + index + '][return_qty]" class="form-control" min="0" max="' + row.max_returnable + '" value="0"></td>' +
+                                '<td><input type="number" name="items[' + index + '][return_qty]" class="form-control purchase-return-qty-input" min="0" max="' + row.max_returnable + '" value="0"></td>' +
                             '</tr>'
                         );
                     });
@@ -208,6 +222,16 @@
                 var badgeLabel = $option.data('badge-label') || 'Choose a batch';
 
                 $badge.attr('class', 'badge purchase-return-batch-badge ' + badgeClass).text(badgeLabel);
+            });
+
+            $(document).on('input', '.purchase-return-qty-input', function () {
+                var $row = $(this).closest('tr');
+                var qty = parseInt($(this).val() || '0', 10);
+                var $select = $row.find('.purchase-return-batch-select');
+
+                if ($select.length && qty > 0) {
+                    $select.prop('disabled', false);
+                }
             });
         });
     </script>

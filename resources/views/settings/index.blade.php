@@ -405,15 +405,38 @@
             $(document).on('click', '.deletePaymentModeBtn', function() {
                 var modeId = $(this).data('id');
 
-                $.post('{{ url('admin/payment-modes') }}/' + modeId + '/delete', {
-                    _token: '{{ csrf_token() }}'
-                }, function(response) {
-                    showNotification(response.message || 'Payment mode deleted.', response.type || 'success');
-                    refreshPaymentModeTable();
-                }).fail(function(xhr) {
-                    var response = xhr.responseJSON || {};
-                    showNotification(response.message || 'Could not delete payment mode.', 'error');
-                });
+                function runDelete() {
+                    $.post('{{ url('admin/payment-modes') }}/' + modeId + '/delete', {
+                        _token: '{{ csrf_token() }}'
+                    }, function(response) {
+                        showNotification(response.message || 'Payment mode deleted.', response.type || 'success');
+                        refreshPaymentModeTable();
+                    }).fail(function(xhr) {
+                        var response = xhr.responseJSON || {};
+                        showNotification(response.message || 'Could not delete payment mode.', 'error');
+                    });
+                }
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Delete payment mode?',
+                        text: 'This will remove the custom mode from the list.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#DB1F48',
+                        cancelButtonColor: '#6b7280',
+                        confirmButtonText: 'Delete'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            runDelete();
+                        }
+                    });
+                    return;
+                }
+
+                if (window.confirm('Delete this payment mode?')) {
+                    runDelete();
+                }
             });
         });
     </script>

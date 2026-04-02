@@ -127,6 +127,15 @@
                     }
 
                     function buildBatchSelect(row, index) {
+                        if (!(row.batch_options || []).length) {
+                            return '' +
+                                '<div class="d-flex flex-column gap-1">' +
+                                    '<span class="badge bg-danger">No returnable batch available</span>' +
+                                    '<small class="text-muted">This row cannot be returned because the stock in the batch is already used.</small>' +
+                                    '<input type="hidden" name="items[' + index + '][batch_id]" value="">' +
+                                '</div>';
+                        }
+
                         var options = '<option value="">Select batch</option>';
 
                         (row.batch_options || []).forEach(function (batch) {
@@ -138,7 +147,7 @@
 
                         return '' +
                             '<div class="d-flex flex-column gap-1">' +
-                                '<select name="items[' + index + '][batch_id]" class="form-select form-select-sm purchase-return-batch-select" required>' +
+                                '<select name="items[' + index + '][batch_id]" class="form-select form-select-sm purchase-return-batch-select">' +
                                     options +
                                 '</select>' +
                                 '<span class="badge purchase-return-batch-badge ' + escapeHtml(row.batch_badge_class || 'bg-warning text-dark') + '">' + escapeHtml(row.batch_badge_label || 'Choose a batch') + '</span>' +
@@ -156,7 +165,7 @@
                                 '<td>' + row.original_qty + '</td>' +
                                 '<td>' + row.already_returned + '</td>' +
                                 '<td>' + row.max_returnable + '</td>' +
-                                '<td><input type="number" name="items[' + index + '][return_qty]" class="form-control" min="0" max="' + row.max_returnable + '" value="0"></td>' +
+                                '<td><input type="number" name="items[' + index + '][return_qty]" class="form-control purchase-return-qty-input" min="0" max="' + row.max_returnable + '" value="0" ' + (!(row.batch_options || []).length ? 'disabled' : '') + '></td>' +
                             '</tr>'
                         );
                     });
@@ -171,6 +180,23 @@
                 var badgeLabel = $option.data('badge-label') || 'Choose a batch';
 
                 $badge.attr('class', 'badge purchase-return-batch-badge ' + badgeClass).text(badgeLabel);
+            });
+
+            $(document).on('input', '.purchase-return-qty-input', function () {
+                var $row = $(this).closest('tr');
+                var qty = parseInt($(this).val() || '0', 10);
+                var $select = $row.find('.purchase-return-batch-select');
+
+                if ($select.length) {
+                    if (qty > 0) {
+                        $select.prop('disabled', false);
+                    } else {
+                        $select.prop('disabled', false);
+                        if (!$select.val()) {
+                            $select.removeClass('is-invalid');
+                        }
+                    }
+                }
             });
         });
     </script>

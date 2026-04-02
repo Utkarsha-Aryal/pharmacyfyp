@@ -101,6 +101,9 @@ class PurchaseReturnController extends Controller
                 $maxReturnable = max(0, $originalQty - $returnedQty);
                 $batchOptions = $this->buildReturnBatchOptions($purchase, $item);
                 $selectedBatchId = $this->selectedReturnBatchId($item->batch_id, $batchOptions);
+                if (!$selectedBatchId && count($batchOptions) === 1) {
+                    $selectedBatchId = (int) $batchOptions[0]['id'];
+                }
                 $batchBadge = $this->selectedReturnBatchBadge($selectedBatchId, $batchOptions);
 
                 return [
@@ -304,6 +307,9 @@ class PurchaseReturnController extends Controller
             $maxReturnable = max(0, $originalQty - $otherReturnedQty);
             $batchOptions = $this->buildReturnBatchOptions($purchaseReturn->purchase, $purchaseItem);
             $selectedBatchId = $this->selectedReturnBatchId($item->batch_id, $batchOptions);
+            if (!$selectedBatchId && count($batchOptions) === 1) {
+                $selectedBatchId = (int) $batchOptions[0]['id'];
+            }
             $batchBadge = $this->selectedReturnBatchBadge($selectedBatchId, $batchOptions);
 
             return [
@@ -335,6 +341,7 @@ class PurchaseReturnController extends Controller
         return Batch::query()
             ->where('supplier_id', $purchase->supplier_id)
             ->where('product_id', $purchaseItem->product_id)
+            ->where('quantity_available', '>', 0)
             ->orderBy('expiry_date')
             ->orderBy('batch_number')
             ->get()
@@ -349,6 +356,7 @@ class PurchaseReturnController extends Controller
                     'badge_class' => $quantityAvailable <= 0 ? 'bg-secondary' : ($state === 'expired' ? 'bg-danger' : ($state === 'warning' ? 'bg-warning text-dark' : 'bg-success')),
                     'badge_label' => $quantityAvailable <= 0 ? 'No stock left' : ($state === 'expired' ? 'Expired batch' : ($state === 'warning' ? 'Expiring soon' : 'Valid batch')),
                     'disabled' => false,
+                    'quantity_available' => $quantityAvailable,
                 ];
             })
             ->values()
