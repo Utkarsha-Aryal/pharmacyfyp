@@ -39,6 +39,7 @@ class PaymentController extends Controller
             'payments' => $query->paginate(15)->withQueryString(),
             'filters' => $request->only(['type', 'party_type']),
             'openModal' => $request->input('open'),
+            'editPaymentId' => $request->input('edit'),
             'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
             'paymentModes' => PaymentMode::query()->where('is_active', true)->orderBy('name')->get(),

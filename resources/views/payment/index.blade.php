@@ -341,6 +341,7 @@
             $('#paymentOutForm').data('default-action', $('#paymentOutForm').attr('action'));
             $('#paymentOutForm').data('default-title', $('#paymentOutModalTitle').text());
             $('#paymentOutForm').data('default-button', $('#paymentOutSubmitBtn').html());
+            var editPaymentId = @json($editPaymentId ?? null);
 
             function moneyFormat(value) {
                 return '{{ currency_symbol() }} ' + parseFloat(value || 0).toFixed(2);
@@ -506,6 +507,15 @@
 
             if ($('#paymentOutModal').data('open-intent') == 1) {
                 new bootstrap.Modal(document.getElementById('paymentOutModal')).show();
+            }
+
+            if (editPaymentId) {
+                $.get('{{ url('/admin/payments') }}/' + editPaymentId + '/edit', function (response) {
+                    if (response && response.type === 'success' && response.data) {
+                        var prefix = response.data.type === 'in' ? 'paymentIn' : 'paymentOut';
+                        fillPaymentForm(prefix, response.data);
+                    }
+                });
             }
 
             $('#paymentInModal, #paymentOutModal').on('hidden.bs.modal', function () {

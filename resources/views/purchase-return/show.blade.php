@@ -12,12 +12,21 @@
                 <p class="mb-0 text-muted">Review returned batch rows and print the debit note style PDF.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
+                <a href="{{ route('admin.purchase-returns.index') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </a>
                 <a href="{{ route('admin.purchase-returns.edit', $purchaseReturn) }}" class="btn btn-outline-warning">
                     <i class="fa-solid fa-pen-to-square"></i> Edit Return
                 </a>
                 <a href="{{ route('admin.purchase-returns.print', $purchaseReturn) }}" target="_blank" class="btn btn-primary">
                     <i class="fa fa-print"></i> Print / PDF
                 </a>
+                <form action="{{ route('admin.purchase-returns.delete', $purchaseReturn) }}" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete purchase return?" data-confirm-text="This will restore the stock back to inventory." data-confirm-button="Yes, delete it">
+                    @csrf
+                    <button type="submit" class="btn btn-outline-danger">
+                        <i class="fa-solid fa-trash"></i> Delete
+                    </button>
+                </form>
             </div>
         </div>
 

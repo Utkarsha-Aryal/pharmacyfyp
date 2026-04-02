@@ -12,6 +12,12 @@
                 <p class="mb-0 text-muted">One payment voucher with linked bills and party details.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
+                <a href="{{ route('admin.payments.index') }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </a>
+                <a href="{{ route('admin.payments.index', ['edit' => $payment->id, 'open' => $payment->type]) }}" class="btn btn-outline-warning">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit Payment
+                </a>
                 <a href="{{ route('admin.payments.print', $payment) }}" target="_blank" class="btn btn-primary">
                     <i class="fa fa-print"></i> Print / PDF
                 </a>

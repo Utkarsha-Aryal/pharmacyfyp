@@ -31,7 +31,7 @@
                             @csrf
                             <div class="mb-3">
                                 <label class="form-label">Image or PDF</label>
-                                <input type="file" name="image" class="form-control" accept=".jpg,.jpeg,.png,.pdf" required>
+                                <input type="file" name="image" class="form-control" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" required>
                                 <div class="form-text">I can read JPG, PNG and PDF invoices.</div>
                             </div>
                             <button type="submit" class="btn btn-primary">

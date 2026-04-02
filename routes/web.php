@@ -122,6 +122,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/store', [PurchaseReturnController::class, 'store'])->name('store');
         Route::get('/{purchaseReturn}/edit', [PurchaseReturnController::class, 'edit'])->name('edit');
         Route::post('/{purchaseReturn}/update', [PurchaseReturnController::class, 'update'])->name('update');
+        Route::post('/{purchaseReturn}/delete', [PurchaseReturnController::class, 'destroy'])->name('delete');
         Route::get('/get-purchases', [PurchaseReturnController::class, 'getPurchases'])->name('get-purchases');
         Route::get('/get-items', [PurchaseReturnController::class, 'getItems'])->name('get-items');
         Route::get('/{purchaseReturn}', [PurchaseReturnController::class, 'show'])->name('show');

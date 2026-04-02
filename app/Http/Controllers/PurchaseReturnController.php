@@ -298,6 +298,21 @@ class PurchaseReturnController extends Controller
         ]);
     }
 
+    // Remove one purchase return and put the stock back to the same batch rows.
+    public function destroy(PurchaseReturn $purchaseReturn)
+    {
+        abort_unless(auth()->user()->hasRole(['admin', 'superadmin']), 403);
+
+        DB::transaction(function () use ($purchaseReturn) {
+            $purchaseReturn->load(['purchase.reference', 'items.purchaseItem.returns', 'items.batch']);
+            $this->restoreReturnStock($purchaseReturn);
+            PurchaseReturnItem::query()->where('purchase_return_id', $purchaseReturn->id)->delete();
+            $purchaseReturn->delete();
+        });
+
+        return redirect()->route('admin.purchase-returns.index')->with('success', 'Purchase return deleted successfully.');
+    }
+
     // Stream one purchase return voucher as PDF.
     public function print(PurchaseReturn $purchaseReturn)
     {

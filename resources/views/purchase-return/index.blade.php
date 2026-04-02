@@ -56,6 +56,12 @@
                                             <a href="{{ route('admin.purchase-returns.print', $return) }}" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF">
                                                 <i class="fa-solid fa-print"></i>
                                             </a>
+                                            <form action="{{ route('admin.purchase-returns.delete', $return) }}" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete purchase return?" data-confirm-text="This will restore the stock back to inventory." data-confirm-button="Yes, delete it">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>

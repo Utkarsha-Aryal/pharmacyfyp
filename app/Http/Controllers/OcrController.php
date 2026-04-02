@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class OcrController extends Controller
 {
@@ -25,26 +26,36 @@ class OcrController extends Controller
         $file = $validated['image'];
         $apiKey = env('OCR_SPACE_API_KEY', 'helloworld');
 
+        $base64 = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
+
         $response = Http::timeout(120)
             ->acceptJson()
-            ->attach('file', fopen($file->getRealPath(), 'r'), $file->getClientOriginalName())
+            ->asForm()
             ->post('https://api.ocr.space/parse/image', [
                 'apikey' => $apiKey,
                 'language' => 'eng',
                 'isOverlayRequired' => 'false',
                 'OCREngine' => '2',
+                'scale' => 'true',
+                'detectOrientation' => 'true',
+                'base64Image' => $base64,
+                'filetype' => Str::lower($file->getClientOriginalExtension()),
             ]);
 
         if (!$response->ok()) {
-            return back()->with('error', 'OCR service could not process this file right now.');
+            return back()->with('error', $this->ocrFailureMessage($response->json()) ?: 'OCR service could not process this file right now.');
         }
 
         $payload = $response->json();
+        if (!empty($payload['IsErroredOnProcessing'])) {
+            return back()->with('error', $this->ocrFailureMessage($payload) ?: 'OCR service could not process this file right now.');
+        }
+
         $parsedResults = $payload['ParsedResults'] ?? [];
         $text = trim(collect($parsedResults)->pluck('ParsedText')->implode("\n"));
 
         if ($text === '') {
-            return back()->with('error', 'No text was extracted from this image.');
+            return back()->with('error', $this->ocrFailureMessage($payload) ?: 'No text was extracted from this image.');
         }
 
         $lines = collect(preg_split('/\r\n|\r|\n/', $text))
@@ -71,5 +82,23 @@ class OcrController extends Controller
             ->route('admin.purchase.addpurchase')
             ->with('ocr_text', $validated['ocr_text'])
             ->with('success', 'OCR draft loaded into purchase entry.');
+    }
+
+    // Build one readable OCR error message because the free service can fail in a few different ways.
+    private function ocrFailureMessage(?array $payload): ?string
+    {
+        if (empty($payload)) {
+            return null;
+        }
+
+        $errors = $payload['ErrorMessage'] ?? $payload['ErrorDetails'] ?? null;
+
+        if (is_array($errors)) {
+            $errors = implode(' ', array_filter(array_map('strval', $errors)));
+        }
+
+        $errors = trim((string) $errors);
+
+        return $errors !== '' ? $errors : null;
     }
 }
