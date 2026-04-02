@@ -9,6 +9,7 @@ use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InventoryBatchController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\OcrController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentModeController;
 use App\Http\Controllers\ProductBatchesController;
@@ -119,6 +120,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('/', [PurchaseReturnController::class, 'index'])->name('index');
         Route::get('/create', [PurchaseReturnController::class, 'create'])->name('create');
         Route::post('/store', [PurchaseReturnController::class, 'store'])->name('store');
+        Route::get('/{purchaseReturn}/edit', [PurchaseReturnController::class, 'edit'])->name('edit');
+        Route::post('/{purchaseReturn}/update', [PurchaseReturnController::class, 'update'])->name('update');
         Route::get('/get-purchases', [PurchaseReturnController::class, 'getPurchases'])->name('get-purchases');
         Route::get('/get-items', [PurchaseReturnController::class, 'getItems'])->name('get-items');
         Route::get('/{purchaseReturn}', [PurchaseReturnController::class, 'show'])->name('show');
@@ -177,6 +180,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/in', [PaymentController::class, 'storeIn'])->name('in.store');
         Route::get('/out/create', [PaymentController::class, 'createOut'])->name('out.create');
         Route::post('/out', [PaymentController::class, 'storeOut'])->name('out.store');
+        Route::get('/{payment}/edit', [PaymentController::class, 'edit'])->name('edit');
+        Route::post('/{payment}/update', [PaymentController::class, 'update'])->name('update');
         Route::get('/outstanding-bills', [PaymentController::class, 'outstandingBills'])->name('outstanding-bills');
         Route::get('/{payment}', [PaymentController::class, 'show'])->name('show');
         Route::get('/{payment}/print', [PaymentController::class, 'print'])->name('print');
@@ -195,11 +200,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('/expiry-alert', [ReportController::class, 'expiryAlert'])->middleware('permission:report.expiry')->name('report.expiry');
         Route::get('/expiry-alert/print', [ReportController::class, 'expiryAlertPrint'])->middleware('permission:report.expiry')->name('reports.expiry-alert.print');
         Route::get('/purchases', [ReportController::class, 'purchaseHistory'])->middleware('permission:report.purchases')->name('report.purchases');
+        Route::get('/sales', [ReportController::class, 'salesReport'])->middleware('permission:report.sales')->name('report.sales');
         Route::get('/supplier-performance', [ReportController::class, 'supplierPerformance'])->middleware('permission:report.suppliers')->name('report.suppliers');
     });
 
     Route::get('/sales-invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'printPdf'])->middleware('permission:sales.invoice')->name('sales-invoices.print');
     Route::get('/purchases/{purchase}/print', [PurchaseController::class, 'print'])->middleware('permission:purchase.entry')->name('purchases.print');
+    Route::get('/sales-invoices/{salesInvoice}/pdf', [SalesInvoiceController::class, 'pdf'])->middleware('permission:sales.invoice')->name('sales-invoices.pdf');
 
     Route::middleware(['role:admin'])->group(function () {
         Route::prefix('users')->name('user.')->middleware('permission:user.manage')->group(function () {
@@ -239,12 +246,22 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         });
 
         Route::prefix('imports')->name('imports.')->group(function () {
+            Route::get('/sample/categories', [ImportController::class, 'sampleCategories'])->name('sample.categories');
+            Route::get('/sample/units', [ImportController::class, 'sampleUnits'])->name('sample.units');
             Route::get('/sample/products', [ImportController::class, 'sampleProducts'])->name('sample.products');
             Route::get('/sample/customers', [ImportController::class, 'sampleCustomers'])->name('sample.customers');
             Route::get('/sample/suppliers', [ImportController::class, 'sampleSuppliers'])->name('sample.suppliers');
+            Route::post('/categories', [ImportController::class, 'importCategories'])->name('categories');
+            Route::post('/units', [ImportController::class, 'importUnits'])->name('units');
             Route::post('/products', [ImportController::class, 'importProducts'])->name('products');
             Route::post('/customers', [ImportController::class, 'importCustomers'])->name('customers');
             Route::post('/suppliers', [ImportController::class, 'importSuppliers'])->name('suppliers');
+        });
+
+        Route::prefix('ocr')->name('ocr.')->middleware('permission:purchase.entry')->group(function () {
+            Route::get('/', [OcrController::class, 'index'])->name('index');
+            Route::post('/extract', [OcrController::class, 'extract'])->name('extract');
+            Route::post('/draft-purchase', [OcrController::class, 'draftPurchase'])->name('draft-purchase');
         });
 
         Route::prefix('export')->name('export.')->group(function () {
@@ -286,6 +303,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::get('/low-stock/pdf', [ExportController::class, 'lowStockPdf'])->name('low-stock-pdf');
             Route::get('/expiry-alert', [ExportController::class, 'expiryAlert'])->name('expiry-alert');
             Route::get('/expiry-alert/pdf', [ExportController::class, 'expiryAlertPdf'])->name('expiry-alert-pdf');
+            Route::get('/sales-invoices/pdf', [ExportController::class, 'salesInvoicesPdf'])->name('sales-invoices-pdf');
             Route::get('/batch/{slug}', [ExportController::class, 'batches'])->name('batch');
         });
     });

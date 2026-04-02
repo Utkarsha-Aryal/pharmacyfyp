@@ -50,6 +50,9 @@
                                             <a href="{{ route('admin.purchase-returns.show', $return) }}" class="btn btn-sm btn-outline-primary table-action-btn" title="View">
                                                 <i class="fa-solid fa-eye"></i>
                                             </a>
+                                            <a href="{{ route('admin.purchase-returns.edit', $return) }}" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </a>
                                             <a href="{{ route('admin.purchase-returns.print', $return) }}" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF">
                                                 <i class="fa-solid fa-print"></i>
                                             </a>

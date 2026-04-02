@@ -29,6 +29,7 @@ class RolePermissionSeeder extends Seeder
             'report.low_stock',
             'report.expiry',
             'report.purchases',
+            'report.sales',
             'report.suppliers',
             'party.manage',
             'sales.invoice',

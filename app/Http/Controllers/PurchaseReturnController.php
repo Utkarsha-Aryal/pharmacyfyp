@@ -40,6 +40,20 @@ class PurchaseReturnController extends Controller
         ]);
     }
 
+    // Open the edit screen with the existing supplier and return rows already filled.
+    public function edit(PurchaseReturn $purchaseReturn)
+    {
+        abort_unless(auth()->user()->hasRole(['admin', 'superadmin']), 403);
+
+        $purchaseReturn->load(['supplier', 'purchase.reference', 'items.purchaseItem.returns', 'items.batch', 'items.product']);
+
+        return view('purchase-return.edit', [
+            'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
+            'purchaseReturn' => $purchaseReturn,
+            'itemsRows' => $this->buildEditableRows($purchaseReturn),
+        ]);
+    }
+
     // Return supplier purchase bill options for the dependent dropdown.
     public function getPurchases(Request $request)
     {
@@ -106,6 +120,20 @@ class PurchaseReturnController extends Controller
     {
         abort_unless(auth()->user()->hasRole(['admin', 'superadmin']), 403);
 
+        return $this->persistReturn($request);
+    }
+
+    // Update an existing return and rebuild the stock movements from the edited lines.
+    public function update(Request $request, PurchaseReturn $purchaseReturn)
+    {
+        abort_unless(auth()->user()->hasRole(['admin', 'superadmin']), 403);
+
+        return $this->persistReturn($request, $purchaseReturn);
+    }
+
+    // Save or update a purchase return inside one transaction so stock rollback stays safe.
+    private function persistReturn(Request $request, ?PurchaseReturn $existingReturn = null)
+    {
         $validated = $request->validate([
             'purchase_id' => ['required', 'exists:purchases,id'],
             'supplier_id' => ['required', 'exists:suppliers,id'],
@@ -138,7 +166,7 @@ class PurchaseReturnController extends Controller
             }
         }
 
-        $purchaseReturn = DB::transaction(function () use ($validated, $request, $rows) {
+        $purchaseReturn = DB::transaction(function () use ($validated, $request, $rows, $existingReturn) {
             $purchase = Purchase::query()->findOrFail($validated['purchase_id']);
 
             if ((int) $purchase->supplier_id !== (int) $validated['supplier_id']) {
@@ -147,13 +175,27 @@ class PurchaseReturnController extends Controller
                 ]);
             }
 
-            $purchaseReturn = PurchaseReturn::query()->create([
-                'purchase_id' => $validated['purchase_id'],
-                'supplier_id' => $validated['supplier_id'],
-                'return_date' => $validated['return_date'],
-                'notes' => $validated['notes'] ?? null,
-                'returned_by' => $request->user()->id,
-            ]);
+            if ($existingReturn) {
+                $existingReturn->load(['purchase.reference', 'items.purchaseItem.returns', 'items.batch']);
+                $this->restoreReturnStock($existingReturn);
+                PurchaseReturnItem::query()->where('purchase_return_id', $existingReturn->id)->delete();
+                $existingReturn->update([
+                    'purchase_id' => $validated['purchase_id'],
+                    'supplier_id' => $validated['supplier_id'],
+                    'return_date' => $validated['return_date'],
+                    'notes' => $validated['notes'] ?? null,
+                    'returned_by' => $request->user()->id,
+                ]);
+                $purchaseReturn = $existingReturn;
+            } else {
+                $purchaseReturn = PurchaseReturn::query()->create([
+                    'purchase_id' => $validated['purchase_id'],
+                    'supplier_id' => $validated['supplier_id'],
+                    'return_date' => $validated['return_date'],
+                    'notes' => $validated['notes'] ?? null,
+                    'returned_by' => $request->user()->id,
+                ]);
+            }
 
             foreach ($rows as $row) {
                 $purchaseItem = PurchaseItem::query()
@@ -201,6 +243,49 @@ class PurchaseReturnController extends Controller
         });
 
         return redirect()->route('admin.purchase-returns.show', $purchaseReturn)->with('success', 'Purchase return saved successfully.');
+    }
+
+    // Put the returned quantities back before an update so we can recalculate the new return cleanly.
+    private function restoreReturnStock(PurchaseReturn $purchaseReturn): void
+    {
+        foreach ($purchaseReturn->items as $item) {
+            $batch = Batch::query()->lockForUpdate()->find($item->batch_id);
+
+            if ($batch) {
+                $batch->quantity_available = (int) $batch->quantity_available + (int) $item->return_qty;
+                $batch->save();
+            }
+
+            ProductBatch::query()
+                ->where('reference_id', $purchaseReturn->purchase?->reference_id)
+                ->where('product_id', $item->product_id)
+                ->where('batch_no', $item->purchaseItem?->batch_no)
+                ->increment('quantity', (int) $item->return_qty);
+        }
+    }
+
+    // Build the row data for the edit screen so the user can adjust the already entered quantities.
+    private function buildEditableRows(PurchaseReturn $purchaseReturn): array
+    {
+        return $purchaseReturn->items->map(function (PurchaseReturnItem $item) use ($purchaseReturn) {
+            $purchaseItem = $item->purchaseItem?->loadMissing(['returns', 'batch', 'product']);
+            $originalQty = (int) $purchaseItem?->quantity + (int) $purchaseItem?->free_qty;
+            $otherReturnedQty = (int) ($purchaseItem?->returns->sum('return_qty') ?? 0) - (int) $item->return_qty;
+            $maxReturnable = max(0, $originalQty - $otherReturnedQty);
+
+            return [
+                'purchase_item_id' => $item->purchase_item_id,
+                'batch_id' => $item->batch_id,
+                'product_id' => $item->product_id,
+                'product_name' => $item->product?->display_name ?? '-',
+                'batch_no' => $item->batch?->batch_number ?: ($purchaseItem?->batch_no ?: '-'),
+                'original_qty' => $originalQty,
+                'already_returned' => max(0, $otherReturnedQty),
+                'max_returnable' => $maxReturnable,
+                'return_qty' => (int) $item->return_qty,
+                'rate' => round((float) $item->rate, 2),
+            ];
+        })->values()->all();
     }
 
     // Show one return voucher with all returned line items.

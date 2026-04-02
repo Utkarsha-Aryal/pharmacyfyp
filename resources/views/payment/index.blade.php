@@ -92,6 +92,9 @@
                                             <a href="{{ route('admin.payments.show', $payment) }}" class="btn btn-sm btn-outline-primary table-action-btn" title="View">
                                                 <i class="fa-solid fa-eye"></i>
                                             </a>
+                                            <button type="button" class="btn btn-sm btn-outline-warning table-action-btn editPaymentBtn" title="Edit" data-url="{{ route('admin.payments.edit', $payment) }}">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </button>
                                             <a href="{{ route('admin.payments.print', $payment) }}" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF">
                                                 <i class="fa-solid fa-print"></i>
                                             </a>
@@ -117,9 +120,10 @@
             <div class="modal-content">
                 <form action="{{ route('admin.payments.in.store') }}" method="POST" id="paymentInForm">
                     @csrf
+                    <input type="hidden" name="payment_id" value="">
                     <input type="hidden" name="party_type" value="customer">
                     <div class="modal-header">
-                        <h5 class="modal-title">Payment In</h5>
+                        <h5 class="modal-title" id="paymentInModalTitle">Payment In</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
@@ -221,9 +225,10 @@
             <div class="modal-content">
                 <form action="{{ route('admin.payments.out.store') }}" method="POST" id="paymentOutForm">
                     @csrf
+                    <input type="hidden" name="payment_id" value="">
                     <input type="hidden" name="party_type" value="supplier">
                     <div class="modal-header">
-                        <h5 class="modal-title">Payment Out</h5>
+                        <h5 class="modal-title" id="paymentOutModalTitle">Payment Out</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
@@ -330,8 +335,46 @@
 @section('script')
     <script>
         $(function () {
+            $('#paymentInForm').data('default-action', $('#paymentInForm').attr('action'));
+            $('#paymentInForm').data('default-title', $('#paymentInModalTitle').text());
+            $('#paymentInForm').data('default-button', $('#paymentInSubmitBtn').html());
+            $('#paymentOutForm').data('default-action', $('#paymentOutForm').attr('action'));
+            $('#paymentOutForm').data('default-title', $('#paymentOutModalTitle').text());
+            $('#paymentOutForm').data('default-button', $('#paymentOutSubmitBtn').html());
+
             function moneyFormat(value) {
                 return '{{ currency_symbol() }} ' + parseFloat(value || 0).toFixed(2);
+            }
+
+            function resetPaymentForm(prefix) {
+                var $form = $('#' + prefix + 'Form');
+                var defaultAction = $form.data('default-action');
+                var defaultTitle = $form.data('default-title');
+                var defaultButton = $form.data('default-button');
+
+                if ($form.length && defaultAction) {
+                    $form.attr('action', defaultAction);
+                }
+
+                if ($form.length) {
+                    $form.find('input[name="payment_id"]').val('');
+                    $form.find('input[name="party_type"]').val(prefix === 'paymentIn' ? 'customer' : 'supplier');
+                    $form.trigger('reset');
+                    $('#' + prefix + 'Party').val(null).trigger('change');
+                    $('#' + prefix + 'Mode').val(null).trigger('change');
+                    $('#' + prefix + 'Amount').val('0.00');
+                }
+
+                $('#' + prefix + 'ModalTitle').text(defaultTitle);
+                $('#' + prefix + 'SubmitBtn').html(defaultButton);
+                $('#' + prefix + 'Remaining').text(moneyFormat(0));
+                $('#' + prefix + 'BillTable tbody').html('<tr><td colspan="6" class="text-center text-muted">Select ' + (prefix === 'paymentIn' ? 'customer' : 'supplier') + ' to load outstanding bills.</td></tr>');
+                $('#' + prefix + 'AllocationError').addClass('d-none');
+                $('#' + prefix + 'SubmitBtn').prop('disabled', false);
+
+                if (window.initEnhancedSelects) {
+                    window.initEnhancedSelects(document.getElementById(prefix + 'Modal'));
+                }
             }
 
             function updateAllocationState(prefix) {
@@ -360,12 +403,12 @@
                 rows.forEach(function (row, index) {
                     tbody.append(
                         '<tr>' +
-                            '<td>' + row.bill_number + '<input type="hidden" name="allocations[' + index + '][bill_id]" value="' + row.bill_id + '"><input type="hidden" name="allocations[' + index + '][bill_type]" value="' + row.bill_type + '"></td>' +
+                            '<td>' + row.bill_number + '<input type="hidden" name="allocations[' + index + '][bill_id]" value="' + (row.bill_id || '') + '"><input type="hidden" name="allocations[' + index + '][bill_type]" value="' + (row.bill_type_value || row.bill_type || '') + '"></td>' +
                             '<td>' + row.bill_date + '</td>' +
-                            '<td>' + moneyFormat(row.net_amount) + '</td>' +
-                            '<td>' + moneyFormat(row.total_paid) + '</td>' +
-                            '<td>' + moneyFormat(row.outstanding) + '</td>' +
-                            '<td><input type="number" step="0.01" min="0" max="' + row.outstanding + '" name="allocations[' + index + '][allocated_amount]" class="form-control allocation-input" value=""></td>' +
+                            '<td>' + moneyFormat(row.bill_amount || row.net_amount) + '</td>' +
+                            '<td>' + moneyFormat(row.total_paid || 0) + '</td>' +
+                            '<td>' + moneyFormat(row.outstanding || 0) + '</td>' +
+                            '<td><input type="number" step="0.01" min="0" max="' + (row.outstanding || 0) + '" name="allocations[' + index + '][allocated_amount]" class="form-control allocation-input" value="' + (row.allocated_amount || '') + '"></td>' +
                         '</tr>'
                     );
                 });
@@ -387,11 +430,45 @@
                 });
             }
 
+            function fillPaymentForm(prefix, payload) {
+                var $form = $('#' + prefix + 'Form');
+                var modalElement = document.getElementById(prefix + 'Modal');
+                var modalInstance = modalElement ? new bootstrap.Modal(modalElement) : null;
+
+                $(modalElement).data('prefilling', true);
+                $form.attr('action', payload.update_url);
+                $form.find('input[name="payment_id"]').val(payload.id);
+                $form.find('input[name="party_type"]').val(payload.party_type);
+                $('#' + prefix + 'ModalTitle').text((payload.type === 'in' ? 'Edit Payment In' : 'Edit Payment Out'));
+                $('#' + prefix + 'SubmitBtn').html('<i class="fa fa-save"></i> Update Payment');
+
+                $('#' + prefix + 'Party').val(payload.party_id).trigger('change');
+                $('#' + prefix + 'Amount').val(payload.amount);
+                $('#' + prefix + 'Amount').trigger('input');
+                $('#' + prefix + 'Mode').val(payload.payment_mode_id).trigger('change');
+                $form.find('input[name="payment_date"]').val(payload.payment_date);
+                $form.find('input[name="reference_number"]').val(payload.reference_number || '');
+                $form.find('input[name="notes"]').val(payload.notes || '');
+
+                renderPaymentBills(prefix, payload.rows || []);
+                $(modalElement).data('prefilling', false);
+
+                if (modalInstance) {
+                    modalInstance.show();
+                }
+            }
+
             $(document).on('change', '#paymentInParty', function () {
+                if ($('#paymentInModal').data('prefilling')) {
+                    return;
+                }
                 loadOutstandingBills('paymentIn', 'customer', $(this).val());
             });
 
             $(document).on('change', '#paymentOutParty', function () {
+                if ($('#paymentOutModal').data('prefilling')) {
+                    return;
+                }
                 loadOutstandingBills('paymentOut', 'supplier', $(this).val());
             });
 
@@ -403,6 +480,26 @@
                 updateAllocationState('paymentOut');
             });
 
+            $(document).on('click', '.editPaymentBtn', function () {
+                var url = $(this).data('url');
+
+                if (!url) {
+                    return;
+                }
+
+                $.get(url, function (response) {
+                    if (!response || response.type !== 'success' || !response.data) {
+                        showNotification('Could not load payment data.', 'error');
+                        return;
+                    }
+
+                    var prefix = response.data.type === 'in' ? 'paymentIn' : 'paymentOut';
+                    fillPaymentForm(prefix, response.data);
+                }).fail(function () {
+                    showNotification('Could not load payment data.', 'error');
+                });
+            });
+
             if ($('#paymentInModal').data('open-intent') == 1) {
                 new bootstrap.Modal(document.getElementById('paymentInModal')).show();
             }
@@ -410,6 +507,11 @@
             if ($('#paymentOutModal').data('open-intent') == 1) {
                 new bootstrap.Modal(document.getElementById('paymentOutModal')).show();
             }
+
+            $('#paymentInModal, #paymentOutModal').on('hidden.bs.modal', function () {
+                var prefix = this.id === 'paymentInModal' ? 'paymentIn' : 'paymentOut';
+                resetPaymentForm(prefix);
+            });
         });
     </script>
 @endsection

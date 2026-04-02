@@ -431,11 +431,11 @@ body.workspace-form-page .table-responsive {
 }
 
 body.workspace-form-page #salesItemsTable {
-    min-width: 1540px;
+    min-width: 1760px;
 }
 
 body.workspace-form-page #purchaseItemsTable {
-    min-width: 1680px;
+    min-width: 1840px;
 }
 
 body.workspace-form-page #paymentInBillTable,
@@ -461,14 +461,14 @@ body.workspace-form-page .purchase-item-table .select2-container {
 
 body.workspace-form-page #salesItemsTable th:nth-child(2),
 body.workspace-form-page #salesItemsTable td:nth-child(2) {
-    min-width: 310px;
-    width: 310px;
+    min-width: 380px;
+    width: 380px;
 }
 
 body.workspace-form-page #salesItemsTable th:nth-child(3),
 body.workspace-form-page #salesItemsTable td:nth-child(3) {
-    min-width: 170px;
-    width: 170px;
+    min-width: 220px;
+    width: 220px;
 }
 
 body.workspace-form-page #salesItemsTable th:nth-child(4),
@@ -491,22 +491,22 @@ body.workspace-form-page #salesItemsTable th:nth-child(10),
 body.workspace-form-page #salesItemsTable td:nth-child(10),
 body.workspace-form-page #salesItemsTable th:nth-child(11),
 body.workspace-form-page #salesItemsTable td:nth-child(11) {
-    min-width: 118px;
-    width: 118px;
+    min-width: 135px;
+    width: 135px;
 }
 
 body.workspace-form-page #purchaseItemsTable th:nth-child(2),
 body.workspace-form-page #purchaseItemsTable td:nth-child(2) {
-    min-width: 320px;
-    width: 320px;
+    min-width: 390px;
+    width: 390px;
 }
 
 body.workspace-form-page #purchaseItemsTable th:nth-child(3),
 body.workspace-form-page #purchaseItemsTable td:nth-child(3),
 body.workspace-form-page #purchaseItemsTable th:nth-child(4),
 body.workspace-form-page #purchaseItemsTable td:nth-child(4) {
-    min-width: 150px;
-    width: 150px;
+    min-width: 180px;
+    width: 180px;
 }
 
 body.workspace-form-page #purchaseItemsTable th:nth-child(5),
@@ -529,8 +529,8 @@ body.workspace-form-page #purchaseItemsTable th:nth-child(11),
 body.workspace-form-page #purchaseItemsTable td:nth-child(11),
 body.workspace-form-page #purchaseItemsTable th:nth-child(12),
 body.workspace-form-page #purchaseItemsTable td:nth-child(12) {
-    min-width: 118px;
-    width: 118px;
+    min-width: 135px;
+    width: 135px;
 }
 
 .quick-add-inline-btn {

@@ -4,6 +4,8 @@
     Receive Purchase Order
 @endsection
 
+@section('body-class', 'workspace-form-page')
+
 @section('main-content')
     <div class="admin-page-wrap">
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
@@ -15,6 +17,11 @@
                         <i class="fa-solid fa-keyboard me-1"></i>Ctrl+Enter finish receive
                     </span>
                 </p>
+            </div>
+            <div class="d-flex gap-2 mt-3 mt-md-0">
+                <a href="{{ route('admin.purchase-orders.show', $order) }}" class="btn btn-outline-secondary">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </a>
             </div>
         </div>
 

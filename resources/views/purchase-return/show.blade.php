@@ -12,6 +12,9 @@
                 <p class="mb-0 text-muted">Review returned batch rows and print the debit note style PDF.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
+                <a href="{{ route('admin.purchase-returns.edit', $purchaseReturn) }}" class="btn btn-outline-warning">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit Return
+                </a>
                 <a href="{{ route('admin.purchase-returns.print', $purchaseReturn) }}" target="_blank" class="btn btn-primary">
                     <i class="fa fa-print"></i> Print / PDF
                 </a>

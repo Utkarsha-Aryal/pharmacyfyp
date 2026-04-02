@@ -20,6 +20,13 @@
             </div>
         </div>
 
+        @if (session('ocr_text'))
+            <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+                <strong>OCR draft loaded.</strong> The extracted text has been placed into the remarks box so I can review and convert it into a bill quickly.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
         <form id="purchaseForm" action="{{ route('admin.purchase.save') }}" method="POST">
             @csrf
             <input type="hidden" name="reference_id" value="{{ $reference->id }}">
@@ -83,7 +90,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Remarks</label>
-                            <input type="text" name="remarks" class="form-control" placeholder="Small note if needed">
+                            <input type="text" name="remarks" class="form-control" placeholder="Small note if needed" value="{{ old('remarks', session('ocr_text')) }}">
                         </div>
                     </div>
                 </div>

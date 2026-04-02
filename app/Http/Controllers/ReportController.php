@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Batch;
+use App\Models\Customer;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
+use App\Models\SalesInvoice;
 use App\Models\Supplier;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -179,6 +181,49 @@ class ReportController extends Controller
 
         return view('report.supplier-performance', [
             'suppliers' => $suppliers,
+        ]);
+    }
+
+    // Sales report keeps invoice, payment and party data together for a clean accounting style report.
+    public function salesReport(Request $request)
+    {
+        $query = SalesInvoice::query()
+            ->with(['customer', 'paymentMode'])
+            ->where('status', 'confirmed')
+            ->latest('invoice_date');
+
+        if ($request->filled('customer_id')) {
+            $query->where('customer_id', $request->customer_id);
+        }
+
+        if ($request->filled('sale_type')) {
+            $query->where('sale_type', $request->sale_type);
+        }
+
+        if ($request->filled('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('invoice_date', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('invoice_date', '<=', $request->date_to);
+        }
+
+        $sales = $query->get();
+
+        return view('report.sales', [
+            'sales' => $sales,
+            'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
+            'filters' => $request->only(['customer_id', 'sale_type', 'payment_status', 'date_from', 'date_to']),
+            'summary' => [
+                'invoice_count' => $sales->count(),
+                'total_sales' => round((float) $sales->sum('total_amount'), 2),
+                'paid_sales' => round((float) $sales->sum('paid_amount'), 2),
+                'due_sales' => round((float) $sales->sum(fn ($sale) => $sale->due_amount), 2),
+            ],
         ]);
     }
 }

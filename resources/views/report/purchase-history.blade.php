@@ -15,8 +15,8 @@
                 <a href="{{ route('admin.export.purchase-history', request()->query()) }}" class="btn btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
-                <a href="{{ route('admin.export.purchase-history-pdf', request()->query()) }}" class="btn btn-pdf">
-                    <i class="fa-solid fa-file-pdf"></i> PDF
+                <a href="{{ route('admin.export.purchase-history-pdf', request()->query()) }}" target="_blank" class="btn btn-primary">
+                    <i class="fa-solid fa-print"></i> Print / PDF
                 </a>
             </div>
         </div>

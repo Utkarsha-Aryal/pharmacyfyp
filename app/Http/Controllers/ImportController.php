@@ -14,6 +14,18 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ImportController extends Controller
 {
+    // Download the category sample file.
+    public function sampleCategories()
+    {
+        return response()->download(storage_path('app/samples/categories-sample.csv'));
+    }
+
+    // Download the unit sample file.
+    public function sampleUnits()
+    {
+        return response()->download(storage_path('app/samples/units-sample.csv'));
+    }
+
     // Download the product sample file with one small note row and two example rows.
     public function sampleProducts()
     {
@@ -188,6 +200,94 @@ class ImportController extends Controller
                     $summary['updated']++;
                 } else {
                     Supplier::query()->create($payload);
+                    $summary['imported']++;
+                }
+            } catch (\Throwable $throwable) {
+                $summary['failed']++;
+                $summary['errors'][] = 'Row ' . ($rowIndex + 1) . ': ' . $throwable->getMessage();
+            }
+        }
+
+        return back()->with('import_summary', $summary);
+    }
+
+    // Import category rows in bulk and update by category name.
+    public function importCategories(Request $request)
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,csv', 'max:5120'],
+        ]);
+
+        $sheetRows = $this->sheetRows($validated['file']);
+        $summary = ['imported' => 0, 'updated' => 0, 'failed' => 0, 'errors' => []];
+
+        foreach ($sheetRows as $rowIndex => $row) {
+            try {
+                $data = $this->normaliseRow($row);
+
+                $validator = Validator::make($data, [
+                    'name' => ['required', 'string', 'max:255'],
+                    'order_number' => ['nullable', 'integer', 'min:0'],
+                ]);
+                $validator->validate();
+
+                $category = Category::query()->where('name', $data['name'])->first();
+                $payload = [
+                    'name' => $data['name'],
+                    'order_number' => $data['order_number'] ?? 0,
+                    'description' => $data['description'] ?? null,
+                    'image' => $category?->image ?? null,
+                    'status' => 'Y',
+                ];
+
+                if ($category) {
+                    $category->update($payload);
+                    $summary['updated']++;
+                } else {
+                    Category::query()->create($payload);
+                    $summary['imported']++;
+                }
+            } catch (\Throwable $throwable) {
+                $summary['failed']++;
+                $summary['errors'][] = 'Row ' . ($rowIndex + 1) . ': ' . $throwable->getMessage();
+            }
+        }
+
+        return back()->with('import_summary', $summary);
+    }
+
+    // Import unit rows in bulk and update by unit name.
+    public function importUnits(Request $request)
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,csv', 'max:5120'],
+        ]);
+
+        $sheetRows = $this->sheetRows($validated['file']);
+        $summary = ['imported' => 0, 'updated' => 0, 'failed' => 0, 'errors' => []];
+
+        foreach ($sheetRows as $rowIndex => $row) {
+            try {
+                $data = $this->normaliseRow($row);
+
+                $validator = Validator::make($data, [
+                    'unit_name' => ['required', 'string', 'max:255'],
+                    'description' => ['nullable', 'string'],
+                ]);
+                $validator->validate();
+
+                $unit = Unit::query()->where('unit_name', $data['unit_name'])->first();
+                $payload = [
+                    'unit_name' => $data['unit_name'],
+                    'description' => $data['description'] ?? null,
+                    'status' => 'Y',
+                ];
+
+                if ($unit) {
+                    $unit->update($payload);
+                    $summary['updated']++;
+                } else {
+                    Unit::query()->create($payload);
                     $summary['imported']++;
                 }
             } catch (\Throwable $throwable) {

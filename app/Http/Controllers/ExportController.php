@@ -736,6 +736,46 @@ class ExportController extends Controller
         return $this->downloadExcel('sales-invoices.xlsx', $rows);
     }
 
+    // Export the sales invoice list as a print-ready PDF.
+    public function salesInvoicesPdf(Request $request)
+    {
+        $rows = SalesInvoice::query()
+            ->with('customer')
+            ->when($request->filled('customer_id'), function ($query) use ($request) {
+                $query->where('customer_id', $request->customer_id);
+            })
+            ->when($request->filled('sale_type'), function ($query) use ($request) {
+                $query->where('sale_type', $request->sale_type);
+            })
+            ->when($request->filled('status'), function ($query) use ($request) {
+                $query->where('status', $request->status);
+            })
+            ->when($request->filled('payment_status'), function ($query) use ($request) {
+                $query->where('payment_status', $request->payment_status);
+            })
+            ->when($request->filled('date_from'), function ($query) use ($request) {
+                $query->whereDate('invoice_date', '>=', $request->date_from);
+            })
+            ->when($request->filled('date_to'), function ($query) use ($request) {
+                $query->whereDate('invoice_date', '<=', $request->date_to);
+            })
+            ->latest('invoice_date')
+            ->get()
+            ->map(fn ($invoice) => [
+                'Reference' => $invoice->reference,
+                'Party' => $invoice->customer?->name ?: '-',
+                'Date' => $invoice->invoice_date_show,
+                'Sale Type' => $invoice->sale_type_label,
+                'Status' => $invoice->status_label,
+                'Payment' => $invoice->payment_label,
+                'Total' => number_format((float) $invoice->total_amount, 2),
+                'Paid' => number_format((float) $invoice->paid_amount, 2),
+                'Due' => number_format((float) $invoice->due_amount, 2),
+            ]);
+
+        return $this->downloadTablePdf('sales-invoices.pdf', 'Sales Invoice List', 'Confirmed sales invoices and balances', ['Reference', 'Party', 'Date', 'Sale Type', 'Status', 'Payment', 'Total', 'Paid', 'Due'], $rows);
+    }
+
     // Export the expense tracking list.
     public function expenses()
     {

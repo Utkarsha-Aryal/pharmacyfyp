@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\AccountTransaction;
 use App\Models\Payment;
 use App\Models\PaymentBillAllocation;
 use App\Models\PaymentMode;
@@ -44,6 +45,30 @@ class PaymentController extends Controller
         ]);
     }
 
+    // Return one payment row in JSON so the edit modal can refill the form cleanly.
+    public function edit(Payment $payment)
+    {
+        $payment = $payment->load(['paymentMode', 'customer', 'supplier', 'allocations']);
+
+        return response()->json([
+            'type' => 'success',
+            'data' => [
+                'id' => $payment->id,
+                'type' => $payment->type,
+                'party_type' => $payment->party_type,
+                'party_id' => $payment->party_id,
+                'party_name' => $payment->party_name,
+                'payment_date' => $payment->payment_date,
+                'amount' => round((float) $payment->amount, 2),
+                'payment_mode_id' => $payment->payment_mode_id,
+                'reference_number' => $payment->reference_number,
+                'notes' => $payment->notes,
+                'update_url' => route('admin.payments.update', $payment),
+                'rows' => $this->allocationRows($payment, true),
+            ],
+        ]);
+    }
+
     // Old payment-in route now lands on the single payments page and opens the receipt modal.
     public function createIn()
     {
@@ -66,6 +91,12 @@ class PaymentController extends Controller
     public function storeOut(Request $request)
     {
         return $this->storePayment($request, 'out', 'supplier');
+    }
+
+    // Update one payment and rebuild bill allocations and ledger rows from the edited form.
+    public function update(Request $request, Payment $payment)
+    {
+        return $this->storePayment($request, $payment->type, $payment->party_type, $payment);
     }
 
     // Return outstanding bills for the selected party so the form can allocate money bill by bill.
@@ -146,7 +177,7 @@ class PaymentController extends Controller
     }
 
     // Keep payment save logic in one place because payment in and payment out only differ by direction and party type.
-    private function storePayment(Request $request, string $type, string $partyType)
+    private function storePayment(Request $request, string $type, string $partyType, ?Payment $existingPayment = null)
     {
         $validated = $request->validate([
             'party_id' => ['required', 'integer'],
@@ -159,7 +190,7 @@ class PaymentController extends Controller
             'allocations' => ['nullable', 'array'],
             'allocations.*.bill_id' => ['nullable', 'integer'],
             'allocations.*.bill_type' => ['nullable', Rule::in(['sales_invoice', 'purchase'])],
-            'allocations.*.allocated_amount' => ['nullable', 'numeric', 'min:0'],
+            'allocations.*.allocated_amount' => ['nullable', 'numeric', 'min:0.01'],
         ]);
 
         if ($validated['party_type'] !== $partyType) {
@@ -182,17 +213,42 @@ class PaymentController extends Controller
             }
         }
 
-        $payment = DB::transaction(function () use ($validated, $type, $partyType, $request, $allocations) {
-            $payment = Payment::query()->create([
-                'type' => $type,
-                'party_id' => $validated['party_id'],
-                'party_type' => $partyType,
-                'payment_date' => $validated['payment_date'],
-                'amount' => round((float) $validated['amount'], 2),
-                'payment_mode_id' => $validated['payment_mode_id'],
-                'reference_number' => $validated['reference_number'] ?? null,
-                'notes' => $validated['notes'] ?? null,
-            ]);
+        $payment = DB::transaction(function () use ($validated, $type, $partyType, $request, $allocations, $existingPayment) {
+            $payment = $existingPayment
+                ? Payment::query()->lockForUpdate()->with('allocations')->findOrFail($existingPayment->id)
+                : null;
+
+            if ($payment) {
+                $this->reversePaymentEffects($payment);
+
+                PaymentBillAllocation::query()->where('payment_id', $payment->id)->delete();
+                AccountTransaction::query()
+                    ->where('reference_type', 'Payment')
+                    ->where('reference_id', $payment->id)
+                    ->delete();
+
+                $payment->update([
+                    'type' => $type,
+                    'party_id' => $validated['party_id'],
+                    'party_type' => $partyType,
+                    'payment_date' => $validated['payment_date'],
+                    'amount' => round((float) $validated['amount'], 2),
+                    'payment_mode_id' => $validated['payment_mode_id'],
+                    'reference_number' => $validated['reference_number'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                ]);
+            } else {
+                $payment = Payment::query()->create([
+                    'type' => $type,
+                    'party_id' => $validated['party_id'],
+                    'party_type' => $partyType,
+                    'payment_date' => $validated['payment_date'],
+                    'amount' => round((float) $validated['amount'], 2),
+                    'payment_mode_id' => $validated['payment_mode_id'],
+                    'reference_number' => $validated['reference_number'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                ]);
+            }
 
             $allocatedTotal = 0;
 
@@ -238,6 +294,7 @@ class PaymentController extends Controller
                 ]);
             }
 
+            $payment->load('paymentMode');
             $cashAccount = $payment->paymentMode?->type === 'cash' ? 'cash' : 'bank';
 
             if ($type === 'in') {
@@ -300,6 +357,27 @@ class PaymentController extends Controller
         return redirect()->route('admin.payments.show', $payment)->with('success', 'Payment saved successfully.');
     }
 
+    // Roll back the previous payment rows so an edit can rebuild the totals without double counting.
+    private function reversePaymentEffects(Payment $payment): void
+    {
+        foreach ($payment->allocations as $allocation) {
+            $bill = $this->resolveBill((string) $allocation->bill_type, (int) $allocation->bill_id, (int) $payment->party_id, (string) $payment->party_type);
+            $allocatedAmount = round((float) $allocation->allocated_amount, 2);
+
+            $bill->paid_amount = round(max(0, (float) $bill->paid_amount - $allocatedAmount), 2);
+            $bill->payment_status = $this->resolveBillPaymentStatus($bill, (string) $allocation->bill_type);
+            $bill->save();
+
+            if ($payment->party_type === 'customer' && $bill instanceof SalesInvoice && $bill->customer_id) {
+                $customer = Customer::query()->lockForUpdate()->find($bill->customer_id);
+                if ($customer) {
+                    $customer->current_balance = round((float) $customer->current_balance + $allocatedAmount, 2);
+                    $customer->save();
+                }
+            }
+        }
+    }
+
     // Resolve the bill model and ensure it belongs to the selected party before allocation is saved.
     private function resolveBill(string $billType, int $billId, int $partyId, string $partyType)
     {
@@ -346,24 +424,45 @@ class PaymentController extends Controller
     }
 
     // Build one ready-to-render allocation row set for show and PDF.
-    private function allocationRows(Payment $payment): Collection
+    private function allocationRows(Payment $payment, bool $forEdit = false): Collection
     {
-        return $payment->allocations->map(function (PaymentBillAllocation $allocation) {
+        return $payment->allocations->map(function (PaymentBillAllocation $allocation) use ($forEdit) {
             $bill = $allocation->bill_type === 'sales_invoice'
                 ? SalesInvoice::query()->find($allocation->bill_id)
                 : Purchase::query()->with('reference')->find($allocation->bill_id);
 
             if (!$bill) {
                 return [
+                    'bill_id' => $allocation->bill_id,
+                    'bill_type_value' => $allocation->bill_type,
                     'bill_type' => ucfirst(str_replace('_', ' ', $allocation->bill_type)),
                     'bill_number' => '-',
                     'bill_date' => '-',
                     'bill_amount' => 0,
+                    'total_paid' => 0,
+                    'outstanding' => 0,
                     'allocated_amount' => (float) $allocation->allocated_amount,
                 ];
             }
 
+            $billAmount = $allocation->bill_type === 'sales_invoice'
+                ? (float) $bill->total_amount
+                : (float) $bill->grand_total;
+            $paidAmount = $allocation->bill_type === 'sales_invoice'
+                ? (float) $bill->paid_amount
+                : (float) $bill->paid_amount;
+            $outstanding = $allocation->bill_type === 'sales_invoice'
+                ? (float) $bill->due_amount
+                : (float) $bill->outstanding_amount;
+
+            if ($forEdit) {
+                $paidAmount = max(0, $paidAmount - (float) $allocation->allocated_amount);
+                $outstanding = round(max(0, $outstanding + (float) $allocation->allocated_amount), 2);
+            }
+
             return [
+                'bill_id' => $allocation->bill_id,
+                'bill_type_value' => $allocation->bill_type,
                 'bill_type' => $allocation->bill_type === 'sales_invoice' ? 'Sales Invoice' : 'Purchase Bill',
                 'bill_number' => $allocation->bill_type === 'sales_invoice'
                     ? $bill->reference
@@ -371,9 +470,9 @@ class PaymentController extends Controller
                 'bill_date' => $allocation->bill_type === 'sales_invoice'
                     ? $bill->invoice_date_show
                     : $bill->purchase_date_show,
-                'bill_amount' => $allocation->bill_type === 'sales_invoice'
-                    ? (float) $bill->total_amount
-                    : (float) $bill->grand_total,
+                'bill_amount' => $billAmount,
+                'total_paid' => $paidAmount,
+                'outstanding' => $outstanding,
                 'allocated_amount' => (float) $allocation->allocated_amount,
             ];
         })->values();

@@ -15,8 +15,8 @@
                 <a href="{{ route('admin.export.low-stock') }}" class="btn btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
-                <a href="{{ route('admin.export.low-stock-pdf') }}" class="btn btn-pdf">
-                    <i class="fa-solid fa-file-pdf"></i> PDF
+                <a href="{{ route('admin.export.low-stock-pdf') }}" target="_blank" class="btn btn-primary">
+                    <i class="fa-solid fa-print"></i> Print / PDF
                 </a>
             </div>
         </div>

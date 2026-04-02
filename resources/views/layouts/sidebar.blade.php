@@ -26,6 +26,7 @@
     $isSalesMenu = request()->routeIs('admin.sales.*');
     $isFinanceMenu = request()->routeIs('admin.finance.*', 'admin.expenses.*', 'admin.payments.*');
     $isReportMenu = request()->routeIs('admin.report.*');
+    $isOcrMenu = request()->routeIs('admin.ocr.*');
     $isUsersMenu = request()->routeIs('admin.user.*');
     $isRoleMenu = request()->routeIs('admin.role-permission.*');
     $isSettingsMenu = request()->routeIs('admin.settings.*');
@@ -163,6 +164,19 @@
                     </li>
                 @endif
 
+                @if (auth()->user()->can('purchase.entry'))
+                    <li class="slide {{ $isOcrMenu ? 'active' : '' }}">
+                        <a href="{{ route('admin.ocr.index') }}" class="side-menu__item">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M1 1h4v1H2v3H1zm10 0h4v4h-1V2h-3zm4 10v4h-4v-1h3v-3zm-14 0h1v3h3v1H1z"></path>
+                                <path d="M3 4h10v8H3z" opacity=".2"></path>
+                                <path d="M4 5h8v6H4z"></path>
+                            </svg>
+                            <span class="side-menu__label">OCR</span>
+                        </a>
+                    </li>
+                @endif
+
                 @if (auth()->user()->can('expense.manage') || auth()->user()->can('accounting.ledger') || auth()->user()->can('accounting.trial_balance') || auth()->user()->can('accounting.cash_book') || auth()->user()->can('accounting.bank_book'))
                     <li class="slide has-sub {{ $isFinanceMenu ? 'open active' : '' }}">
                         <a href="javascript:void(0);" class="side-menu__item">
@@ -240,6 +254,11 @@
                             @can('report.purchases')
                                 <li class="slide {{ request()->routeIs('admin.report.purchases') ? 'active' : '' }}">
                                     <a href="{{ route('admin.report.purchases') }}" class="side-menu__item">Purchase History</a>
+                                </li>
+                            @endcan
+                            @can('report.sales')
+                                <li class="slide {{ request()->routeIs('admin.report.sales') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.report.sales') }}" class="side-menu__item">Sales Report</a>
                                 </li>
                             @endcan
                             @can('report.suppliers')
