@@ -28,34 +28,42 @@ class OcrController extends Controller
 
         $base64 = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
 
-        $response = Http::timeout(120)
-            ->acceptJson()
-            ->asForm()
-            ->post('https://api.ocr.space/parse/image', [
-                'apikey' => $apiKey,
-                'language' => 'eng',
-                'isOverlayRequired' => 'false',
-                'OCREngine' => '2',
-                'scale' => 'true',
-                'detectOrientation' => 'true',
-                'base64Image' => $base64,
-                'filetype' => Str::lower($file->getClientOriginalExtension()),
-            ]);
+        $payload = null;
+        $text = '';
+        $errorMessage = null;
 
-        if (!$response->ok()) {
-            return back()->with('error', $this->ocrFailureMessage($response->json()) ?: 'OCR service could not process this file right now.');
+        foreach ([2, 1] as $engine) {
+            $response = Http::timeout(120)
+                ->acceptJson()
+                ->asForm()
+                ->post('https://api.ocr.space/parse/image', [
+                    'apikey' => $apiKey,
+                    'language' => 'eng',
+                    'isOverlayRequired' => 'false',
+                    'OCREngine' => (string) $engine,
+                    'scale' => 'true',
+                    'detectOrientation' => 'true',
+                    'base64Image' => $base64,
+                    'filetype' => Str::lower($file->getClientOriginalExtension()),
+                ]);
+
+            $payload = $response->json();
+
+            if (!$response->ok() || !empty($payload['IsErroredOnProcessing'])) {
+                $errorMessage = $this->ocrFailureMessage($payload) ?: $errorMessage;
+                continue;
+            }
+
+            $parsedResults = $payload['ParsedResults'] ?? [];
+            $text = trim(collect($parsedResults)->pluck('ParsedText')->implode("\n"));
+
+            if ($text !== '') {
+                break;
+            }
         }
-
-        $payload = $response->json();
-        if (!empty($payload['IsErroredOnProcessing'])) {
-            return back()->with('error', $this->ocrFailureMessage($payload) ?: 'OCR service could not process this file right now.');
-        }
-
-        $parsedResults = $payload['ParsedResults'] ?? [];
-        $text = trim(collect($parsedResults)->pluck('ParsedText')->implode("\n"));
 
         if ($text === '') {
-            return back()->with('error', $this->ocrFailureMessage($payload) ?: 'No text was extracted from this image.');
+            return back()->with('error', $errorMessage ?: 'No text was extracted from this image.');
         }
 
         $lines = collect(preg_split('/\r\n|\r|\n/', $text))

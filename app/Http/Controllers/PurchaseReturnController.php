@@ -303,14 +303,18 @@ class PurchaseReturnController extends Controller
     {
         abort_unless(auth()->user()->hasRole(['admin', 'superadmin']), 403);
 
-        DB::transaction(function () use ($purchaseReturn) {
-            $purchaseReturn->load(['purchase.reference', 'items.purchaseItem.returns', 'items.batch']);
-            $this->restoreReturnStock($purchaseReturn);
-            PurchaseReturnItem::query()->where('purchase_return_id', $purchaseReturn->id)->delete();
-            $purchaseReturn->delete();
-        });
+        try {
+            DB::transaction(function () use ($purchaseReturn) {
+                $purchaseReturn->load(['purchase.reference', 'items.purchaseItem.returns', 'items.batch']);
+                $this->restoreReturnStock($purchaseReturn);
+                PurchaseReturnItem::query()->where('purchase_return_id', $purchaseReturn->id)->delete();
+                $purchaseReturn->delete();
+            });
 
-        return redirect()->route('admin.purchase-returns.index')->with('success', 'Purchase return deleted successfully.');
+            return redirect()->route('admin.purchase-returns.index')->with('success', 'Purchase return deleted successfully.');
+        } catch (\Throwable $throwable) {
+            return back()->with('error', $throwable->getMessage() ?: 'Could not delete purchase return.');
+        }
     }
 
     // Stream one purchase return voucher as PDF.

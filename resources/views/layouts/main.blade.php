@@ -275,6 +275,12 @@
                 window.fireFlashToastr('info', @json(session('info')));
             }, 120);
         @endif
+
+        @if ($errors->any())
+            window.setTimeout(function() {
+                window.fireFlashToastr('error', @json($errors->first()));
+            }, 120);
+        @endif
     </script>
     @yield('script')
 
