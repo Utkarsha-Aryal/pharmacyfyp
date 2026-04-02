@@ -210,9 +210,12 @@
                         <th>Product</th>
                         <th>Batch</th>
                         <th style="width: 62px;">Qty</th>
+                        <th style="width: 62px;">Free</th>
+                        <th style="width: 80px;">MRP</th>
                         <th style="width: 80px;">Rate</th>
                         <th style="width: 70px;">Disc %</th>
-                        <th style="width: 70px;">Tax %</th>
+                        <th style="width: 70px;">CC %</th>
+                        <th style="width: 90px;">Free Value</th>
                         <th style="width: 90px;">Line Total</th>
                     </tr>
                 </thead>
@@ -223,9 +226,12 @@
                             <td>{{ $item->product?->display_name ?? '-' }}</td>
                             <td>{{ $item->batch?->batch_number ?? '-' }}</td>
                             <td>{{ number_format((float) $item->quantity, 2) }}</td>
+                            <td>{{ number_format((float) ($item->free_qty ?? 0), 2) }}</td>
+                            <td>{{ money_value($item->mrp ?? 0) }}</td>
                             <td>{{ money_value($item->unit_price) }}</td>
                             <td>{{ number_format((float) $item->discount_percent, 2) }}</td>
-                            <td>{{ number_format((float) $item->tax_percent, 2) }}</td>
+                            <td>{{ number_format((float) ($item->cc_rate ?? 0), 2) }}</td>
+                            <td>{{ money_value($item->free_goods_value ?? 0) }}</td>
                             <td>{{ money_value($item->subtotal) }}</td>
                         </tr>
                     @endforeach
@@ -241,10 +247,6 @@
                     <tr>
                         <td>Discount</td>
                         <td class="text-right">{{ money_value($invoice->discount_amount) }}</td>
-                    </tr>
-                    <tr>
-                        <td>Tax</td>
-                        <td class="text-right">{{ money_value($invoice->tax_amount) }}</td>
                     </tr>
                     <tr>
                         <td>Paid</td>

@@ -12,16 +12,18 @@ use App\Models\Unit;
 use Exception;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
-    // Keep only one main product page so users do not have to guess between Product and Product Master.
+    // Keep only one main product page so users do not have to guess between duplicate product screens.
     public function index()
     {
         return view('product.index', [
             'categories' => Category::query()->orderBy('name')->get(),
+            'units' => Unit::query()->orderBy('unit_name')->get(),
         ]);
     }
 
@@ -110,6 +112,7 @@ public function globalSearch(Request $request)
                 'category_id' => ['required', 'exists:categories,id'],
                 'unit_sale_id' => ['required', 'exists:units,id'],
                 'unit_purchase_id' => ['required', 'exists:units,id'],
+                'product_code' => ['nullable', 'string', 'max:100', Rule::unique('products', 'product_code')->ignore($request->input('id'))],
                 'product_name' => ['required', 'string', 'max:255'],
                 'generic_name' => ['nullable', 'string', 'max:255'],
                 'composition' => ['nullable', 'string', 'max:255'],
@@ -122,7 +125,7 @@ public function globalSearch(Request $request)
                 'reorder_level' => ['nullable', 'integer', 'min:0'],
                 'previous_price' => ['nullable', 'numeric', 'min:0'],
                 'mrp' => ['required', 'numeric', 'min:0'],
-                'cc_rate' => ['nullable', 'numeric', 'min:0'],
+                'cc_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
                 'discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
                 'purchase_price' => ['nullable', 'numeric', 'min:0'],
                 'keywords' => ['nullable', 'string'],
@@ -155,6 +158,58 @@ public function globalSearch(Request $request)
 
         return response()->json(['type' => $type, 'message' => $message]);
 
+    }
+
+    // Quick product save is used from billing screens so users can add a missing product without leaving the page.
+    public function quickStore(Request $request)
+    {
+        $validated = $request->validate([
+            'category_id' => ['required', 'exists:categories,id'],
+            'unit_sale_id' => ['required', 'exists:units,id'],
+            'unit_purchase_id' => ['required', 'exists:units,id'],
+            'product_name' => ['required', 'string', 'max:255'],
+            'generic_name' => ['nullable', 'string', 'max:255'],
+            'manufacturer' => ['nullable', 'string', 'max:255'],
+            'formulation' => ['nullable', 'in:tablet,capsule,syrup,injection,cream,drops,other'],
+            'mrp' => ['required', 'numeric', 'min:0'],
+            'cc_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'purchase_price' => ['nullable', 'numeric', 'min:0'],
+            'reorder_level' => ['nullable', 'integer', 'min:0'],
+            'description' => ['nullable', 'string'],
+        ]);
+
+        $product = Product::query()->create([
+            'category_id' => $validated['category_id'],
+            'sale_unit_id' => $validated['unit_sale_id'],
+            'purchase_unit_id' => $validated['unit_purchase_id'],
+            'name' => $validated['product_name'],
+            'product_name' => $validated['product_name'],
+            'generic_name' => $validated['generic_name'] ?? null,
+            'manufacturer' => $validated['manufacturer'] ?? null,
+            'formulation' => $validated['formulation'] ?? 'other',
+            'mrp' => round((float) $validated['mrp'], 2),
+            'cc_rate' => round((float) ($validated['cc_rate'] ?? 0), 2),
+            'purchase_price' => round((float) ($validated['purchase_price'] ?? 0), 2),
+            'reorder_level' => $validated['reorder_level'] ?? 10,
+            'alert_quantity' => $validated['reorder_level'] ?? 10,
+            'description' => $validated['description'] ?? ('Quick product created for billing: ' . $validated['product_name']),
+            'product_status' => 'instock',
+            'status' => 'Y',
+            'is_active' => true,
+            'slug' => Str::slug($validated['product_name']) . '-' . Str::lower(Str::random(8)),
+        ]);
+
+        return response()->json([
+            'type' => 'success',
+            'message' => 'Product added successfully.',
+            'data' => [
+                'id' => $product->id,
+                'text' => $product->display_name,
+                'mrp' => round((float) $product->mrp, 2),
+                'cc_rate' => round((float) $product->cc_rate, 2),
+                'purchase_price' => round((float) ($product->purchase_price ?? 0), 2),
+            ],
+        ]);
     }
 
   public function list(Request $request)

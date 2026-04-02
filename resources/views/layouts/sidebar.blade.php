@@ -23,7 +23,7 @@
     );
     $isPartyMenu = request()->routeIs('admin.customers.*');
     $isSalesMenu = request()->routeIs('admin.sales.*');
-    $isFinanceMenu = request()->routeIs('admin.finance.*', 'admin.expenses.*');
+    $isFinanceMenu = request()->routeIs('admin.finance.*', 'admin.expenses.*', 'admin.payments.*');
     $isReportMenu = request()->routeIs('admin.report.*');
     $isUsersMenu = request()->routeIs('admin.user.*');
     $isRoleMenu = request()->routeIs('admin.role-permission.*');
@@ -129,6 +129,11 @@
                                     <a href="{{ route('admin.purchase-orders.index') }}" class="side-menu__item">Purchase Orders</a>
                                 </li>
                             @endcan
+                            @if (auth()->user()->hasRole(['admin', 'superadmin']))
+                                <li class="slide {{ request()->routeIs('admin.purchase-returns.*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.purchase-returns.index') }}" class="side-menu__item">Purchase Returns</a>
+                                </li>
+                            @endif
                         </ul>
                     </li>
                 @endif
@@ -157,7 +162,7 @@
                     </li>
                 @endif
 
-                @if (auth()->user()->can('expense.manage') || auth()->user()->can('accounting.ledger') || auth()->user()->can('accounting.trial_balance') || auth()->user()->can('accounting.cash_book') || auth()->user()->can('accounting.bank_book') || auth()->user()->can('accounting.gst_report'))
+                @if (auth()->user()->can('expense.manage') || auth()->user()->can('accounting.ledger') || auth()->user()->can('accounting.trial_balance') || auth()->user()->can('accounting.cash_book') || auth()->user()->can('accounting.bank_book'))
                     <li class="slide has-sub {{ $isFinanceMenu ? 'open active' : '' }}">
                         <a href="javascript:void(0);" class="side-menu__item">
                             <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -194,9 +199,9 @@
                                     <a href="{{ route('admin.finance.bank-book') }}" class="side-menu__item">Bank Book</a>
                                 </li>
                             @endcan
-                            @can('accounting.gst_report')
-                                <li class="slide {{ request()->routeIs('admin.finance.gst-report') ? 'active' : '' }}">
-                                    <a href="{{ route('admin.finance.gst-report') }}" class="side-menu__item">GST Report</a>
+                            @can('accounting.ledger')
+                                <li class="slide {{ request()->routeIs('admin.payments.index', 'admin.payments.show') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.payments.index') }}" class="side-menu__item">Payments</a>
                                 </li>
                             @endcan
                             @can('expense.manage')

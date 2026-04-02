@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\AccountTransaction;
-use App\Models\SalesInvoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -112,32 +111,6 @@ class FinanceController extends Controller
         ]);
     }
 
-    // Show a GST style tax summary from the sales invoices.
-    public function gstReport(Request $request)
-    {
-        $query = SalesInvoice::query()->with('customer');
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('invoice_date', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('invoice_date', '<=', $request->date_to);
-        }
-
-        $invoices = $query->latest('invoice_date')->latest('id')->get();
-
-        return view('finance.gst-report', [
-            'invoices' => $invoices,
-            'filters' => $request->only(['date_from', 'date_to']),
-            'summary' => [
-                'taxable_sales' => $invoices->sum('subtotal'),
-                'tax_amount' => $invoices->sum('tax_amount'),
-                'total_sales' => $invoices->sum('total_amount'),
-            ],
-        ]);
-    }
-
     // Keep the ledger query in one place so the report pages stay short.
     private function baseTransactionQuery(Request $request)
     {
@@ -236,9 +209,7 @@ class FinanceController extends Controller
             ['key' => 'bank', 'code' => '1200', 'name' => 'Bank Account', 'group' => 'Assets', 'nature' => 'debit'],
             ['key' => 'receivable', 'code' => '1300', 'name' => 'Accounts Receivable', 'group' => 'Assets', 'nature' => 'debit'],
             ['key' => 'inventory', 'code' => '1400', 'name' => 'Inventory Stock', 'group' => 'Assets', 'nature' => 'debit'],
-            ['key' => 'tax_receivable', 'code' => '1500', 'name' => 'Tax Receivable', 'group' => 'Assets', 'nature' => 'debit'],
             ['key' => 'payable', 'code' => '2100', 'name' => 'Accounts Payable', 'group' => 'Liabilities', 'nature' => 'credit'],
-            ['key' => 'tax_payable', 'code' => '2200', 'name' => 'Tax Payable', 'group' => 'Liabilities', 'nature' => 'credit'],
             ['key' => 'capital', 'code' => '3100', 'name' => 'Capital', 'group' => 'Equity', 'nature' => 'credit'],
             ['key' => 'income', 'code' => '4100', 'name' => 'Sales Income', 'group' => 'Income', 'nature' => 'credit'],
             ['key' => 'other_income', 'code' => '4200', 'name' => 'Other Income', 'group' => 'Income', 'nature' => 'credit'],

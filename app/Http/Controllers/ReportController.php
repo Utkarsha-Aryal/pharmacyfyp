@@ -7,6 +7,7 @@ use App\Models\Batch;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -58,6 +59,7 @@ class ReportController extends Controller
 
         $expiryItems = Batch::with(['product', 'supplier'])
             ->where('is_active', true)
+            ->where('quantity_available', '>', 0)
             ->whereDate('expiry_date', '>=', $dateFrom->toDateString())
             ->whereDate('expiry_date', '<=', $dateTo->toDateString())
             ->orderBy('expiry_date')
@@ -90,6 +92,48 @@ class ReportController extends Controller
                 'window' => $validated['window'] ?? '6m',
             ],
         ]);
+    }
+
+    // Stream the expiry report as PDF using the same query and filters as the html page.
+    public function expiryAlertPrint(Request $request)
+    {
+        $today = Carbon::today();
+        $validated = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'window' => ['nullable', 'in:3m,6m'],
+        ]);
+
+        $dateFrom = !empty($validated['date_from'])
+            ? Carbon::parse($validated['date_from'])->startOfDay()
+            : $today->copy()->startOfDay();
+        $dateTo = !empty($validated['date_to'])
+            ? Carbon::parse($validated['date_to'])->endOfDay()
+            : (($validated['window'] ?? '6m') === '3m'
+                ? $today->copy()->addMonths(3)->endOfDay()
+                : $today->copy()->addMonths(6)->endOfDay());
+
+        $expiryItems = Batch::query()
+            ->with(['product', 'supplier'])
+            ->where('is_active', true)
+            ->where('quantity_available', '>', 0)
+            ->whereDate('expiry_date', '>=', $dateFrom->toDateString())
+            ->whereDate('expiry_date', '<=', $dateTo->toDateString())
+            ->orderBy('expiry_date')
+            ->get()
+            ->map(function (Batch $batch) use ($today) {
+                $batch->days_left = $today->diffInDays($batch->expiry_date, false);
+                return $batch;
+            });
+
+        return Pdf::loadView('pdf.expiry-alert', [
+            'expiryItems' => $expiryItems,
+            'company' => pdf_company_context(),
+            'logoSrc' => pdf_logo_src(),
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+        ])->setPaper('a4', 'portrait')
+            ->stream('expiry-alert-report.pdf');
     }
 
     public function purchaseHistory(Request $request)

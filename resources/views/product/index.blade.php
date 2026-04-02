@@ -21,16 +21,62 @@
                 <a href="{{ route('admin.export.product-pdf') }}" class="btn btn-pdf">
                     <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>
+                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#productImportModal">
+                    <i class="fa-solid fa-upload"></i> Import
+                </button>
                 <button type="button" class="btn btn-primary addProductBtn"><i class="fa fa-add"></i> Add Product</button>
             </div>
         </div>
     </div>
+    @if (session('import_summary'))
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            Imported: {{ session('import_summary.imported', 0) }},
+            Updated: {{ session('import_summary.updated', 0) }},
+            Failed: {{ session('import_summary.failed', 0) }}
+            @if (!empty(session('import_summary.errors')))
+                <div class="small mt-2">{{ implode(' | ', array_slice(session('import_summary.errors'), 0, 5)) }}</div>
+            @endif
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
     <!-- Modal -->
     <div class="modal fade" id="productModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
         aria-labelledby="staticBackdropLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 {{-- Content goes here --}}
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="productImportModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form action="{{ route('admin.imports.products') }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title">Import Products</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <a href="{{ route('admin.imports.sample.products') }}" class="btn btn-outline-primary">
+                                <i class="fa-solid fa-download"></i> Download Sample File
+                            </a>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Select CSV or XLSX</label>
+                            <input type="file" name="file" class="form-control js-import-preview-input" data-preview-target="#productImportPreview" accept=".csv,.xlsx" required>
+                        </div>
+                        <div class="d-none" id="productImportPreview"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa-solid fa-upload"></i> Import
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -93,6 +139,10 @@
         </div>
     </div>
     <!--End::row-1 -->
+
+    @include('partials.quick-create-modals', [
+        'showQuickUnit' => auth()->user()->can('inventory.unit'),
+    ])
 @endsection
 
 @section('script')

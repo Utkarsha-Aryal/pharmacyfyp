@@ -15,12 +15,12 @@
                 <a href="{{ route('admin.export.bank-book', request()->query()) }}" class="btn btn-outline-primary btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
-                <a href="{{ route('admin.export.bank-book-pdf', request()->query()) }}" class="btn btn-pdf">
+                <a href="{{ route('admin.export.bank-book-pdf', request()->query()) }}" target="_blank" class="btn btn-pdf">
                     <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>
-                <button type="button" class="btn btn-print js-print-trigger" data-print-target="#bankBookPrintArea">
-                    <i class="fa-solid fa-print"></i> Print
-                </button>
+                <a href="{{ route('admin.export.bank-book-pdf', request()->query()) }}" target="_blank" class="btn btn-primary">
+                    <i class="fa-solid fa-print"></i> Print / PDF
+                </a>
             </div>
         </div>
 

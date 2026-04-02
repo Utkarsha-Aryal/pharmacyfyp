@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\AccountTransaction;
 use App\Models\Batch;
+use App\Models\Category;
 use App\Models\Customer;
+use App\Models\PaymentMode;
 use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
 use App\Models\SalesReturn;
+use App\Models\Unit;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Exception;
@@ -52,7 +55,7 @@ class SalesInvoiceController extends Controller
         $length = max((int) $request->input('length', 10), 1);
 
         $query = SalesInvoice::query()
-            ->with(['customer'])
+            ->with(['customer', 'paymentMode'])
             ->orderByDesc('invoice_date')
             ->orderByDesc('id');
 
@@ -107,8 +110,7 @@ class SalesInvoiceController extends Controller
 
             $action = '<div class="table-action-group">';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Invoice" aria-label="View Invoice"><i class="fa-solid fa-eye"></i></a>';
-            $action .= '<a href="' . route('admin.sales.print', $invoice) . '" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print Invoice" aria-label="Print Invoice"><i class="fa-solid fa-print"></i></a>';
-            $action .= '<a href="' . route('admin.sales.pdf', $invoice) . '" class="btn btn-sm btn-outline-danger table-action-btn" title="Invoice PDF" aria-label="Invoice PDF"><i class="fa-solid fa-file-pdf"></i></a>';
+            $action .= '<a href="' . route('admin.sales-invoices.print', $invoice) . '" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF" aria-label="Print / PDF"><i class="fa-solid fa-print"></i></a>';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '#paymentModal" class="btn btn-sm btn-outline-success table-action-btn" title="Payment" aria-label="Payment"><i class="fa-solid fa-wallet"></i></a>';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '#returnModal" class="btn btn-sm btn-outline-danger table-action-btn" title="Return" aria-label="Return"><i class="fa-solid fa-rotate-left"></i></a>';
             $action .= '</div>';
@@ -142,17 +144,14 @@ class SalesInvoiceController extends Controller
             'reference' => next_sales_reference(),
             'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
             'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
+            'paymentModes' => PaymentMode::query()->where('is_active', true)->orderBy('name')->get(),
+            'categories' => Category::query()->orderBy('name')->get(),
+            'units' => Unit::query()->orderBy('unit_name')->get(),
             'saleTypes' => [
                 'retail' => 'Retail',
                 'wholesale' => 'Wholesale',
                 'credit' => 'Credit',
             ],
-            'paymentMethods' => [
-                'cash' => 'Cash',
-                'bank' => 'Bank',
-                'mixed' => 'Mixed',
-            ],
-            'taxRate' => default_tax_rate(),
         ]);
     }
 
@@ -254,23 +253,26 @@ class SalesInvoiceController extends Controller
             ],
             'invoice_date' => ['required', 'date'],
             'sale_type' => ['required', Rule::in(['retail', 'wholesale', 'credit'])],
-            'payment_method' => ['required', Rule::in(['cash', 'bank', 'mixed'])],
+            'payment_mode_id' => ['required', 'exists:payment_modes,id'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.batch_id' => ['required', 'exists:batches,id'],
             'items.*.quantity' => ['required', 'numeric', 'min:1'],
+            'items.*.free_qty' => ['nullable', 'integer', 'min:0'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.mrp' => ['required', 'numeric', 'min:0'],
+            'items.*.cc_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'items.*.tax_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         try {
             $invoice = DB::transaction(function () use ($validated, $request) {
                 $subtotal = 0;
                 $discountAmount = 0;
-                $taxAmount = 0;
                 $invoiceTotal = 0;
+                $paymentMode = PaymentMode::query()->findOrFail($validated['payment_mode_id']);
 
                 $invoice = SalesInvoice::create([
                     'reference' => next_sales_reference(),
@@ -282,10 +284,11 @@ class SalesInvoiceController extends Controller
                     'sale_type' => $validated['sale_type'],
                     'status' => 'confirmed',
                     'payment_status' => 'unpaid',
-                    'payment_method' => $validated['payment_method'],
+                    'payment_method' => $paymentMode->name,
+                    'payment_mode_id' => $paymentMode->id,
                     'subtotal' => 0,
                     'discount_amount' => 0,
-                    'tax_amount' => 0,
+                    'total_discount' => 0,
                     'total_amount' => 0,
                     'paid_amount' => (float) ($validated['paid_amount'] ?? 0),
                     'notes' => $validated['notes'] ?? null,
@@ -294,21 +297,24 @@ class SalesInvoiceController extends Controller
 
                 foreach ($validated['items'] as $row) {
                     $product = Product::query()->findOrFail($row['product_id']);
-                    $batch = $this->pickBatchForSale((int) $product->id, (float) $row['quantity']);
                     $quantity = (float) $row['quantity'];
+                    $freeQuantity = (float) ($row['free_qty'] ?? 0);
                     $unitPrice = (float) $row['unit_price'];
+                    $mrp = (float) ($row['mrp'] ?? 0);
+                    $ccRate = (float) ($row['cc_rate'] ?? $product->cc_rate ?? 0);
                     $discountPercent = (float) ($row['discount_percent'] ?? 0);
-                    // Keep one fallback here so billing still works even if one row misses the tax input.
-                    $taxPercent = isset($row['tax_percent']) && $row['tax_percent'] !== null
-                        ? (float) $row['tax_percent']
-                        : default_tax_rate();
+                    $stockQuantity = $quantity + $freeQuantity;
+                    $batch = !empty($row['batch_id'])
+                        ? $this->selectedBatchForSale((int) $product->id, (int) $row['batch_id'], $stockQuantity)
+                        : $this->pickBatchForSale((int) $product->id, $stockQuantity);
 
                     $lineBase = round($quantity * $unitPrice, 2);
                     $lineDiscount = round(($lineBase * $discountPercent) / 100, 2);
-                    $lineTax = round((($lineBase - $lineDiscount) * $taxPercent) / 100, 2);
-                    $lineTotal = round($lineBase - $lineDiscount + $lineTax, 2);
+                    $lineTotal = round($lineBase - $lineDiscount, 2);
+                    $freeGoodsValue = round($freeQuantity * ($mrp * $ccRate / 100), 2);
 
-                    $batch->quantity_available = max(0, (float) $batch->quantity_available - $quantity);
+                    // Free qty also leaves the store, so stock must move for bill qty + free qty together.
+                    $batch->quantity_available = max(0, (float) $batch->quantity_available - $stockQuantity);
                     $batch->save();
 
                     SalesInvoiceItem::create([
@@ -316,15 +322,18 @@ class SalesInvoiceController extends Controller
                         'product_id' => $product->id,
                         'batch_id' => $batch->id,
                         'quantity' => $quantity,
+                        'free_qty' => $freeQuantity,
                         'unit_price' => $unitPrice,
+                        'mrp' => $mrp,
+                        'cc_rate' => $ccRate,
                         'discount_percent' => $discountPercent,
-                        'tax_percent' => $taxPercent,
+                        'discount_amount' => $lineDiscount,
+                        'free_goods_value' => $freeGoodsValue,
                         'subtotal' => $lineTotal,
                     ]);
 
                     $subtotal += $lineBase;
                     $discountAmount += $lineDiscount;
-                    $taxAmount += $lineTax;
                     $invoiceTotal += $lineTotal;
                 }
 
@@ -334,7 +343,7 @@ class SalesInvoiceController extends Controller
                 $invoice->update([
                     'subtotal' => round($subtotal, 2),
                     'discount_amount' => round($discountAmount, 2),
-                    'tax_amount' => round($taxAmount, 2),
+                    'total_discount' => round($discountAmount, 2),
                     'total_amount' => round($invoiceTotal, 2),
                     'paid_amount' => round($paidAmount, 2),
                     'payment_status' => $paymentStatus,
@@ -347,7 +356,7 @@ class SalesInvoiceController extends Controller
                     $customer->save();
                 }
 
-                $cashAccount = in_array($validated['payment_method'], ['bank'], true) ? 'bank' : 'cash';
+                $cashAccount = $paymentMode->type === 'bank' ? 'bank' : 'cash';
 
                 if ($paidAmount > 0) {
                     record_account_transaction([
@@ -422,18 +431,25 @@ class SalesInvoiceController extends Controller
     // Open one focused invoice page in a new tab so the user prints only the bill.
     public function printView(SalesInvoice $salesInvoice)
     {
-        return view('sales.print', $this->invoiceViewData($salesInvoice));
+        return $this->printPdf($salesInvoice);
     }
 
     // Download the invoice as PDF for customer copy or office record.
     public function pdf(SalesInvoice $salesInvoice)
     {
+        return $this->printPdf($salesInvoice);
+    }
+
+    // Stream the invoice PDF in a new browser tab.
+    public function printPdf(SalesInvoice $salesInvoice)
+    {
         $invoice = $this->loadInvoiceRelations($salesInvoice);
 
-        return Pdf::loadView('sales.pdf.invoice', [
+        return Pdf::loadView('pdf.sales-invoice', [
             'invoice' => $invoice,
-            'company' => $this->invoiceCompanyDetails(),
-        ])->setPaper('a4', 'portrait')->download($invoice->reference . '.pdf');
+            'company' => pdf_company_context(),
+            'logoSrc' => pdf_logo_src(),
+        ])->setPaper('a4', 'portrait')->stream($invoice->reference . '.pdf');
     }
 
     // Update payment status and keep customer balance in sync.
@@ -442,11 +458,12 @@ class SalesInvoiceController extends Controller
         $validated = $request->validate([
             'payment_status' => ['required', Rule::in(['unpaid', 'partial', 'paid'])],
             'paid_amount' => ['required', 'numeric', 'min:0'],
-            'payment_method' => ['required', Rule::in(['cash', 'bank', 'mixed'])],
+            'payment_mode_id' => ['required', 'exists:payment_modes,id'],
         ]);
 
         DB::transaction(function () use ($salesInvoice, $validated, $request) {
             $salesInvoice->loadMissing('customer');
+            $paymentMode = PaymentMode::query()->findOrFail($validated['payment_mode_id']);
             $oldPaid = (float) $salesInvoice->paid_amount;
             $oldDue = $salesInvoice->due_amount;
             $newPaid = round((float) $validated['paid_amount'], 2);
@@ -455,7 +472,8 @@ class SalesInvoiceController extends Controller
 
             $salesInvoice->update([
                 'payment_status' => $validated['payment_status'],
-                'payment_method' => $validated['payment_method'],
+                'payment_method' => $paymentMode->name,
+                'payment_mode_id' => $paymentMode->id,
                 'paid_amount' => $newPaid,
                 'updated_by' => $request->user()->id,
             ]);
@@ -467,7 +485,7 @@ class SalesInvoiceController extends Controller
             }
 
             if ($paidDelta > 0) {
-                $cashAccount = $validated['payment_method'] === 'bank' ? 'bank' : 'cash';
+                $cashAccount = $paymentMode->type === 'bank' ? 'bank' : 'cash';
 
                 record_account_transaction([
                     'transaction_date' => $salesInvoice->invoice_date,
@@ -590,6 +608,31 @@ class SalesInvoiceController extends Controller
         ]);
     }
 
+    // If user selects a batch manually, keep the same stock rule but respect that chosen batch.
+    private function selectedBatchForSale(int $productId, int $batchId, float $quantity): Batch
+    {
+        $batch = Batch::query()
+            ->where('product_id', $productId)
+            ->where('id', $batchId)
+            ->where('is_active', true)
+            ->lockForUpdate()
+            ->first();
+
+        if (!$batch) {
+            throw ValidationException::withMessages([
+                'items' => 'Selected batch does not belong to the chosen product.',
+            ]);
+        }
+
+        if ((float) $batch->quantity_available < $quantity) {
+            throw ValidationException::withMessages([
+                'items' => 'Selected batch does not have enough stock.',
+            ]);
+        }
+
+        return $batch;
+    }
+
     // Keep the sale price easy to read from the catalog record.
     private function resolveSalePrice(Product $product): float
     {
@@ -613,6 +656,7 @@ class SalesInvoiceController extends Controller
     {
         return $salesInvoice->load([
             'customer',
+            'paymentMode',
             'soldBy',
             'creator',
             'items.product',
@@ -628,11 +672,7 @@ class SalesInvoiceController extends Controller
         return [
             'invoice' => $this->loadInvoiceRelations($salesInvoice),
             'company' => $this->invoiceCompanyDetails(),
-            'paymentMethods' => [
-                'cash' => 'Cash',
-                'bank' => 'Bank',
-                'mixed' => 'Mixed',
-            ],
+            'paymentModes' => PaymentMode::query()->where('is_active', true)->orderBy('name')->get(),
             'saleTypes' => [
                 'retail' => 'Retail',
                 'wholesale' => 'Wholesale',

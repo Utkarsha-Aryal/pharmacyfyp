@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Batch;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
@@ -38,23 +39,81 @@ class ProductBatch extends Model
             }
 
             foreach ($post['items'] as $item) {
-                $subtotal = round(((float) $item['quantity']) * ((float) $item['purchase_price']), 2);
+                $quantity = (int) ($item['quantity'] ?? 0);
+                $freeQuantity = (int) ($item['free_qty'] ?? 0);
+                $mrp = round((float) ($item['mrp'] ?? 0), 2);
+                $ccRate = round((float) ($item['cc_rate'] ?? 0), 2);
+                $discountPercent = round((float) ($item['discount_percent'] ?? 0), 2);
+                $lineAmount = round($quantity * (float) $item['purchase_price'], 2);
+                $discountAmount = round(($lineAmount * $discountPercent) / 100, 2);
+                $netAmount = round($lineAmount - $discountAmount, 2);
+                $freeGoodsValue = round($freeQuantity * ($mrp * $ccRate / 100), 2);
+                $physicalQuantity = $quantity + $freeQuantity;
+                $expiryDate = !empty($item['expiry_date'])
+                    ? Carbon::parse($item['expiry_date'])->format('Y-m-d')
+                    : null;
 
                 ProductBatch::create([
                     'product_id' => $item['product_id'],
                     'batch_no' => $item['batch_no'] ?? null,
                     'expiry_date' => $item['expiry_date'],
-                    'quantity' => $item['quantity'],
+                    'quantity' => $physicalQuantity,
+                    'free_qty' => $freeQuantity,
+                    'mrp' => $mrp,
+                    'cc_rate' => $ccRate,
+                    'discount_percent' => $discountPercent,
+                    'free_goods_value' => $freeGoodsValue,
                     'purchase_price' => $item['purchase_price'],
-                    'subtotal' => $subtotal,
+                    'subtotal' => $netAmount,
                     'supplier_id' => $post['supplier_id'],
                     'reference_id' => $post['reference_id'],
                 ]);
+
+                $inventoryBatchId = null;
+
+                // Direct purchase entry should also feed the main inventory batches table.
+                if (!empty($item['batch_no']) && class_exists(Batch::class)) {
+                    $inventoryBatch = Batch::query()->firstOrNew([
+                        'product_id' => $item['product_id'],
+                        'supplier_id' => $post['supplier_id'],
+                        'batch_number' => $item['batch_no'],
+                    ]);
+
+                    $inventoryBatch->expiry_date = $expiryDate ?? now()->toDateString();
+                    $inventoryBatch->purchase_price = $item['purchase_price'];
+                    $inventoryBatch->quantity_received = (int) ($inventoryBatch->quantity_received ?? 0) + $physicalQuantity;
+                    $inventoryBatch->quantity_available = (int) ($inventoryBatch->quantity_available ?? 0) + $physicalQuantity;
+                    $inventoryBatch->is_active = true;
+                    $inventoryBatch->save();
+                    $inventoryBatchId = $inventoryBatch->id;
+                }
+
+                // Purchase item rows make returns, PDF and payment tracking easier later.
+                if (!empty($post['purchase_id'])) {
+                    PurchaseItem::query()->create([
+                        'purchase_id' => $post['purchase_id'],
+                        'product_id' => $item['product_id'],
+                        'batch_id' => $inventoryBatchId,
+                        'batch_no' => $item['batch_no'] ?? null,
+                        'expiry_date' => $expiryDate,
+                        'quantity' => $quantity,
+                        'free_qty' => $freeQuantity,
+                        'mrp' => $mrp,
+                        'rate' => round((float) $item['purchase_price'], 2),
+                        'cc_rate' => $ccRate,
+                        'discount_percent' => $discountPercent,
+                        'discount_amount' => $discountAmount,
+                        'free_goods_value' => $freeGoodsValue,
+                        'amount' => $netAmount,
+                    ]);
+                }
 
                 // keep latest purchase side data on master product
                 Product::where('id', $item['product_id'])->update([
                     'product_status' => 'instock',
                     'purchase_price' => $item['purchase_price'],
+                    'mrp' => $mrp,
+                    'cc_rate' => $ccRate,
                     'updated_at' => Carbon::now(),
                 ]);
             }

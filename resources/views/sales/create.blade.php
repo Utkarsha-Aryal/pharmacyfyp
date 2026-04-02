@@ -4,6 +4,8 @@
     Sales Invoice Create
 @endsection
 
+@section('body-class', 'workspace-form-page')
+
 @section('main-content')
     <div class="admin-page-wrap">
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
@@ -48,16 +50,31 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Payment Method</label>
-                            <select name="payment_method" class="form-select" required>
-                                @foreach ($paymentMethods as $key => $label)
-                                    <option value="{{ $key }}">{{ $label }}</option>
+                            <label class="form-label d-flex justify-content-between align-items-center">
+                                <span>Payment Mode</span>
+                                @can('settings.manage')
+                                    <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickPaymentModeModal" data-quick-target-select="#salesPaymentMode">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                @endcan
+                            </label>
+                            <select name="payment_mode_id" id="salesPaymentMode" class="form-select js-select2" data-placeholder="Select mode" required>
+                                <option value="">Select mode</option>
+                                @foreach ($paymentModes as $mode)
+                                    <option value="{{ $mode->id }}">{{ $mode->name }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Party</label>
-                            <select name="customer_id" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.sales.customer-options') }}" data-placeholder="Search party">
+                            <label class="form-label d-flex justify-content-between align-items-center">
+                                <span>Party</span>
+                                @can('party.manage')
+                                    <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickCustomerModal" data-quick-target-select="#salesCustomerSelect">
+                                        <i class="fa-solid fa-plus"></i> Quick Add
+                                    </button>
+                                @endcan
+                            </label>
+                            <select name="customer_id" id="salesCustomerSelect" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.sales.customer-options') }}" data-placeholder="Search party">
                                 <option value=""></option>
                             </select>
                         </div>
@@ -77,11 +94,18 @@
                 <div class="card-header justify-content-between">
                     <div>
                         <div class="card-title">Billing Items</div>
-                        <small class="text-muted">Default tax rate from settings: {{ $taxRate }}%</small>
+                        <small class="text-muted">Free goods use product CC rate. Net payable is subtotal minus discount only.</small>
                     </div>
-                    <button type="button" class="btn btn-primary btn-sm" id="addSalesRow">
-                        <i class="fa fa-plus"></i> Add Item
-                    </button>
+                    <div class="d-flex gap-2">
+                        @can('inventory.product')
+                            <button type="button" class="btn btn-outline-primary btn-sm js-open-quick-create" data-quick-modal="#quickProductModal">
+                                <i class="fa-solid fa-capsules"></i> Quick Add Product
+                            </button>
+                        @endcan
+                        <button type="button" class="btn btn-primary btn-sm" id="addSalesRow">
+                            <i class="fa fa-plus"></i> Add Item
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -90,11 +114,15 @@
                                 <tr>
                                     <th style="width: 60px;">S.No</th>
                                     <th>Product</th>
+                                    <th style="width: 220px;">Batch</th>
                                     <th style="width: 120px;">Qty</th>
+                                    <th style="width: 120px;">Free Qty</th>
+                                    <th style="width: 140px;">MRP</th>
                                     <th style="width: 140px;">Unit Price</th>
+                                    <th style="width: 120px;">CC Rate %</th>
                                     <th style="width: 120px;">Discount %</th>
-                                    <th style="width: 120px;">Tax %</th>
-                                    <th style="width: 150px;">Subtotal</th>
+                                    <th style="width: 150px;">Free Goods Value</th>
+                                    <th style="width: 150px;">Amount</th>
                                     <th style="width: 60px;">Action</th>
                                 </tr>
                             </thead>
@@ -105,12 +133,27 @@
                                         <select name="items[0][product_id]" class="form-select js-select2-ajax sales-product-select" data-ajax-url="{{ route('admin.sales.product-options') }}" data-product-info-url="{{ route('admin.sales.product-info') }}" data-placeholder="Search product" required>
                                             <option value=""></option>
                                         </select>
-                                        <small class="text-muted d-block sales-stock-note">Select product to auto fill price and stock.</small>
+                                        <div class="d-flex justify-content-between align-items-center gap-2 mt-1">
+                                            <small class="text-muted d-block sales-stock-note mb-0">Select product to auto fill price, MRP, CC and stock.</small>
+                                            @can('inventory.product')
+                                                <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickProductModal" data-quick-target-select="select.sales-product-select">
+                                                    <i class="fa-solid fa-plus"></i>
+                                                </button>
+                                            @endcan
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <select name="items[0][batch_id]" class="form-select sales-batch-select" required>
+                                            <option value="">Select batch</option>
+                                        </select>
                                     </td>
                                     <td><input type="number" min="1" step="1" name="items[0][quantity]" class="form-control sales-qty-input" value="1" required></td>
+                                    <td><input type="number" min="0" step="1" name="items[0][free_qty]" class="form-control sales-free-qty-input" value="0"></td>
+                                    <td><input type="number" min="0" step="0.01" name="items[0][mrp]" class="form-control sales-mrp-input" value="0" required></td>
                                     <td><input type="number" min="0" step="0.01" name="items[0][unit_price]" class="form-control sales-price-input" value="0" required></td>
+                                    <td><input type="number" min="0" step="0.01" max="100" name="items[0][cc_rate]" class="form-control sales-cc-rate-input" value="0"></td>
                                     <td><input type="number" min="0" step="0.01" name="items[0][discount_percent]" class="form-control sales-discount-input" value="0"></td>
-                                    <td><input type="number" min="0" step="0.01" name="items[0][tax_percent]" class="form-control sales-tax-input" value="{{ $taxRate }}"></td>
+                                    <td><input type="text" class="form-control sales-free-value-input" value="0.00" readonly></td>
                                     <td><input type="text" name="items[0][subtotal]" class="form-control sales-subtotal-input" value="0.00" readonly></td>
                                     <td>
                                         <button type="button" class="btn btn-sm btn-outline-danger removeSalesRow table-action-btn">
@@ -121,7 +164,28 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="6" class="text-end fw-semibold">Grand Total</td>
+                                    <td colspan="10" class="text-end fw-semibold">Subtotal</td>
+                                    <td>
+                                        <input type="text" id="salesSubtotal" class="form-control" value="0.00" readonly>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="10" class="text-end fw-semibold">Total Discount</td>
+                                    <td>
+                                        <input type="text" id="salesDiscountTotal" class="form-control" value="0.00" readonly>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="10" class="text-end fw-semibold">Free Goods Value</td>
+                                    <td>
+                                        <input type="text" id="salesFreeGoodsTotal" class="form-control" value="0.00" readonly>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="10" class="text-end fw-semibold">Net Payable</td>
                                     <td>
                                         <input type="text" id="salesGrandTotal" class="form-control" value="0.00" readonly>
                                     </td>
@@ -146,12 +210,27 @@
                     <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax sales-product-select" data-ajax-url="{{ route('admin.sales.product-options') }}" data-product-info-url="{{ route('admin.sales.product-info') }}" data-placeholder="Search product" required>
                         <option value=""></option>
                     </select>
-                    <small class="text-muted d-block sales-stock-note">Select product to auto fill price and stock.</small>
+                    <div class="d-flex justify-content-between align-items-center gap-2 mt-1">
+                        <small class="text-muted d-block sales-stock-note mb-0">Select product to auto fill price, MRP, CC and stock.</small>
+                        @can('inventory.product')
+                            <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickProductModal" data-quick-target-select="select.sales-product-select">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        @endcan
+                    </div>
+                </td>
+                <td>
+                    <select name="items[__INDEX__][batch_id]" class="form-select sales-batch-select" required>
+                        <option value="">Select batch</option>
+                    </select>
                 </td>
                 <td><input type="number" min="1" step="1" name="items[__INDEX__][quantity]" class="form-control sales-qty-input" value="1" required></td>
+                <td><input type="number" min="0" step="1" name="items[__INDEX__][free_qty]" class="form-control sales-free-qty-input" value="0"></td>
+                <td><input type="number" min="0" step="0.01" name="items[__INDEX__][mrp]" class="form-control sales-mrp-input" value="0" required></td>
                 <td><input type="number" min="0" step="0.01" name="items[__INDEX__][unit_price]" class="form-control sales-price-input" value="0" required></td>
+                <td><input type="number" min="0" step="0.01" max="100" name="items[__INDEX__][cc_rate]" class="form-control sales-cc-rate-input" value="0"></td>
                 <td><input type="number" min="0" step="0.01" name="items[__INDEX__][discount_percent]" class="form-control sales-discount-input" value="0"></td>
-                <td><input type="number" min="0" step="0.01" name="items[__INDEX__][tax_percent]" class="form-control sales-tax-input" value="{{ $taxRate }}"></td>
+                <td><input type="text" class="form-control sales-free-value-input" value="0.00" readonly></td>
                 <td><input type="text" name="items[__INDEX__][subtotal]" class="form-control sales-subtotal-input" value="0.00" readonly></td>
                 <td>
                     <button type="button" class="btn btn-sm btn-outline-danger removeSalesRow table-action-btn">
@@ -160,5 +239,14 @@
                 </td>
             </tr>
         </template>
+
+        @include('partials.quick-create-modals', [
+            'showQuickCustomer' => auth()->user()->can('party.manage'),
+            'showQuickPaymentMode' => auth()->user()->can('settings.manage'),
+            'showQuickProduct' => auth()->user()->can('inventory.product'),
+            'showQuickUnit' => auth()->user()->can('inventory.unit'),
+            'categories' => $categories,
+            'units' => $units,
+        ])
     </div>
 @endsection

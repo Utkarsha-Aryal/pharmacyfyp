@@ -15,9 +15,9 @@
                 <a href="{{ route('admin.customers.index') }}" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-arrow-left"></i> Back
                 </a>
-                <button type="button" class="btn btn-print js-print-trigger" data-print-target="#partyLedgerPrintArea">
-                    <i class="fa-solid fa-print"></i> Print
-                </button>
+                <a href="{{ route('admin.customers.ledger.print', $customer) }}" target="_blank" class="btn btn-primary">
+                    <i class="fa-solid fa-print"></i> Print / PDF
+                </a>
             </div>
         </div>
 

@@ -24,6 +24,18 @@ class Batch extends Model
         return $this->belongsTo(PurchaseOrderItem::class, 'purchase_order_item_id');
     }
 
+    // Direct purchase bill items can also point to this same inventory batch.
+    public function purchaseItems()
+    {
+        return $this->hasMany(PurchaseItem::class, 'batch_id');
+    }
+
+    // Purchase returns reduce this same batch quantity.
+    public function purchaseReturnItems()
+    {
+        return $this->hasMany(PurchaseReturnItem::class, 'batch_id');
+    }
+
     public static function makeExpiryDate(?string $value): ?Carbon
     {
         if (!$value) {

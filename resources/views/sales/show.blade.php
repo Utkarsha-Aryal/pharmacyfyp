@@ -15,11 +15,8 @@
                 <a href="{{ route('admin.sales.index') }}" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-arrow-left"></i> Back
                 </a>
-                <a href="{{ route('admin.sales.print', $invoice) }}" target="_blank" class="btn btn-print">
-                    <i class="fa-solid fa-print"></i> Print
-                </a>
-                <a href="{{ route('admin.sales.pdf', $invoice) }}" class="btn btn-pdf">
-                    <i class="fa-solid fa-file-pdf"></i> PDF
+                <a href="{{ route('admin.sales-invoices.print', $invoice) }}" target="_blank" class="btn btn-primary">
+                    <i class="fa-solid fa-print"></i> Print / PDF
                 </a>
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#paymentModal">
                     <i class="fa-solid fa-wallet"></i> Payment
@@ -48,7 +45,7 @@
                     <div class="card-body">
                         <p class="summary-card-label">Total Amount</p>
                         <h3 class="summary-card-value">{{ money_value($invoice->total_amount) }}</h3>
-                        <span class="summary-card-note">Invoice total after tax and discount.</span>
+                        <span class="summary-card-note">Invoice total after line discount.</span>
                     </div>
                 </div>
             </div>
@@ -117,9 +114,12 @@
                                 <th>Product</th>
                                 <th>Batch</th>
                                 <th>Qty</th>
+                                <th>Free Qty</th>
+                                <th>MRP</th>
                                 <th>Unit Price</th>
                                 <th>Discount %</th>
-                                <th>Tax %</th>
+                                <th>CC Rate %</th>
+                                <th>Free Goods Value</th>
                                 <th>Subtotal</th>
                             </tr>
                         </thead>
@@ -130,9 +130,12 @@
                                     <td>{{ $item->product?->display_name ?? '-' }}</td>
                                     <td>{{ $item->batch?->batch_number ?? '-' }}</td>
                                     <td>{{ $item->quantity }}</td>
+                                    <td>{{ $item->free_qty ?? 0 }}</td>
+                                    <td>{{ money_value($item->mrp ?? 0) }}</td>
                                     <td>{{ money_value($item->unit_price) }}</td>
                                     <td>{{ number_format((float) $item->discount_percent, 2) }}%</td>
-                                    <td>{{ number_format((float) $item->tax_percent, 2) }}%</td>
+                                    <td>{{ number_format((float) ($item->cc_rate ?? 0), 2) }}%</td>
+                                    <td>{{ money_value($item->free_goods_value ?? 0) }}</td>
                                     <td>{{ money_value($item->subtotal) }}</td>
                                 </tr>
                             @endforeach
@@ -203,10 +206,10 @@
                                     </select>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">Payment Method</label>
-                                    <select name="payment_method" class="form-select">
-                                        @foreach ($paymentMethods as $key => $label)
-                                            <option value="{{ $key }}" @selected($invoice->payment_method === $key)>{{ $label }}</option>
+                                    <label class="form-label">Payment Mode</label>
+                                    <select name="payment_mode_id" class="form-select">
+                                        @foreach ($paymentModes as $mode)
+                                            <option value="{{ $mode->id }}" @selected((int) $invoice->payment_mode_id === (int) $mode->id)>{{ $mode->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>

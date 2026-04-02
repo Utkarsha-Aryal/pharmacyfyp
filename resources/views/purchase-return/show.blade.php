@@ -1,0 +1,93 @@
+@extends('layouts.main')
+
+@section('title')
+    Purchase Return Details
+@endsection
+
+@section('main-content')
+    <div class="admin-page-wrap">
+        <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
+            <div class="my-auto">
+                <h5 class="page-title fs-21 mb-1">Purchase Return Details</h5>
+                <p class="mb-0 text-muted">Review returned batch rows and print the debit note style PDF.</p>
+            </div>
+            <div class="d-flex gap-2 mt-3 mt-md-0">
+                <a href="{{ route('admin.purchase-returns.print', $purchaseReturn) }}" target="_blank" class="btn btn-primary">
+                    <i class="fa fa-print"></i> Print / PDF
+                </a>
+            </div>
+        </div>
+
+        <div class="card custom-card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label text-muted">Supplier</label>
+                        <div class="fw-semibold">{{ $purchaseReturn->supplier?->supplier_name ?? '-' }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted">Purchase Bill</label>
+                        <div class="fw-semibold">{{ $purchaseReturn->purchase?->reference?->reference_no ?: ('PUR-' . $purchaseReturn->purchase_id) }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted">Return Date</label>
+                        <div class="fw-semibold">{{ $purchaseReturn->return_date_show }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted">Created By</label>
+                        <div class="fw-semibold">{{ $purchaseReturn->returnedBy?->name ?? '-' }}</div>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label text-muted">Notes</label>
+                        <div class="fw-semibold">{{ $purchaseReturn->notes ?: '-' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card custom-card">
+            <div class="card-header">
+                <div class="card-title">Returned Items</div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Product</th>
+                                <th>Batch</th>
+                                <th>Return Qty</th>
+                                <th>Rate</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @php $totalReturn = 0; @endphp
+                            @foreach ($purchaseReturn->items as $index => $item)
+                                @php
+                                    $lineTotal = (float) $item->return_qty * (float) $item->rate;
+                                    $totalReturn += $lineTotal;
+                                @endphp
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $item->product?->display_name ?? '-' }}</td>
+                                    <td>{{ $item->batch?->batch_number ?? '-' }}</td>
+                                    <td>{{ $item->return_qty }}</td>
+                                    <td>{{ money_value($item->rate) }}</td>
+                                    <td>{{ money_value($lineTotal) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th colspan="5" class="text-end">Total Return Value</th>
+                                <th>{{ money_value($totalReturn) }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection

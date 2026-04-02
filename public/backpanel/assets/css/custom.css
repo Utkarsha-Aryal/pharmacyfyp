@@ -250,11 +250,17 @@ input#trashed_file {
 .app-sidebar {
     background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
     box-shadow: 14px 0 32px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
 }
 
 .app-sidebar .main-sidebar {
     padding-inline: 0.95rem;
     padding-block: 0.85rem 1rem;
+    height: calc(100vh - 4.65rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 7rem;
+    scrollbar-width: thin;
 }
 
 .app-sidebar .main-menu {
@@ -387,6 +393,14 @@ input#trashed_file {
 
 .admin-page-wrap {
     padding-bottom: 24px;
+}
+
+body.workspace-form-page .admin-page-wrap {
+    padding-right: 0.25rem;
+}
+
+.quick-add-inline-btn {
+    white-space: nowrap;
 }
 
 .filter-card {

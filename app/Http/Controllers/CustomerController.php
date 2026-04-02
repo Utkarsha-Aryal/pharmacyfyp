@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\SalesInvoice;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\QueryException;
@@ -144,6 +145,10 @@ class CustomerController extends Controller
             return response()->json([
                 'type' => 'success',
                 'message' => empty($validated['id']) ? 'Customer added successfully.' : 'Customer updated successfully.',
+                'data' => [
+                    'id' => $customer->id,
+                    'text' => $customer->name,
+                ],
             ]);
         } catch (QueryException|Exception $e) {
             return response()->json([
@@ -199,6 +204,29 @@ class CustomerController extends Controller
             'salesCount' => $invoices->count(),
             'agingDays' => $this->customerAgingDays($customer),
         ]);
+    }
+
+    // Stream the party ledger as PDF so ledger print follows the same pdf-only flow.
+    public function ledgerPdf(Customer $customer)
+    {
+        $customer->load(['salesInvoices.items.product', 'salesReturns.product']);
+
+        $invoices = $customer->salesInvoices()->with('items.product')->latest('invoice_date')->get();
+        $returns = $customer->salesReturns()->with('product')->latest('return_date')->take(20)->get();
+
+        return Pdf::loadView('pdf.customer-ledger', [
+            'customer' => $customer,
+            'invoices' => $invoices,
+            'returns' => $returns,
+            'outstanding' => $customer->balance,
+            'invoiceTotal' => $invoices->sum('total_amount'),
+            'paidTotal' => $invoices->sum('paid_amount'),
+            'salesCount' => $invoices->count(),
+            'agingDays' => $this->customerAgingDays($customer),
+            'company' => pdf_company_context(),
+            'logoSrc' => pdf_logo_src(),
+        ])->setPaper('a4', 'portrait')
+            ->stream('party-ledger-' . $customer->id . '.pdf');
     }
 
     // Toggle customer active state from the table.

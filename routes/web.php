@@ -8,11 +8,15 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InventoryBatchController;
+use App\Http\Controllers\ImportController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentModeController;
 use App\Http\Controllers\ProductBatchesController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\SalesInvoiceController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RolePermissionController;
@@ -57,6 +61,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::group(['prefix' => 'product', 'middleware' => 'permission:inventory.product'], function () {
         Route::get('/', [ProductController::class, 'index'])->name('product');
         Route::post('/save', [ProductController::class, 'save'])->name('product.save');
+        Route::post('/quick-save', [ProductController::class, 'quickStore'])->name('product.quick-save');
         Route::post('/list', [ProductController::class, 'list'])->name('product.list');
         Route::post('/view', [ProductController::class, 'view'])->name('product.view');
         Route::post('/delete', [ProductController::class, 'delete'])->name('product.delete');
@@ -110,6 +115,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/save', [PurchaseController::class, 'save'])->name('purchase.save');
     });
 
+    Route::prefix('purchase/returns')->name('purchase-returns.')->group(function () {
+        Route::get('/', [PurchaseReturnController::class, 'index'])->name('index');
+        Route::get('/create', [PurchaseReturnController::class, 'create'])->name('create');
+        Route::post('/store', [PurchaseReturnController::class, 'store'])->name('store');
+        Route::get('/get-purchases', [PurchaseReturnController::class, 'getPurchases'])->name('get-purchases');
+        Route::get('/get-items', [PurchaseReturnController::class, 'getItems'])->name('get-items');
+        Route::get('/{purchaseReturn}', [PurchaseReturnController::class, 'show'])->name('show');
+        Route::get('/{purchaseReturn}/print', [PurchaseReturnController::class, 'print'])->name('print');
+    });
+
     Route::prefix('purchase/orders')->name('purchase-orders.')->middleware('permission:purchase.orders')->group(function () {
         Route::get('/', [PurchaseOrderController::class, 'index'])->name('index');
         Route::get('/create', [PurchaseOrderController::class, 'create'])->name('create');
@@ -129,6 +144,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/save', [CustomerController::class, 'save'])->name('save');
         Route::get('/options', [CustomerController::class, 'options'])->name('options');
         Route::get('/{customer}/ledger', [CustomerController::class, 'ledger'])->name('ledger');
+        Route::get('/{customer}/ledger/print', [CustomerController::class, 'ledgerPdf'])->name('ledger.print');
         Route::post('/{customer}/toggle-active', [CustomerController::class, 'toggleActive'])->name('toggle-active');
         Route::post('/{customer}/delete', [CustomerController::class, 'delete'])->name('delete');
     });
@@ -155,21 +171,35 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/{expense}/delete', [ExpenseController::class, 'delete'])->name('delete');
     });
 
+    Route::prefix('payments')->name('payments.')->middleware('permission:accounting.ledger')->group(function () {
+        Route::get('/', [PaymentController::class, 'index'])->name('index');
+        Route::get('/in/create', [PaymentController::class, 'createIn'])->name('in.create');
+        Route::post('/in', [PaymentController::class, 'storeIn'])->name('in.store');
+        Route::get('/out/create', [PaymentController::class, 'createOut'])->name('out.create');
+        Route::post('/out', [PaymentController::class, 'storeOut'])->name('out.store');
+        Route::get('/outstanding-bills', [PaymentController::class, 'outstandingBills'])->name('outstanding-bills');
+        Route::get('/{payment}', [PaymentController::class, 'show'])->name('show');
+        Route::get('/{payment}/print', [PaymentController::class, 'print'])->name('print');
+    });
+
     Route::prefix('finance')->name('finance.')->group(function () {
         Route::get('/ledger', [FinanceController::class, 'ledger'])->middleware('permission:accounting.ledger')->name('ledger');
         Route::get('/account-tree', [FinanceController::class, 'accountTree'])->middleware('permission:accounting.ledger')->name('account-tree');
         Route::get('/trial-balance', [FinanceController::class, 'trialBalance'])->middleware('permission:accounting.trial_balance')->name('trial-balance');
         Route::get('/cash-book', [FinanceController::class, 'cashBook'])->middleware('permission:accounting.cash_book')->name('cash-book');
         Route::get('/bank-book', [FinanceController::class, 'bankBook'])->middleware('permission:accounting.bank_book')->name('bank-book');
-        Route::get('/gst-report', [FinanceController::class, 'gstReport'])->middleware('permission:accounting.gst_report')->name('gst-report');
     });
 
     Route::group(['prefix' => 'report'], function () {
         Route::get('/low-stock', [ReportController::class, 'lowStock'])->middleware('permission:report.low_stock')->name('report.lowstock');
         Route::get('/expiry-alert', [ReportController::class, 'expiryAlert'])->middleware('permission:report.expiry')->name('report.expiry');
+        Route::get('/expiry-alert/print', [ReportController::class, 'expiryAlertPrint'])->middleware('permission:report.expiry')->name('reports.expiry-alert.print');
         Route::get('/purchases', [ReportController::class, 'purchaseHistory'])->middleware('permission:report.purchases')->name('report.purchases');
         Route::get('/supplier-performance', [ReportController::class, 'supplierPerformance'])->middleware('permission:report.suppliers')->name('report.suppliers');
     });
+
+    Route::get('/sales-invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'printPdf'])->middleware('permission:sales.invoice')->name('sales-invoices.print');
+    Route::get('/purchases/{purchase}/print', [PurchaseController::class, 'print'])->middleware('permission:purchase.entry')->name('purchases.print');
 
     Route::middleware(['role:admin'])->group(function () {
         Route::prefix('users')->name('user.')->middleware('permission:user.manage')->group(function () {
@@ -201,6 +231,22 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::post('/test-mail', [SettingsController::class, 'testMail'])->name('test-mail');
         });
 
+        Route::prefix('payment-modes')->name('payment-modes.')->middleware('permission:settings.manage')->group(function () {
+            Route::get('/', [PaymentModeController::class, 'index'])->name('index');
+            Route::post('/store', [PaymentModeController::class, 'store'])->name('store');
+            Route::post('/{paymentMode}/update', [PaymentModeController::class, 'update'])->name('update');
+            Route::post('/{paymentMode}/delete', [PaymentModeController::class, 'destroy'])->name('delete');
+        });
+
+        Route::prefix('imports')->name('imports.')->group(function () {
+            Route::get('/sample/products', [ImportController::class, 'sampleProducts'])->name('sample.products');
+            Route::get('/sample/customers', [ImportController::class, 'sampleCustomers'])->name('sample.customers');
+            Route::get('/sample/suppliers', [ImportController::class, 'sampleSuppliers'])->name('sample.suppliers');
+            Route::post('/products', [ImportController::class, 'importProducts'])->name('products');
+            Route::post('/customers', [ImportController::class, 'importCustomers'])->name('customers');
+            Route::post('/suppliers', [ImportController::class, 'importSuppliers'])->name('suppliers');
+        });
+
         Route::prefix('export')->name('export.')->group(function () {
             Route::get('/category', [ExportController::class, 'categories'])->name('category');
             Route::get('/category/pdf', [ExportController::class, 'categoriesPdf'])->name('category-pdf');
@@ -222,8 +268,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::get('/cash-book/pdf', [ExportController::class, 'cashBookPdf'])->name('cash-book-pdf');
             Route::get('/bank-book', [ExportController::class, 'bankBook'])->name('bank-book');
             Route::get('/bank-book/pdf', [ExportController::class, 'bankBookPdf'])->name('bank-book-pdf');
-            Route::get('/gst-report', [ExportController::class, 'gstReport'])->name('gst-report');
-            Route::get('/gst-report/pdf', [ExportController::class, 'gstReportPdf'])->name('gst-report-pdf');
             Route::get('/account-tree/pdf', [ExportController::class, 'accountTreePdf'])->name('account-tree-pdf');
             Route::get('/purchase', [ExportController::class, 'purchases'])->name('purchase');
             Route::get('/purchase-supplier-summary', [ExportController::class, 'purchaseSupplierSummary'])->name('purchase-supplier-summary');

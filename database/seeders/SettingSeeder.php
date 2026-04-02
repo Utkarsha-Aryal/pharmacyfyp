@@ -23,7 +23,6 @@ class SettingSeeder extends Seeder
             'smtp_encryption' => env('MAIL_SCHEME'),
             'currency_symbol' => 'NPR',
             'low_stock_threshold' => 10,
-            'tax_rate' => 13,
         ];
 
         foreach ($defaultSettings as $key => $value) {

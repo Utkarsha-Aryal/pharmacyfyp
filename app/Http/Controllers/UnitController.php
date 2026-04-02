@@ -28,6 +28,9 @@ class UnitController extends Controller
             if (!$result) {
                 throw new Exception('Could not save record', 1);
             }
+            $savedUnit = !empty($post['id'])
+                ? Unit::query()->find($post['id'])
+                : Unit::query()->where('unit_name', $post['unit_name'])->latest('id')->first();
             DB::commit();
         } catch (QueryException $e) {
             DB::rollBack();
@@ -38,7 +41,16 @@ class UnitController extends Controller
             $type = 'error';
             $message = $e->getMessage();
         }
-        return response()->json(['type' => $type, 'message' => $message]);
+        return response()->json([
+            'type' => $type,
+            'message' => $message,
+            'data' => isset($savedUnit) && $type === 'success'
+                ? [
+                    'id' => $savedUnit->id,
+                    'text' => $savedUnit->unit_name,
+                ]
+                : null,
+        ]);
     }
 
     public function list(Request $request)

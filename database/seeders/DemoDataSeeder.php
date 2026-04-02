@@ -343,8 +343,8 @@ class DemoDataSeeder extends Seeder
                 'paid_amount' => 550,
                 'notes' => 'Retail billing demo',
                 'items' => [
-                    ['product_id' => $productIds[0], 'quantity' => 2, 'unit_price' => 105, 'discount_percent' => 5, 'tax_percent' => 13],
-                    ['product_id' => $productIds[4], 'quantity' => 1, 'unit_price' => 300, 'discount_percent' => 0, 'tax_percent' => 13],
+                    ['product_id' => $productIds[0], 'quantity' => 2, 'free_qty' => 1, 'unit_price' => 105, 'discount_percent' => 5],
+                    ['product_id' => $productIds[4], 'quantity' => 1, 'free_qty' => 0, 'unit_price' => 300, 'discount_percent' => 0],
                 ],
             ],
             [
@@ -355,8 +355,8 @@ class DemoDataSeeder extends Seeder
                 'paid_amount' => 500,
                 'notes' => 'Credit sale for clinic',
                 'items' => [
-                    ['product_id' => $productIds[2], 'quantity' => 2, 'unit_price' => 140, 'discount_percent' => 3, 'tax_percent' => 13],
-                    ['product_id' => $productIds[6], 'quantity' => 3, 'unit_price' => 160, 'discount_percent' => 0, 'tax_percent' => 13],
+                    ['product_id' => $productIds[2], 'quantity' => 2, 'free_qty' => 0, 'unit_price' => 140, 'discount_percent' => 3],
+                    ['product_id' => $productIds[6], 'quantity' => 3, 'free_qty' => 1, 'unit_price' => 160, 'discount_percent' => 0],
                 ],
             ],
             [
@@ -367,8 +367,8 @@ class DemoDataSeeder extends Seeder
                 'paid_amount' => 0,
                 'notes' => 'Wholesale invoice for hospital store',
                 'items' => [
-                    ['product_id' => $productIds[1], 'quantity' => 4, 'unit_price' => 90, 'discount_percent' => 0, 'tax_percent' => 13],
-                    ['product_id' => $productIds[3], 'quantity' => 1, 'unit_price' => 210, 'discount_percent' => 0, 'tax_percent' => 13],
+                    ['product_id' => $productIds[1], 'quantity' => 4, 'free_qty' => 0, 'unit_price' => 90, 'discount_percent' => 0],
+                    ['product_id' => $productIds[3], 'quantity' => 1, 'free_qty' => 0, 'unit_price' => 210, 'discount_percent' => 0],
                 ],
             ],
             [
@@ -379,8 +379,8 @@ class DemoDataSeeder extends Seeder
                 'paid_amount' => 620,
                 'notes' => 'Retail cash sale',
                 'items' => [
-                    ['product_id' => $productIds[5], 'quantity' => 2, 'unit_price' => 175, 'discount_percent' => 0, 'tax_percent' => 13],
-                    ['product_id' => $productIds[7], 'quantity' => 1, 'unit_price' => 250, 'discount_percent' => 0, 'tax_percent' => 13],
+                    ['product_id' => $productIds[5], 'quantity' => 2, 'free_qty' => 0, 'unit_price' => 175, 'discount_percent' => 0],
+                    ['product_id' => $productIds[7], 'quantity' => 1, 'free_qty' => 1, 'unit_price' => 250, 'discount_percent' => 0],
                 ],
             ],
         ];
@@ -390,7 +390,6 @@ class DemoDataSeeder extends Seeder
         foreach ($salesInvoiceRows as $row) {
             $subtotal = 0;
             $discountAmount = 0;
-            $taxAmount = 0;
             $totalAmount = 0;
 
             $invoice = SalesInvoice::create([
@@ -406,7 +405,6 @@ class DemoDataSeeder extends Seeder
                 'payment_method' => $row['payment_method'],
                 'subtotal' => 0,
                 'discount_amount' => 0,
-                'tax_amount' => 0,
                 'total_amount' => 0,
                 'paid_amount' => $row['paid_amount'],
                 'notes' => $row['notes'],
@@ -414,36 +412,39 @@ class DemoDataSeeder extends Seeder
             ]);
 
             foreach ($row['items'] as $item) {
-                $batch = $findSaleBatch($item['product_id'], $item['quantity']);
+                $product = Product::query()->findOrFail($item['product_id']);
+                $saleQuantity = $item['quantity'] + ($item['free_qty'] ?? 0);
+                $batch = $findSaleBatch($item['product_id'], $saleQuantity);
                 $lineBase = round($item['quantity'] * $item['unit_price'], 2);
                 $lineDiscount = round(($lineBase * $item['discount_percent']) / 100, 2);
-                $lineTax = round((($lineBase - $lineDiscount) * $item['tax_percent']) / 100, 2);
-                $lineTotal = round($lineBase - $lineDiscount + $lineTax, 2);
+                $lineTotal = round($lineBase - $lineDiscount, 2);
+                $freeGoodsValue = round((float) ($item['free_qty'] ?? 0) * (((float) ($product->mrp ?? 0) * (float) ($product->cc_rate ?? 0)) / 100), 2);
 
                 SalesInvoiceItem::create([
                     'sales_invoice_id' => $invoice->id,
                     'product_id' => $item['product_id'],
                     'batch_id' => $batch->id,
                     'quantity' => $item['quantity'],
+                    'free_qty' => $item['free_qty'] ?? 0,
                     'unit_price' => $item['unit_price'],
+                    'mrp' => $product->mrp ?? 0,
+                    'cc_rate' => $product->cc_rate ?? 0,
                     'discount_percent' => $item['discount_percent'],
-                    'tax_percent' => $item['tax_percent'],
+                    'free_goods_value' => $freeGoodsValue,
                     'subtotal' => $lineTotal,
                 ]);
 
-                $batch->quantity_available = max(0, (float) $batch->quantity_available - (float) $item['quantity']);
+                $batch->quantity_available = max(0, (float) $batch->quantity_available - (float) $saleQuantity);
                 $batch->save();
 
                 $subtotal += $lineBase;
                 $discountAmount += $lineDiscount;
-                $taxAmount += $lineTax;
                 $totalAmount += $lineTotal;
             }
 
             $invoice->update([
                 'subtotal' => round($subtotal, 2),
                 'discount_amount' => round($discountAmount, 2),
-                'tax_amount' => round($taxAmount, 2),
                 'total_amount' => round($totalAmount, 2),
                 'payment_status' => SalesInvoice::resolvePaymentStatus($totalAmount, (float) $row['paid_amount']),
             ]);

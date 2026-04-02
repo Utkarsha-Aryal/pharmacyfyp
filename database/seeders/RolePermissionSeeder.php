@@ -39,7 +39,6 @@ class RolePermissionSeeder extends Seeder
             'accounting.trial_balance',
             'accounting.cash_book',
             'accounting.bank_book',
-            'accounting.gst_report',
             'user.manage',
             'role.manage',
             'settings.manage',
@@ -50,9 +49,11 @@ class RolePermissionSeeder extends Seeder
         }
 
         $adminRole = Role::findOrCreate('admin', 'web');
+        $superAdminRole = Role::findOrCreate('superadmin', 'web');
         $staffRole = Role::findOrCreate('staff', 'web');
 
         $adminRole->syncPermissions($permissions);
+        $superAdminRole->syncPermissions($permissions);
         $staffRole->syncPermissions([
             'dashboard.view',
             'inventory.view',

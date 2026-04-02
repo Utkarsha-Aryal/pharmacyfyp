@@ -46,7 +46,7 @@ class ExportController extends Controller
     {
         return Pdf::loadView($view, $data)
             ->setPaper($paper, $orientation)
-            ->download($filename);
+            ->stream($filename);
     }
 
     // Use one shared PDF table so list exports keep the same clean structure.
@@ -186,7 +186,7 @@ class ExportController extends Controller
         return $this->downloadExcel('products.xlsx', $rows);
     }
 
-    // Export product master as PDF.
+    // Export the unified product list as PDF.
     public function productsPdf()
     {
         $rows = Product::query()
@@ -571,20 +571,29 @@ class ExportController extends Controller
         return $this->downloadTablePdf('low-stock-report.pdf', 'Low Stock Report', 'Products below or equal to reorder level', ['Product', 'Category', 'Reorder Level', 'Current Stock', 'Deficit'], $rows);
     }
 
-    public function expiryAlert()
+    public function expiryAlert(Request $request)
     {
         $today = Carbon::today();
-        $nearDate = $today->copy()->addDays(60);
+        $window = $request->input('window', '6m');
+        $dateFrom = $request->filled('date_from')
+            ? Carbon::parse($request->input('date_from'))->startOfDay()
+            : $today->copy()->startOfDay();
+        $dateTo = $request->filled('date_to')
+            ? Carbon::parse($request->input('date_to'))->endOfDay()
+            : ($window === '3m' ? $today->copy()->addMonths(3)->endOfDay() : $today->copy()->addMonths(6)->endOfDay());
 
         $rows = Batch::query()
             ->with(['product', 'supplier'])
             ->where('is_active', true)
+            ->where('quantity_available', '>', 0)
+            ->whereDate('expiry_date', '>=', $dateFrom->toDateString())
+            ->whereDate('expiry_date', '<=', $dateTo->toDateString())
             ->orderBy('expiry_date')
             ->get()
-            ->map(function ($batch) use ($today, $nearDate) {
+            ->map(function ($batch) use ($today) {
                 $expiryDate = Batch::makeExpiryDate($batch->expiry_date);
 
-                if (!$expiryDate || $expiryDate->gt($nearDate)) {
+                if (!$expiryDate) {
                     return null;
                 }
 
@@ -605,20 +614,29 @@ class ExportController extends Controller
     }
 
     // Export expiry alert report as PDF.
-    public function expiryAlertPdf()
+    public function expiryAlertPdf(Request $request)
     {
         $today = Carbon::today();
-        $nearDate = $today->copy()->addDays(60);
+        $window = $request->input('window', '6m');
+        $dateFrom = $request->filled('date_from')
+            ? Carbon::parse($request->input('date_from'))->startOfDay()
+            : $today->copy()->startOfDay();
+        $dateTo = $request->filled('date_to')
+            ? Carbon::parse($request->input('date_to'))->endOfDay()
+            : ($window === '3m' ? $today->copy()->addMonths(3)->endOfDay() : $today->copy()->addMonths(6)->endOfDay());
 
         $rows = Batch::query()
             ->with(['product', 'supplier'])
             ->where('is_active', true)
+            ->where('quantity_available', '>', 0)
+            ->whereDate('expiry_date', '>=', $dateFrom->toDateString())
+            ->whereDate('expiry_date', '<=', $dateTo->toDateString())
             ->orderBy('expiry_date')
             ->get()
-            ->map(function ($batch) use ($today, $nearDate) {
+            ->map(function ($batch) use ($today) {
                 $expiryDate = Batch::makeExpiryDate($batch->expiry_date);
 
-                if (!$expiryDate || $expiryDate->gt($nearDate)) {
+                if (!$expiryDate) {
                     return null;
                 }
 
@@ -943,62 +961,6 @@ class ExportController extends Controller
             ],
             'a4',
             'landscape'
-        );
-    }
-
-    // Export the GST report rows.
-    public function gstReport(Request $request)
-    {
-        $rows = SalesInvoice::query()
-            ->with('customer')
-            ->when($request->filled('date_from'), function ($query) use ($request) {
-                $query->whereDate('invoice_date', '>=', $request->date_from);
-            })
-            ->when($request->filled('date_to'), function ($query) use ($request) {
-                $query->whereDate('invoice_date', '<=', $request->date_to);
-            })
-            ->latest('invoice_date')
-            ->get()
-            ->map(fn ($invoice) => [
-                'Invoice' => $invoice->reference,
-                'Party' => $invoice->customer?->name,
-                'Date' => $invoice->invoice_date_show,
-                'Taxable Sales' => $invoice->subtotal,
-                'Tax' => $invoice->tax_amount,
-                'Total' => $invoice->total_amount,
-                'Payment' => $invoice->payment_label,
-            ]);
-
-        return $this->downloadExcel('gst-report.xlsx', $rows);
-    }
-
-    // Export GST report as a tax summary PDF.
-    public function gstReportPdf(Request $request)
-    {
-        $invoices = SalesInvoice::query()
-            ->with('customer')
-            ->when($request->filled('date_from'), function ($query) use ($request) {
-                $query->whereDate('invoice_date', '>=', $request->date_from);
-            })
-            ->when($request->filled('date_to'), function ($query) use ($request) {
-                $query->whereDate('invoice_date', '<=', $request->date_to);
-            })
-            ->latest('invoice_date')
-            ->latest('id')
-            ->get();
-
-        return $this->downloadPdf(
-            'gst-report.pdf',
-            'finance.pdf.gst-report',
-            [
-                'invoices' => $invoices,
-                'filters' => $request->only(['date_from', 'date_to']),
-                'summary' => [
-                    'taxable_sales' => $invoices->sum('subtotal'),
-                    'tax_amount' => $invoices->sum('tax_amount'),
-                    'total_sales' => $invoices->sum('total_amount'),
-                ],
-            ]
         );
     }
 

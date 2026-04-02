@@ -15,12 +15,12 @@
                 <a href="{{ route('admin.export.trial-balance', request()->query()) }}" class="btn btn-outline-primary btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
-                <a href="{{ route('admin.export.trial-balance-pdf', request()->query()) }}" class="btn btn-pdf">
+                <a href="{{ route('admin.export.trial-balance-pdf', request()->query()) }}" target="_blank" class="btn btn-pdf">
                     <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>
-                <button type="button" class="btn btn-print js-print-trigger" data-print-target="#trialBalancePrintArea">
-                    <i class="fa-solid fa-print"></i> Print
-                </button>
+                <a href="{{ route('admin.export.trial-balance-pdf', request()->query()) }}" target="_blank" class="btn btn-primary">
+                    <i class="fa-solid fa-print"></i> Print / PDF
+                </a>
             </div>
         </div>
 

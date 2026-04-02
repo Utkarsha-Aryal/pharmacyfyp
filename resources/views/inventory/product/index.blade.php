@@ -1,13 +1,13 @@
 @extends('layouts.main')
 
 @section('title')
-    Inventory Products
+    Product
 @endsection
 
 @section('main-content')
     <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
         <div class="my-auto">
-            <h5 class="page-title fs-21 mb-1">Inventory Products</h5>
+            <h5 class="page-title fs-21 mb-1">Product</h5>
         </div>
         <div class="d-flex my-xl-auto right-content">
             <div class="pe-1 mb-xl-0 d-flex gap-2">

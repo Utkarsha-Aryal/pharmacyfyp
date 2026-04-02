@@ -20,9 +20,27 @@ class Purchase extends Model
         return $this->belongsTo(PurchaseReference::class, 'reference_id');
     }
 
+    // Purchase bill can also remember which payment mode was used for direct payment.
+    public function paymentMode()
+    {
+        return $this->belongsTo(PaymentMode::class, 'payment_mode_id');
+    }
+
     public function batches()
     {
         return $this->hasMany(ProductBatch::class, 'reference_id', 'reference_id');
+    }
+
+    // Direct purchase bill rows now live in their own table for returns, PDF and allocation logic.
+    public function items()
+    {
+        return $this->hasMany(PurchaseItem::class, 'purchase_id');
+    }
+
+    // Purchase return headers point back to the original bill.
+    public function returns()
+    {
+        return $this->hasMany(PurchaseReturn::class, 'purchase_id');
     }
 
     public static function list($post)
@@ -94,6 +112,12 @@ class Purchase extends Model
     public function getDueAmountAttribute()
     {
         return (float) $this->grand_total - (float) $this->paid_amount;
+    }
+
+    // Keep one common payable value because payment-out and dashboard both need it.
+    public function getOutstandingAmountAttribute(): float
+    {
+        return round(max(0, (float) $this->grand_total - (float) $this->paid_amount), 2);
     }
 
     public static function resolvePaymentStatus(float $grandTotal, float $paidAmount): string

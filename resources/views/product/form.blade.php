@@ -92,8 +92,12 @@
 
 
             <div class="col-md-4">
-                <label class="form-label">Unit Sale <span class="text-danger">*</span></label>
-                <select class="form-select js-select2" name="unit_sale_id" data-placeholder="Select Sale Unit" required>
+                <label class="form-label d-flex justify-content-between align-items-center">Unit Sale <span>
+                        <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickUnitModal" data-quick-target-select="#productSaleUnitSelect">
+                            <i class="fa-solid fa-plus"></i> Quick Add
+                        </button>
+                    </span></label>
+                <select class="form-select js-select2" id="productSaleUnitSelect" name="unit_sale_id" data-placeholder="Select Sale Unit" required>
                     <option disabled selected>Select Sale Unit</option>
                     @foreach ($unit as $unitItem)
                         <option value="{{ $unitItem->id }}"
@@ -105,8 +109,12 @@
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">Unit Purchase <span class="text-danger">*</span></label>
-                <select class="form-select js-select2" name="unit_purchase_id" data-placeholder="Select Purchase Unit" required>
+                <label class="form-label d-flex justify-content-between align-items-center">Unit Purchase <span>
+                        <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickUnitModal" data-quick-target-select="#productPurchaseUnitSelect">
+                            <i class="fa-solid fa-plus"></i> Quick Add
+                        </button>
+                    </span></label>
+                <select class="form-select js-select2" id="productPurchaseUnitSelect" name="unit_purchase_id" data-placeholder="Select Purchase Unit" required>
                     <option disabled selected>Select Purchase Unit</option>
                     @foreach ($unit as $unitItem)
                         <option value="{{ $unitItem->id }}"
@@ -121,6 +129,12 @@
                 <label class="form-label">Conversion</label>
                 <input type="number" step="0.01" name="conversion" id="conversion" class="form-control" placeholder="e.g. 10"
                     value="{{ @$prevPost->conversion }}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Product Code</label>
+                <input type="text" name="product_code" class="form-control" placeholder="Optional unique code"
+                    value="{{ old('product_code', $prevPost->product_code ?? '') }}">
             </div>
 
             <div class="col-md-4">

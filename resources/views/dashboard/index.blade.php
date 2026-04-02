@@ -13,8 +13,19 @@
         $canSalesView = $currentUser?->can('sales.invoice') || $currentUser?->can('sales.payment') || $currentUser?->can('sales.return');
         $canReportView = $currentUser?->can('report.low_stock') || $currentUser?->can('report.expiry') || $currentUser?->can('report.purchases') || $currentUser?->can('report.suppliers');
         $canUserManage = $currentUser?->can('user.manage');
-        $showAnalyticsTab = $canInventoryView || $canPurchaseView || $canSalesView;
+        $showAnalyticsTab = $canSalesView;
         $showAlertsTab = $canInventoryView || $canReportView;
+        $dashboardCards = [
+            ['label' => "Today's Sales", 'value' => money_value($todaySales), 'note' => 'Confirmed invoice total for today.', 'icon' => 'fa-cash-register', 'url' => route('admin.sales.index')],
+            ['label' => 'This Month Sales', 'value' => money_value($monthSales), 'note' => 'Sales total for the current month.', 'icon' => 'fa-chart-line', 'url' => route('admin.sales.index')],
+            ['label' => 'This Month Purchase', 'value' => money_value($monthPurchase), 'note' => 'Received purchase total for this month.', 'icon' => 'fa-file-invoice-dollar', 'url' => route('admin.purchase')],
+            ['label' => 'Outstanding Receivables', 'value' => money_value($outstandingReceivables), 'note' => 'Customer balances still pending.', 'icon' => 'fa-hand-holding-dollar', 'url' => route('admin.payments.in.create')],
+            ['label' => 'Outstanding Payables', 'value' => money_value($outstandingPayables), 'note' => 'Supplier balances still unpaid.', 'icon' => 'fa-money-bill-transfer', 'url' => route('admin.payments.out.create')],
+            ['label' => 'Low Stock Items', 'value' => $lowStockCount, 'note' => 'Products at or below reorder level.', 'icon' => 'fa-triangle-exclamation', 'url' => route('admin.report.lowstock')],
+            ['label' => 'Expiring in 3 Months', 'value' => $expiringSoonCount, 'note' => 'Batches reaching expiry soon.', 'icon' => 'fa-hourglass-half', 'url' => route('admin.report.expiry', ['window' => '3m'])],
+            ['label' => 'Total Products', 'value' => $totalProducts, 'note' => 'Unified product records in catalog.', 'icon' => 'fa-capsules', 'url' => route('admin.product')],
+            ['label' => 'Total Suppliers', 'value' => $totalSuppliers, 'note' => 'Supplier parties available for billing.', 'icon' => 'fa-truck-field', 'url' => route('admin.supplier')],
+        ];
     @endphp
 
     <div class="dashboard-wrap">
@@ -88,20 +99,16 @@
                         <div class="dashboard-hero-stat">
                             @if ($canPurchaseView)
                                 <span>This Month's Purchase Value</span>
-                                <strong>{{ money_value($thisMonthPurchaseValue) }}</strong>
+                                <strong>{{ money_value($monthPurchase) }}</strong>
                                 <small>Received purchase value for {{ now()->format('F Y') }} only.</small>
                             @elseif ($canSalesView)
                                 <span>This Month's Sales</span>
-                                <strong>{{ money_value($thisMonthSalesValue) }}</strong>
+                                <strong>{{ money_value($monthSales) }}</strong>
                                 <small>Confirmed invoice value for {{ now()->format('F Y') }}.</small>
                             @elseif ($canInventoryView)
                                 <span>Total Stock Qty</span>
                                 <strong>{{ $totalStock }}</strong>
                                 <small>Only the stock data this role needs to watch.</small>
-                            @elseif ($canUserManage)
-                                <span>System Users</span>
-                                <strong>{{ $totalUsers }}</strong>
-                                <small>Users who can enter the </small>
                             @else
                                 <span>Role View</span>
                                 <strong>Limited</strong>
@@ -113,202 +120,25 @@
             </div>
         </div>
 
-        <div class="row g-3 mb-3">
-            @if ($canInventoryView)
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">Total Categories</p>
-                                <span class="dashboard-mini-icon dashboard-icon-blue">
-                                    <i class="fa-solid fa-list"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ $totalCategory }}</div>
-                            <p class="dashboard-mini-note">Medicine groups in system.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">Total Products</p>
-                                <span class="dashboard-mini-icon dashboard-icon-green">
-                                    <i class="fa-solid fa-capsules"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ $totalProducts }}</div>
-                            <p class="dashboard-mini-note">Product master records.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">Total Batches</p>
-                                <span class="dashboard-mini-icon dashboard-icon-red">
-                                    <i class="fa-solid fa-boxes-stacked"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ $totalBatches }}</div>
-                            <p class="dashboard-mini-note">Batch rows for stock.</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            @if ($canPurchaseView)
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">Total Suppliers</p>
-                                <span class="dashboard-mini-icon dashboard-icon-orange">
-                                    <i class="fa-solid fa-truck-field"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ $totalSuppliers }}</div>
-                            <p class="dashboard-mini-note">Supplier records active.</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            @if ($canSalesView)
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">Today's Sales</p>
-                                <span class="dashboard-mini-icon dashboard-icon-info">
-                                    <i class="fa-solid fa-cash-register"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ money_value($todaySalesValue) }}</div>
-                            <p class="dashboard-mini-note">Confirmed invoice value for today.</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-        </div>
-
         <div class="row g-3 mb-4">
-            @if ($canPurchaseView)
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">This Month Purchase Value</p>
-                                <span class="dashboard-mini-icon dashboard-icon-info">
-                                    <i class="fa-solid fa-calendar-day"></i>
-                                </span>
+            @foreach ($dashboardCards as $card)
+                <div class="col-xl-4 col-md-6">
+                    <a href="{{ $card['url'] }}" class="text-decoration-none">
+                        <div class="card custom-card dashboard-mini-card h-100">
+                            <div class="card-body">
+                                <div class="dashboard-mini-head">
+                                    <p class="dashboard-mini-title">{{ $card['label'] }}</p>
+                                    <span class="dashboard-mini-icon dashboard-icon-info">
+                                        <i class="fa-solid {{ $card['icon'] }}"></i>
+                                    </span>
+                                </div>
+                                <div class="dashboard-mini-value">{{ $card['value'] }}</div>
+                                <p class="dashboard-mini-note">{{ $card['note'] }}</p>
                             </div>
-                            <div class="dashboard-mini-value">{{ money_value($thisMonthPurchaseValue) }}</div>
-                            <p class="dashboard-mini-note">Received purchase value this month.</p>
                         </div>
-                    </div>
+                    </a>
                 </div>
-
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">All Time Purchase Value</p>
-                                <span class="dashboard-mini-icon dashboard-icon-purple">
-                                    <i class="fa-solid fa-file-invoice-dollar"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ money_value($totalPurchaseValue) }}</div>
-                            <p class="dashboard-mini-note">All purchase orders together.</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            @if ($canInventoryView)
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">Total Stock Qty</p>
-                                <span class="dashboard-mini-icon dashboard-icon-green">
-                                    <i class="fa-solid fa-warehouse"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ $totalStock }}</div>
-                            <p class="dashboard-mini-note">Active batch quantity.</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            @if ($canUserManage)
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">System Users</p>
-                                <span class="dashboard-mini-icon dashboard-icon-orange">
-                                    <i class="fa-solid fa-user-shield"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ $totalUsers }}</div>
-                            <p class="dashboard-mini-note">Admin, staff and procurement.</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            @if ($canSalesView)
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">This Month Sales</p>
-                                <span class="dashboard-mini-icon dashboard-icon-green">
-                                    <i class="fa-solid fa-chart-line"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ money_value($thisMonthSalesValue) }}</div>
-                            <p class="dashboard-mini-note">Invoice value for this month.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">Outstanding Receivables</p>
-                                <span class="dashboard-mini-icon dashboard-icon-orange">
-                                    <i class="fa-solid fa-hand-holding-dollar"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ money_value($outstandingReceivables) }}</div>
-                            <p class="dashboard-mini-note">Still pending from customers.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6">
-                    <div class="card custom-card dashboard-mini-card">
-                        <div class="card-body">
-                            <div class="dashboard-mini-head">
-                                <p class="dashboard-mini-title">Credit Sales</p>
-                                <span class="dashboard-mini-icon dashboard-icon-purple">
-                                    <i class="fa-solid fa-file-invoice-dollar"></i>
-                                </span>
-                            </div>
-                            <div class="dashboard-mini-value">{{ $creditSalesCount }}</div>
-                            <p class="dashboard-mini-note">Confirmed invoices created on credit.</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
+            @endforeach
         </div>
 
         <div class="card custom-card dashboard-tab-card">
@@ -357,7 +187,7 @@
                                                     <span>Products below or equal to reorder level.</span>
                                                 </li>
                                                 <li>
-                                                    <strong>Expiring Soon: {{ $expiringThreeMonthsCount }}</strong>
+                                                    <strong>Expiring Soon: {{ $expiringSoonCount }}</strong>
                                                     <span>Batches expiring inside the next 3 months.</span>
                                                 </li>
                                                 <li>
@@ -376,10 +206,6 @@
                                                 </li>
                                             @endif
                                             @if ($canSalesView)
-                                                <li>
-                                                    <strong>All Time Sales: {{ money_value($allTimeSalesValue) }}</strong>
-                                                    <span>Total confirmed invoice value in the system.</span>
-                                                </li>
                                                 <li>
                                                     <strong>Outstanding Receivables: {{ money_value($outstandingReceivables) }}</strong>
                                                     <span>Customer balance still pending.</span>
@@ -574,32 +400,8 @@
                     @if ($showAnalyticsTab)
                     <div class="tab-pane fade" id="dashboard-analytics" role="tabpanel">
                         <div class="row g-4">
-                            <div class="col-xl-5">
-                                <div class="card custom-card dashboard-inner-card analytics-overview-card">
-                                    <div class="card-header justify-content-between">
-                                        <div class="card-title">Overview Bar Chart</div>
-                                    </div>
-                                    <div class="card-body dashboard-chart-box">
-                                        <canvas id="overviewBarChart" data-labels='@json($overviewChart["labels"])' data-values='@json($overviewChart["values"])'></canvas>
-                                    </div>
-                                </div>
-                            </div>
-
-                            @if ($canPurchaseView)
-                                <div class="{{ $canInventoryView ? 'col-xl-7' : 'col-xl-12' }}">
-                                    <div class="card custom-card dashboard-inner-card">
-                                        <div class="card-header justify-content-between">
-                                            <div class="card-title">Purchase Trend</div>
-                                        </div>
-                                        <div class="card-body dashboard-chart-box">
-                                            <canvas id="purchaseTrendChart" data-labels='@json($purchaseTrendChart["labels"])' data-values='@json($purchaseTrendChart["values"])'></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-
                             @if ($canSalesView)
-                                <div class="{{ $canPurchaseView ? 'col-xl-7' : 'col-xl-12' }}">
+                                <div class="col-xl-7">
                                     <div class="card custom-card dashboard-inner-card">
                                         <div class="card-header justify-content-between">
                                             <div class="card-title">Sales vs Purchase</div>
@@ -610,26 +412,13 @@
                                     </div>
                                 </div>
 
-                                <div class="{{ $canPurchaseView || $canInventoryView ? 'col-xl-5' : 'col-xl-12' }}">
+                                <div class="col-xl-5">
                                     <div class="card custom-card dashboard-inner-card analytics-overview-card">
                                         <div class="card-header justify-content-between">
-                                            <div class="card-title">Top Selling Products</div>
+                                            <div class="card-title">Top Selling Products This Month</div>
                                         </div>
                                         <div class="card-body dashboard-chart-box">
                                             <canvas id="topSellingProductsChart" data-labels='@json($topSellingProductsChart["labels"])' data-values='@json($topSellingProductsChart["values"])'></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if ($canInventoryView)
-                                <div class="{{ $canPurchaseView ? 'col-xl-7' : 'col-xl-12' }}">
-                                    <div class="card custom-card dashboard-inner-card">
-                                        <div class="card-header justify-content-between">
-                                            <div class="card-title">Stock by Category</div>
-                                        </div>
-                                        <div class="card-body dashboard-chart-box dashboard-chart-box-sm">
-                                            <canvas id="stockCategoryChart" data-labels='@json($stockCategoryChart["labels"])' data-values='@json($stockCategoryChart["values"])'></canvas>
                                         </div>
                                     </div>
                                 </div>

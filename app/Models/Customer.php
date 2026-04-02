@@ -39,6 +39,12 @@ class Customer extends Model
         return $this->hasMany(AccountTransaction::class, 'party_id')->where('party_type', 'customer');
     }
 
+    // Payment in vouchers point to the customer side.
+    public function payments()
+    {
+        return $this->hasMany(Payment::class, 'party_id')->where('party_type', 'customer');
+    }
+
     // Let the party management table show a short badge label.
     public function getPartyTypeLabelAttribute(): string
     {

@@ -3,15 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductBatch;
+use App\Models\PaymentMode;
 use App\Models\Purchase;
+use App\Models\PurchaseItem;
 use App\Models\PurchaseReference;
 use App\Models\Supplier;
+use App\Models\Unit;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class PurchaseController extends Controller
@@ -65,7 +71,10 @@ class PurchaseController extends Controller
                 $array[$i]['due'] = number_format($row->due_amount, 2);
                 $array[$i]['order_status'] = $this->statusBadgeHtml($row->order_status);
                 $array[$i]['added_date'] = $row->purchase_date_show;
-                $array[$i]['action'] = '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn viewPurchaseBillBtn" title="View Bill Summary" data-reference="' . e($row->reference?->reference_no ?? '-') . '" data-invoice="' . e($row->invoice_no ?: '-') . '" data-supplier="' . e($row->supplier?->supplier_name ?? '-') . '" data-items="' . e($row->batches_count) . '" data-total="' . e(number_format((float) $row->grand_total, 2)) . '" data-paid="' . e(number_format((float) $row->paid_amount, 2)) . '" data-due="' . e(number_format($row->due_amount, 2)) . '" data-status="' . e($row->order_status_label) . '" data-date="' . e($row->purchase_date_show) . '" data-remarks="' . e($row->remarks ?: '-') . '"><i class="fa-solid fa-eye"></i></button>';
+                $array[$i]['action'] = '<div class="table-action-group">';
+                $array[$i]['action'] .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn viewPurchaseBillBtn" title="View Bill Summary" data-reference="' . e($row->reference?->reference_no ?? '-') . '" data-invoice="' . e($row->invoice_no ?: '-') . '" data-supplier="' . e($row->supplier?->supplier_name ?? '-') . '" data-items="' . e($row->batches_count) . '" data-total="' . e(number_format((float) $row->grand_total, 2)) . '" data-paid="' . e(number_format((float) $row->paid_amount, 2)) . '" data-due="' . e(number_format($row->due_amount, 2)) . '" data-status="' . e($row->order_status_label) . '" data-date="' . e($row->purchase_date_show) . '" data-remarks="' . e($row->remarks ?: '-') . '"><i class="fa-solid fa-eye"></i></button>';
+                $array[$i]['action'] .= '<a href="' . route('admin.purchases.print', $row) . '" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF" aria-label="Print / PDF"><i class="fa-solid fa-print"></i></a>';
+                $array[$i]['action'] .= '</div>';
                 $i++;
             }
 
@@ -90,6 +99,9 @@ class PurchaseController extends Controller
             'supplier' => Supplier::where('status', 'Y')->orderBy('supplier_name')->get(),
             'product' => Product::where('status', 'Y')->orderBy('product_name')->get(),
             'reference' => PurchaseReference::makeNewReference(),
+            'paymentModes' => PaymentMode::query()->where('is_active', true)->orderBy('name')->get(),
+            'categories' => Category::query()->orderBy('name')->get(),
+            'units' => Unit::query()->orderBy('unit_name')->get(),
         ]);
     }
 
@@ -179,13 +191,22 @@ class PurchaseController extends Controller
                 'invoice_no' => ['nullable', 'string', 'max:255'],
                 'purchase_date' => ['required', 'date'],
                 'paid_amount' => ['nullable', 'numeric', 'min:0'],
+                'payment_mode_id' => [
+                    Rule::requiredIf((float) $request->input('paid_amount', 0) > 0),
+                    'nullable',
+                    'exists:payment_modes,id',
+                ],
                 'remarks' => ['nullable', 'string'],
                 'items' => ['required', 'array', 'min:1'],
                 'items.*.product_id' => ['required', 'exists:products,id'],
                 'items.*.batch_no' => ['nullable', 'string', 'max:255'],
-                'items.*.expiry_date' => ['required', 'string', 'max:20'],
+                'items.*.expiry_date' => ['required', 'date'],
                 'items.*.quantity' => ['required', 'integer', 'min:1'],
+                'items.*.free_qty' => ['nullable', 'integer', 'min:0'],
+                'items.*.mrp' => ['required', 'numeric', 'min:0'],
                 'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
+                'items.*.cc_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+                'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             ]);
 
             DB::beginTransaction();
@@ -195,10 +216,15 @@ class PurchaseController extends Controller
                 throw new Exception('This purchase reference is already used. Please reload the page.', 1);
             }
 
-            $grandTotal = 0;
+            $subtotal = 0;
+            $discountTotal = 0;
             foreach ($post['items'] as $item) {
-                $grandTotal += ((float) $item['quantity']) * ((float) $item['purchase_price']);
+                $lineAmount = round(((float) $item['quantity']) * ((float) $item['purchase_price']), 2);
+                $lineDiscount = round(($lineAmount * (float) ($item['discount_percent'] ?? 0)) / 100, 2);
+                $subtotal += $lineAmount;
+                $discountTotal += $lineDiscount;
             }
+            $grandTotal = round($subtotal - $discountTotal, 2);
 
             $purchase = Purchase::create([
                 'supplier_id' => $post['supplier_id'],
@@ -207,11 +233,14 @@ class PurchaseController extends Controller
                 'purchase_date' => $post['purchase_date'],
                 'order_status' => 'received',
                 'grand_total' => $grandTotal,
+                'total_discount' => round($discountTotal, 2),
                 'paid_amount' => $post['paid_amount'] ?? 0,
                 'payment_status' => Purchase::resolvePaymentStatus($grandTotal, (float) ($post['paid_amount'] ?? 0)),
+                'payment_mode_id' => $post['payment_mode_id'] ?? null,
                 'remarks' => $post['remarks'] ?? null,
             ]);
 
+            $post['purchase_id'] = $purchase->id;
             $result = ProductBatch::savePurchaseItems($post);
             if (!$result) {
                 throw new Exception('Could not save purchase items.', 1);
@@ -267,5 +296,18 @@ class PurchaseController extends Controller
         };
 
         return '<span class="report-badge ' . $class . '">' . $label . '</span>';
+    }
+
+    // Stream one purchase bill PDF with all saved line items.
+    public function print(Purchase $purchase)
+    {
+        $purchase->load(['supplier', 'reference', 'paymentMode', 'items.product', 'items.batch']);
+
+        return Pdf::loadView('pdf.purchase', [
+            'purchase' => $purchase,
+            'company' => pdf_company_context(),
+            'logoSrc' => pdf_logo_src(),
+        ])->setPaper('a4', 'portrait')
+            ->stream('purchase-' . $purchase->id . '.pdf');
     }
 }

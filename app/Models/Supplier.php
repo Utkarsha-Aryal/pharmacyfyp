@@ -9,6 +9,26 @@ use Illuminate\Database\Eloquent\Builder;
 
 class Supplier extends Model
 {
+    protected $guarded = [];
+
+    // Direct purchase bills belong to one supplier.
+    public function purchases()
+    {
+        return $this->hasMany(Purchase::class, 'supplier_id');
+    }
+
+    // Payment out can link vouchers to suppliers.
+    public function payments()
+    {
+        return $this->hasMany(Payment::class, 'party_id')->where('party_type', 'supplier');
+    }
+
+    // Accounting ledger can read supplier transactions from one relation.
+    public function accountTransactions()
+    {
+        return $this->hasMany(AccountTransaction::class, 'party_id')->where('party_type', 'supplier');
+    }
+
     public static function saveData($post)
     {
         try {

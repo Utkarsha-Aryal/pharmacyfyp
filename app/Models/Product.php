@@ -32,6 +32,18 @@ class Product extends Model
         return $this->hasMany(Batch::class, 'product_id');
     }
 
+    // Direct purchase bill rows live here for return and print use.
+    public function purchaseItems()
+    {
+        return $this->hasMany(PurchaseItem::class, 'product_id');
+    }
+
+    // Sales rows live here for sales analysis and PDF use.
+    public function salesInvoiceItems()
+    {
+        return $this->hasMany(SalesInvoiceItem::class, 'product_id');
+    }
+
     // Keep one simple display name so views do not guess which name column to use.
     public function getDisplayNameAttribute(): string
     {
@@ -59,6 +71,7 @@ class Product extends Model
     {
         try {
             $dataArray = [
+                'product_code' => $post['product_code'] ?? null,
                 'name' => $post['product_name'] ?? null,
                 'product_name' => $post['product_name'] ?? null,
                 'generic_name' => $post['generic_name'] ?? null,

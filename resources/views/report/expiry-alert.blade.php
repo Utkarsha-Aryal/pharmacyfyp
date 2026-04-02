@@ -12,11 +12,11 @@
                 <p class="mb-0 text-muted">Batch wise expiry list for tracking products expiring inside the next 3 to 6 months.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="{{ route('admin.export.expiry-alert') }}" class="btn btn-excel">
+                <a href="{{ route('admin.export.expiry-alert', request()->query()) }}" class="btn btn-excel">
                     <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
-                <a href="{{ route('admin.export.expiry-alert-pdf') }}" class="btn btn-pdf">
-                    <i class="fa-solid fa-file-pdf"></i> PDF
+                <a href="{{ route('admin.reports.expiry-alert.print', request()->query()) }}" target="_blank" class="btn btn-primary">
+                    <i class="fa-solid fa-print"></i> Print / PDF
                 </a>
             </div>
         </div>
@@ -57,13 +57,6 @@
             </div>
             <div class="card-body">
                 <form method="GET" class="row g-3 align-items-end">
-                    <div class="col-md-2">
-                        <label class="form-label">Quick Window</label>
-                        <select name="window" class="form-select">
-                            <option value="3m" @selected(($filters['window'] ?? '6m') === '3m')>3 Months</option>
-                            <option value="6m" @selected(($filters['window'] ?? '6m') === '6m')>6 Months</option>
-                        </select>
-                    </div>
                     <div class="col-md-3">
                         <label class="form-label">Date From</label>
                         <input type="date" name="date_from" class="form-control" value="{{ $filters['date_from'] ?? '' }}">
@@ -72,7 +65,14 @@
                         <label class="form-label">Date To</label>
                         <input type="date" name="date_to" class="form-control" value="{{ $filters['date_to'] ?? '' }}">
                     </div>
-                    <div class="col-md-4 d-flex gap-2">
+                    <div class="col-md-6 d-flex gap-2 flex-wrap">
+                        <input type="hidden" name="window" id="expiryWindow" value="{{ $filters['window'] ?? '6m' }}">
+                        <button type="button" class="btn btn-outline-primary js-expiry-window" data-window="3m">
+                            <i class="fa-solid fa-clock"></i> 3 Months
+                        </button>
+                        <button type="button" class="btn btn-outline-primary js-expiry-window" data-window="6m">
+                            <i class="fa-solid fa-calendar"></i> 6 Months
+                        </button>
                         <button type="submit" class="btn btn-primary">
                             <i class="fa-solid fa-filter"></i> Apply
                         </button>
@@ -132,4 +132,34 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(function () {
+            $(document).on('click', '.js-expiry-window', function () {
+                var windowType = $(this).data('window');
+                var today = new Date();
+                var dateTo = new Date(today.getTime());
+
+                if (windowType === '3m') {
+                    dateTo.setMonth(dateTo.getMonth() + 3);
+                } else {
+                    dateTo.setMonth(dateTo.getMonth() + 6);
+                }
+
+                var formatDate = function (value) {
+                    var year = value.getFullYear();
+                    var month = String(value.getMonth() + 1).padStart(2, '0');
+                    var day = String(value.getDate()).padStart(2, '0');
+                    return year + '-' + month + '-' + day;
+                };
+
+                $('#expiryWindow').val(windowType);
+                $('input[name="date_from"]').val(formatDate(today));
+                $('input[name="date_to"]').val(formatDate(dateTo));
+                $(this).closest('form').trigger('submit');
+            });
+        });
+    </script>
 @endsection

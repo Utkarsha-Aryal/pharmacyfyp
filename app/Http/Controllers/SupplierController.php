@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Common;
 use Exception;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,7 +22,17 @@ class SupplierController extends Controller
 
     public function save(Request $request){
         try {
-            $post = $request->all();
+            $post = $request->validate([
+                'id' => ['nullable', 'integer', 'exists:suppliers,id'],
+                'supplier_name' => ['required', 'string', 'max:255'],
+                'contact_person' => ['nullable', 'string', 'max:255'],
+                'phone_number' => ['nullable', 'string', 'max:50'],
+                'email' => ['nullable', 'email', 'max:255'],
+                'pan_number' => ['nullable', 'string', 'max:100'],
+                'opening_balance' => ['nullable', 'numeric'],
+                'address' => ['nullable', 'string'],
+                'type' => ['nullable', 'in:cash,credit'],
+            ]);
             $type = 'success';
             $message = 'Records saved successfully';
             DB::beginTransaction();
@@ -31,10 +40,13 @@ class SupplierController extends Controller
             if (!$result) {
                 throw new Exception('Could not save record', 1);
             }
+            $savedSupplier = !empty($post['id'])
+                ? Supplier::query()->find($post['id'])
+                : Supplier::query()->where('supplier_name', $post['supplier_name'])->latest('id')->first();
             DB::commit();
         } catch (ValidationException $e) {
             $type = 'error';
-            $message = $e->getMessage();
+            $message = collect($e->errors())->flatten()->first() ?: $e->getMessage();
         } catch (QueryException $e) {
             DB::rollBack();
             $type = 'error';
@@ -44,7 +56,16 @@ class SupplierController extends Controller
             $type = 'error';
             $message = $e->getMessage();
         }
-        return response()->json(['type' => $type, 'message' => $message]);
+        return response()->json([
+            'type' => $type,
+            'message' => $message,
+            'data' => isset($savedSupplier) && $type === 'success'
+                ? [
+                    'id' => $savedSupplier->id,
+                    'text' => $savedSupplier->supplier_name,
+                ]
+                : null,
+        ]);
 
     }
 

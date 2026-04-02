@@ -675,18 +675,38 @@
 
   function updatePurchaseRow(row) {
     var qty = parseFloat($(row).find(".qty-input").val()) || 0;
+    var freeQty = parseFloat($(row).find(".free-qty-input").val()) || 0;
+    var mrp = parseFloat($(row).find(".mrp-input").val()) || 0;
     var price = parseFloat($(row).find(".price-input").val()) || 0;
-    $(row).find(".subtotal-input").val((qty * price).toFixed(2));
+    var ccRate = parseFloat($(row).find(".cc-rate-input").val()) || 0;
+    var discountPercent = parseFloat($(row).find(".discount-input").val()) || 0;
+    var lineAmount = qty * price;
+    var discountAmount = lineAmount * discountPercent / 100;
+    var freeGoodsValue = freeQty * (mrp * ccRate / 100);
+
+    $(row).data("discountAmount", discountAmount);
+    $(row).find(".free-goods-input").val(freeGoodsValue.toFixed(2));
+    $(row).find(".subtotal-input").val(lineAmount.toFixed(2));
   }
 
   function updatePurchaseTotal() {
-    var total = 0;
+    var subtotal = 0;
+    var discountTotal = 0;
+    var freeGoodsTotal = 0;
 
     $("#purchaseItemsTable .subtotal-input").each(function () {
-      total += parseFloat($(this).val()) || 0;
+      subtotal += parseFloat($(this).val()) || 0;
     });
 
-    $("#grandTotal").val(total.toFixed(2));
+    $("#purchaseItemsTable tbody tr").each(function () {
+      discountTotal += parseFloat($(this).data("discountAmount")) || 0;
+      freeGoodsTotal += parseFloat($(this).find(".free-goods-input").val()) || 0;
+    });
+
+    $("#purchaseSubtotal").val(subtotal.toFixed(2));
+    $("#purchaseDiscountTotal").val(discountTotal.toFixed(2));
+    $("#purchaseFreeGoodsTotal").val(freeGoodsTotal.toFixed(2));
+    $("#grandTotal").val((subtotal - discountTotal).toFixed(2));
   }
 
   function updatePurchaseRowNumbers() {
@@ -732,7 +752,12 @@
       if ($("#purchaseItemsTable tbody tr").length === 1) {
         row.find("input").val("");
         row.find(".qty-input").val(1);
+        row.find(".free-qty-input").val(0);
+        row.find(".mrp-input").val(0);
         row.find(".price-input").val(0);
+        row.find(".cc-rate-input").val(0);
+        row.find(".discount-input").val(0);
+        row.find(".free-goods-input").val("0.00");
         row.find(".subtotal-input").val("0.00");
         row.find("select").val("");
       } else {
@@ -743,8 +768,8 @@
       updatePurchaseTotal();
     });
 
-    $(document).off("input.purchase", "#purchaseItemsTable .qty-input, #purchaseItemsTable .price-input");
-    $(document).on("input.purchase", "#purchaseItemsTable .qty-input, #purchaseItemsTable .price-input", function () {
+    $(document).off("input.purchase", "#purchaseItemsTable .qty-input, #purchaseItemsTable .free-qty-input, #purchaseItemsTable .mrp-input, #purchaseItemsTable .price-input, #purchaseItemsTable .cc-rate-input, #purchaseItemsTable .discount-input");
+    $(document).on("input.purchase", "#purchaseItemsTable .qty-input, #purchaseItemsTable .free-qty-input, #purchaseItemsTable .mrp-input, #purchaseItemsTable .price-input, #purchaseItemsTable .cc-rate-input, #purchaseItemsTable .discount-input", function () {
       updatePurchaseRow($(this).closest("tr"));
       updatePurchaseTotal();
     });
@@ -767,6 +792,12 @@
 
         if (response.purchase_price !== undefined) {
           $row.find(".price-input").val(parseFloat(response.purchase_price || 0).toFixed(2));
+        }
+        if (response.mrp !== undefined) {
+          $row.find(".mrp-input").val(parseFloat(response.mrp || 0).toFixed(2));
+        }
+        if (response.cc_rate !== undefined) {
+          $row.find(".cc-rate-input").val(parseFloat(response.cc_rate || 0).toFixed(2));
         }
 
         var infoText = response.name
@@ -814,26 +845,38 @@
 
   function updateSalesRow(row) {
     var qty = parseFloat($(row).find(".sales-qty-input").val()) || 0;
+    var freeQty = parseFloat($(row).find(".sales-free-qty-input").val()) || 0;
+    var mrp = parseFloat($(row).find(".sales-mrp-input").val()) || 0;
     var price = parseFloat($(row).find(".sales-price-input").val()) || 0;
+    var ccRate = parseFloat($(row).find(".sales-cc-rate-input").val()) || 0;
     var discountPercent = parseFloat($(row).find(".sales-discount-input").val()) || 0;
-    var taxPercent = parseFloat($(row).find(".sales-tax-input").val()) || 0;
     var baseAmount = qty * price;
     var discountAmount = baseAmount * discountPercent / 100;
-    var taxableAmount = baseAmount - discountAmount;
-    var taxAmount = taxableAmount * taxPercent / 100;
-    var subtotal = taxableAmount + taxAmount;
+    var freeGoodsValue = freeQty * (mrp * ccRate / 100);
 
-    $(row).find(".sales-subtotal-input").val(subtotal.toFixed(2));
+    $(row).data("discountAmount", discountAmount);
+    $(row).find(".sales-free-value-input").val(freeGoodsValue.toFixed(2));
+    $(row).find(".sales-subtotal-input").val(baseAmount.toFixed(2));
   }
 
   function updateSalesTotal() {
-    var total = 0;
+    var subtotal = 0;
+    var discountTotal = 0;
+    var freeGoodsTotal = 0;
 
     $("#salesItemsTable .sales-subtotal-input").each(function () {
-      total += parseFloat($(this).val()) || 0;
+      subtotal += parseFloat($(this).val()) || 0;
     });
 
-    $("#salesGrandTotal").val(total.toFixed(2));
+    $("#salesItemsTable tbody tr").each(function () {
+      discountTotal += parseFloat($(this).data("discountAmount")) || 0;
+      freeGoodsTotal += parseFloat($(this).find(".sales-free-value-input").val()) || 0;
+    });
+
+    $("#salesSubtotal").val(subtotal.toFixed(2));
+    $("#salesDiscountTotal").val(discountTotal.toFixed(2));
+    $("#salesFreeGoodsTotal").val(freeGoodsTotal.toFixed(2));
+    $("#salesGrandTotal").val((subtotal - discountTotal).toFixed(2));
   }
 
   function updateSalesRowNumbers() {
@@ -863,6 +906,24 @@
 
       if (response.price !== undefined) {
         $row.find(".sales-price-input").val(parseFloat(response.price || 0).toFixed(2));
+      }
+      if (response.mrp !== undefined) {
+        $row.find(".sales-mrp-input").val(parseFloat(response.mrp || 0).toFixed(2));
+      }
+      if (response.cc_rate !== undefined) {
+        $row.find(".sales-cc-rate-input").val(parseFloat(response.cc_rate || 0).toFixed(2));
+      }
+
+      var $batchSelect = $row.find(".sales-batch-select");
+      if ($batchSelect.length) {
+        $batchSelect.empty().append('<option value="">Select batch</option>');
+
+        if (Array.isArray(response.batches)) {
+          response.batches.forEach(function (batch, index) {
+            var option = new Option(batch.text + " | Qty: " + (batch.available || 0), batch.id, index === 0, index === 0);
+            $batchSelect.append(option);
+          });
+        }
       }
 
       var stockText = response.name
@@ -908,11 +969,15 @@
       if ($("#salesItemsTable tbody tr").length === 1) {
         row.find("input").val("");
         row.find(".sales-qty-input").val(1);
+        row.find(".sales-free-qty-input").val(0);
+        row.find(".sales-mrp-input").val(0);
         row.find(".sales-price-input").val(0);
+        row.find(".sales-cc-rate-input").val(0);
         row.find(".sales-discount-input").val(0);
-        row.find(".sales-tax-input").val(0);
+        row.find(".sales-free-value-input").val("0.00");
         row.find(".sales-subtotal-input").val("0.00");
         row.find("select").val("");
+        row.find(".sales-batch-select").empty().append('<option value="">Select batch</option>');
       } else {
         row.remove();
       }
@@ -921,8 +986,8 @@
       updateSalesTotal();
     });
 
-    $(document).off("input.sales change.sales", "#salesItemsTable .sales-qty-input, #salesItemsTable .sales-price-input, #salesItemsTable .sales-discount-input, #salesItemsTable .sales-tax-input");
-    $(document).on("input.sales change.sales", "#salesItemsTable .sales-qty-input, #salesItemsTable .sales-price-input, #salesItemsTable .sales-discount-input, #salesItemsTable .sales-tax-input", function () {
+    $(document).off("input.sales change.sales", "#salesItemsTable .sales-qty-input, #salesItemsTable .sales-free-qty-input, #salesItemsTable .sales-mrp-input, #salesItemsTable .sales-price-input, #salesItemsTable .sales-cc-rate-input, #salesItemsTable .sales-discount-input");
+    $(document).on("input.sales change.sales", "#salesItemsTable .sales-qty-input, #salesItemsTable .sales-free-qty-input, #salesItemsTable .sales-mrp-input, #salesItemsTable .sales-price-input, #salesItemsTable .sales-cc-rate-input, #salesItemsTable .sales-discount-input", function () {
       updateSalesRow($(this).closest("tr"));
       updateSalesTotal();
     });
@@ -1013,6 +1078,208 @@
     });
   }
 
+  function initImportPreview() {
+    $(document).off("change.importPreview", ".js-import-preview-input");
+    $(document).on("change.importPreview", ".js-import-preview-input", function () {
+      var input = this;
+      var targetSelector = input.dataset.previewTarget || "";
+      var previewBox = targetSelector ? document.querySelector(targetSelector) : null;
+      var file = input.files && input.files[0] ? input.files[0] : null;
+
+      if (!previewBox) {
+        return;
+      }
+
+      previewBox.classList.add("d-none");
+      previewBox.innerHTML = "";
+
+      if (!file) {
+        return;
+      }
+
+      if (!/\.csv$/i.test(file.name)) {
+        previewBox.classList.remove("d-none");
+        previewBox.innerHTML = '<div class="alert alert-light border mb-0">Preview is available for CSV files. XLSX import will still work when you submit.</div>';
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function (event) {
+        var text = String(event.target.result || "");
+        var rows = text.split(/\r?\n/).filter(function (row) {
+          return row.trim() !== "";
+        }).slice(0, 6);
+
+        if (!rows.length) {
+          return;
+        }
+
+        var html = '<div class="table-responsive"><table class="table table-bordered mb-0">';
+        rows.forEach(function (row, index) {
+          var cells = row.split(",");
+          html += '<tr>';
+          cells.forEach(function (cell) {
+            html += '<' + (index === 0 ? 'th' : 'td') + '>' + cell.trim() + '</' + (index === 0 ? 'th' : 'td') + '>';
+          });
+          html += '</tr>';
+        });
+        html += '</table></div>';
+
+        previewBox.classList.remove("d-none");
+        previewBox.innerHTML = html;
+      };
+
+      reader.readAsText(file);
+    });
+  }
+
+  function ensureElementHasId($element) {
+    if (!$element || !$element.length) {
+      return "";
+    }
+
+    var existingId = $element.attr("id");
+    if (existingId) {
+      return "#" + existingId;
+    }
+
+    var generatedId = "quickTarget" + Date.now() + Math.floor(Math.random() * 1000);
+    $element.attr("id", generatedId);
+    return "#" + generatedId;
+  }
+
+  function findQuickTargetElement(triggerElement, selector) {
+    if (!selector || !window.jQuery) {
+      return $();
+    }
+
+    var $trigger = $(triggerElement);
+    var $closestScope = $trigger.closest("tr, .row, .modal-content, .modal-body, .card, form, .admin-page-wrap");
+
+    if ($closestScope.length) {
+      var $scopedMatch = $closestScope.find(selector).first();
+      if ($scopedMatch.length) {
+        return $scopedMatch;
+      }
+    }
+
+    return $(selector).first();
+  }
+
+  function appendQuickOptionToTarget(targetSelector, payload) {
+    if (!targetSelector || !payload || payload.id === undefined || !window.jQuery) {
+      return;
+    }
+
+    var $target = $(targetSelector).first();
+    if (!$target.length) {
+      return;
+    }
+
+    var optionText = payload.text || payload.name || payload.supplier_name || payload.unit_name || payload.product_name || ("Item #" + payload.id);
+    var optionValue = String(payload.id);
+    var existingOption = $target.find('option[value="' + optionValue + '"]');
+
+    if (existingOption.length) {
+      existingOption.text(optionText);
+    } else {
+      $target.append(new Option(optionText, optionValue, true, true));
+    }
+
+    $target.val(optionValue).trigger("change");
+  }
+
+  function resetQuickCreateForm(form) {
+    if (!form || !window.jQuery) {
+      return;
+    }
+
+    form.reset();
+
+    $(form).find("select").each(function () {
+      var $select = $(this);
+      if ($select.hasClass("select2-hidden-accessible")) {
+        $select.val("").trigger("change");
+      }
+    });
+  }
+
+  function initQuickCreateModals() {
+    if (!window.jQuery || typeof bootstrap === "undefined") {
+      return;
+    }
+
+    $(document).off("click.quickCreate", ".js-open-quick-create");
+    $(document).on("click.quickCreate", ".js-open-quick-create", function (event) {
+      event.preventDefault();
+
+      var modalSelector = this.dataset.quickModal || "";
+      var modalElement = modalSelector ? document.querySelector(modalSelector) : null;
+
+      if (!modalElement) {
+        return;
+      }
+
+      var targetSelector = this.dataset.quickTargetSelect || "";
+      var $targetElement = findQuickTargetElement(this, targetSelector);
+      var resolvedTarget = ensureElementHasId($targetElement);
+
+      modalElement.dataset.quickTargetSelect = resolvedTarget || targetSelector;
+      bootstrap.Modal.getOrCreateInstance(modalElement).show();
+    });
+
+    $(document).off("submit.quickCreate", ".js-quick-create-form");
+    $(document).on("submit.quickCreate", ".js-quick-create-form", function (event) {
+      event.preventDefault();
+
+      var form = this;
+      var modalElement = form.closest(".modal");
+      var targetSelector = modalElement ? (modalElement.dataset.quickTargetSelect || "") : "";
+
+      showLoader();
+
+      $.ajax({
+        url: form.action,
+        type: form.method || "POST",
+        data: new FormData(form),
+        processData: false,
+        contentType: false,
+        success: function (response) {
+          hideLoader();
+          showNotification(response.message || "Saved successfully.", response.type || "success");
+
+          if (response && response.data) {
+            appendQuickOptionToTarget(targetSelector, response.data);
+          }
+
+          if (modalElement) {
+            bootstrap.Modal.getOrCreateInstance(modalElement).hide();
+          }
+
+          resetQuickCreateForm(form);
+        },
+        error: function (xhr) {
+          hideLoader();
+          var response = xhr.responseJSON || {};
+          showNotification(response.message || "Could not save right now.", "error");
+        },
+      });
+    });
+  }
+
+  function initWorkspaceLayout() {
+    var html = document.documentElement;
+
+    if (!html || !document.body) {
+      return;
+    }
+
+    if (document.body.classList.contains("workspace-form-page") && window.innerWidth >= 992) {
+      html.setAttribute("data-vertical-style", "closed");
+      html.setAttribute("data-toggled", "close-menu-close");
+    }
+  }
+
   function submitFormSafely(form) {
     if (!form) {
       return;
@@ -1077,80 +1344,6 @@
     });
 
     window.__entryShortcutBound = true;
-  }
-
-  function initPrintActions() {
-    if (window.__printActionBound) {
-      return;
-    }
-
-    function expandDataTablesForPrint(targetElement) {
-      var states = [];
-
-      if (!window.jQuery || !$.fn.DataTable) {
-        return states;
-      }
-
-      $(targetElement).find("table").each(function () {
-        if (!$.fn.DataTable.isDataTable(this)) {
-          return;
-        }
-
-        var api = $(this).DataTable();
-        var pageInfo = api.page.info();
-
-        states.push({
-          api: api,
-          length: api.page.len(),
-          page: pageInfo ? pageInfo.page : 0,
-        });
-
-        api.page.len(-1).draw(false);
-      });
-
-      return states;
-    }
-
-    function restoreDataTablesAfterPrint(states) {
-      (states || []).forEach(function (state) {
-        state.api.page.len(state.length).draw(false);
-
-        if (state.length !== -1) {
-          state.api.page(state.page).draw("page");
-        }
-      });
-    }
-
-    $(document).on("click.printArea", ".js-print-trigger", function (event) {
-      event.preventDefault();
-
-      var targetSelector = this.dataset.printTarget || "";
-      var printTarget = targetSelector ? document.querySelector(targetSelector) : null;
-
-      if (!printTarget) {
-        window.print();
-        return;
-      }
-
-      document.body.classList.add("print-target-active");
-      printTarget.classList.add("print-active-target");
-      var tableStates = expandDataTablesForPrint(printTarget);
-
-      var cleanup = function () {
-        document.body.classList.remove("print-target-active");
-        printTarget.classList.remove("print-active-target");
-        restoreDataTablesAfterPrint(tableStates);
-      };
-
-      window.addEventListener("afterprint", cleanup, { once: true });
-
-      window.setTimeout(function () {
-        window.print();
-        window.setTimeout(cleanup, 400);
-      }, 80);
-    });
-
-    window.__printActionBound = true;
   }
 
   function initBatchHistoryTable() {
@@ -1400,40 +1593,6 @@
     }
   }
 
-  // Add one reusable print button on list pages so we do not repeat the same Blade code everywhere.
-  function initAutoTablePrintButtons() {
-    if (!document.querySelector(".page-header-breadcrumb")) {
-      return;
-    }
-
-    // dashboard has charts and tabs, so the auto list print button is more confusing than helpful there
-    if (document.querySelector(".dashboard-wrap")) {
-      return;
-    }
-
-    if (document.querySelector(".page-header-breadcrumb .js-print-trigger")) {
-      return;
-    }
-
-    var actionGroup = document.querySelector(".page-header-breadcrumb .d-flex.gap-2, .page-header-breadcrumb .right-content.gap-2, .page-header-breadcrumb .d-flex");
-    var tableCard = document.querySelector(".card.custom-card table") ? document.querySelector(".card.custom-card table").closest(".card.custom-card") : null;
-
-    if (!actionGroup || !tableCard) {
-      return;
-    }
-
-    if (!tableCard.id) {
-      tableCard.id = "autoPrintCard" + String(Date.now());
-    }
-
-    var printButton = document.createElement("button");
-    printButton.type = "button";
-    printButton.className = "btn btn-print js-print-trigger js-auto-print-list";
-    printButton.setAttribute("data-print-target", "#" + tableCard.id);
-    printButton.innerHTML = '<i class="fa-solid fa-print"></i> Print';
-    actionGroup.insertBefore(printButton, actionGroup.firstChild);
-  }
-
   window.showLoader = showLoader;
   window.hideLoader = hideLoader;
   window.showNotification = showNotification;
@@ -1461,10 +1620,11 @@
     initEnhancedSelects(document);
     initConfirmForms();
     initAjaxForms();
+    initImportPreview();
+    initQuickCreateModals();
+    initWorkspaceLayout();
     initDataTableTabAdjust();
     initStandardDataTables();
-    initAutoTablePrintButtons();
-    initPrintActions();
     initEntryFormShortcuts();
   });
 

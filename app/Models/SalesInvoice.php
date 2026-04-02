@@ -32,6 +32,12 @@ class SalesInvoice extends Model
         return $this->belongsTo(User::class, 'sold_by');
     }
 
+    // Direct invoice payments can use the shared payment mode master too.
+    public function paymentMode()
+    {
+        return $this->belongsTo(PaymentMode::class, 'payment_mode_id');
+    }
+
     // Keep a direct link to the creator for audit style tracing.
     public function creator()
     {
@@ -48,6 +54,12 @@ class SalesInvoice extends Model
     public function returns()
     {
         return $this->hasMany(SalesReturn::class, 'sales_invoice_id');
+    }
+
+    // Payment allocations help Payment In link money against one or more invoices.
+    public function paymentAllocations()
+    {
+        return $this->hasMany(PaymentBillAllocation::class, 'bill_id')->where('bill_type', 'sales_invoice');
     }
 
     // Build a unique invoice reference using the current date.
@@ -86,6 +98,10 @@ class SalesInvoice extends Model
     // Keep the payment method label simple for the show page.
     public function getPaymentMethodLabelAttribute(): string
     {
+        if ($this->relationLoaded('paymentMode') && $this->paymentMode) {
+            return $this->paymentMode->name;
+        }
+
         return ucfirst((string) $this->payment_method);
     }
 
@@ -113,6 +129,12 @@ class SalesInvoice extends Model
     public function getDueAmountAttribute(): float
     {
         return round(((float) $this->total_amount) - (float) ($this->paid_amount ?? 0), 2);
+    }
+
+    // Receivable summary also uses the same unpaid figure.
+    public function getOutstandingAmountAttribute(): float
+    {
+        return $this->due_amount;
     }
 
     // Keep the payment status logic in one place so controllers stay simple.

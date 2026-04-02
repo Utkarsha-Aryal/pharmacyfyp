@@ -242,13 +242,6 @@ if (!function_exists('low_stock_threshold')) {
     }
 }
 
-if (!function_exists('default_tax_rate')) {
-    function default_tax_rate()
-    {
-        return (float) setting('tax_rate', 13);
-    }
-}
-
 if (!function_exists('admin_notification_count')) {
     function admin_notification_count()
     {
@@ -281,6 +274,47 @@ if (!function_exists('money_value')) {
         $symbol = currency_symbol();
 
         return $symbol !== '' ? $symbol . ' ' . $formattedValue : $formattedValue;
+    }
+}
+
+if (!function_exists('pdf_company_context')) {
+    function pdf_company_context(): array
+    {
+        return [
+            'company_name' => setting('app_name', 'Pharmacy Management System'),
+            'company_address' => trim(strip_tags((string) setting('company_address', ''))),
+            'company_phone' => setting('company_phone', ''),
+            'company_email' => setting('company_email', ''),
+            'company_logo' => setting('app_logo'),
+            'footer_text' => setting('print_footer_text', 'Thank you for your business'),
+        ];
+    }
+}
+
+if (!function_exists('pdf_logo_src')) {
+    function pdf_logo_src(): ?string
+    {
+        $company = pdf_company_context();
+        $logoPath = $company['company_logo'] ?? null;
+
+        if (empty($logoPath)) {
+            return null;
+        }
+
+        $fullPath = public_path(str_starts_with($logoPath, 'storage/') ? $logoPath : ltrim($logoPath, '/'));
+
+        if (!is_file($fullPath)) {
+            return null;
+        }
+
+        $mime = mime_content_type($fullPath) ?: 'image/png';
+        $binary = file_get_contents($fullPath);
+
+        if ($binary === false) {
+            return null;
+        }
+
+        return 'data:' . $mime . ';base64,' . base64_encode($binary);
     }
 }
 

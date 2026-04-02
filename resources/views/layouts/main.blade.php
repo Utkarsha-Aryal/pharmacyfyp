@@ -79,7 +79,7 @@
 
 </head>
 
-<body data-page="@yield('title')">
+<body class="@yield('body-class')" data-page="@yield('title')">
 
     <!-- Loader with Background Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
