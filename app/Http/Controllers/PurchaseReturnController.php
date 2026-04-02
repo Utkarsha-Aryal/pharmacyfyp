@@ -144,6 +144,13 @@ class PurchaseReturnController extends Controller
             'items.*.batch_id' => ['nullable', 'exists:batches,id'],
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.return_qty' => ['nullable', 'integer', 'min:0'],
+        ], [
+            'items.required' => 'Please add at least one return row.',
+            'items.min' => 'Please add at least one return row.',
+            'items.*.purchase_item_id.exists' => 'Please reload the purchase bill and try again.',
+            'items.*.batch_id.exists' => 'Please select a valid batch for each return row.',
+            'items.*.product_id.exists' => 'Please select a valid product for each return row.',
+            'items.*.return_qty.min' => 'Return quantity cannot be less than zero.',
         ]);
 
         $rows = collect($validated['items'])

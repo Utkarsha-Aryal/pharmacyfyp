@@ -192,6 +192,10 @@ class PaymentController extends Controller
             'allocations.*.bill_id' => ['nullable', 'integer'],
             'allocations.*.bill_type' => ['nullable', Rule::in(['sales_invoice', 'purchase'])],
             'allocations.*.allocated_amount' => ['nullable', 'numeric', 'min:0.01'],
+        ], [
+            'allocations.*.bill_id.integer' => 'Please choose a valid bill for each linked row.',
+            'allocations.*.bill_type.in' => 'Please choose a valid bill type for each linked row.',
+            'allocations.*.allocated_amount.min' => 'Allocation amount must be at least 0.01.',
         ]);
 
         if ($validated['party_type'] !== $partyType) {
