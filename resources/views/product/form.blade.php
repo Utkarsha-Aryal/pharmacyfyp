@@ -218,6 +218,12 @@
             </div>
 
             <div class="col-md-3">
+                <label class="form-label">CC Rate (%)</label>
+                <input type="number" step="0.01" min="0" name="cc_rate" id="cc_rate" class="form-control"
+                    value="{{ old('cc_rate', $prevPost->cc_rate ?? 0) }}">
+            </div>
+
+            <div class="col-md-3">
                 <label class="form-label">Discount (%)</label>
                 <input type="number" step="0.01" name="discount" id="discount" class="form-control"
                     value="{{ @$prevPost->discount }}">
@@ -362,6 +368,10 @@
                 description: "required",
                 order_number: "required",
                 mrp: "required",
+                cc_rate: {
+                    number: true,
+                    min: 0
+                },
                 image: {
                     required: function() {
                         return $('#id').val() === '';
@@ -389,6 +399,10 @@
                 },
                 mrp: {
                     required: "MRP is required."
+                },
+                cc_rate: {
+                    number: "CC Rate must be a number.",
+                    min: "CC Rate cannot be negative."
                 },
                 description: {
                     required: "Description is required."

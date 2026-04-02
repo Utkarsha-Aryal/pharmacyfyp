@@ -11,7 +11,6 @@
         'admin.product.*',
         'admin.batch',
         'admin.batch.*',
-        'admin.inventory.products.*',
         'admin.inventory.batches.*',
         'admin.inventory.adjustments.*'
     );
@@ -86,14 +85,11 @@
                                 </li>
                             @endcan
                             @can('inventory.product')
-                                <li class="slide {{ request()->routeIs('admin.product', 'admin.product.*', 'admin.batch', 'admin.batch.*') ? 'active' : '' }}">
-                                    <a href="{{ route('admin.product') }}" class="side-menu__item">Product Master</a>
+                                <li class="slide {{ request()->routeIs('admin.product', 'admin.product.*', 'admin.batch', 'admin.batch.*', 'admin.inventory.products.*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.product') }}" class="side-menu__item">Product</a>
                                 </li>
                             @endcan
                             @can('inventory.view')
-                                <li class="slide {{ request()->routeIs('admin.inventory.products.*') ? 'active' : '' }}">
-                                    <a href="{{ route('admin.inventory.products.index') }}" class="side-menu__item">Products</a>
-                                </li>
                                 <li class="slide {{ request()->routeIs('admin.inventory.batches.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.inventory.batches.index') }}" class="side-menu__item">Batches</a>
                                 </li>

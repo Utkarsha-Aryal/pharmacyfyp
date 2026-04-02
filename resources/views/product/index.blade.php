@@ -42,11 +42,25 @@
                     <div class="card-title">
                         Product List
                     </div>
-                    <div class="d-flex my-xl-auto right-content">
-                        <div class="pe-1 mb-xl-0">
+                    <div class="d-flex my-xl-auto right-content gap-2">
+                        <form class="d-flex gap-2 align-items-end" method="GET">
+                            <select name="category_id" id="product_category_id" class="form-select js-select2" data-placeholder="All categories" data-allow-clear="1" style="min-width: 220px;">
+                                <option value="">All Category</option>
+                                @foreach ($categories as $category)
+                                    <option value="{{ $category->id }}" @selected(request('category_id') == $category->id)>{{ $category->name }}</option>
+                                @endforeach
+                            </select>
+                            <button class="btn btn-primary btn-sm icon-only-btn" type="submit" title="Filter" aria-label="Filter">
+                                <i class="fa-solid fa-filter"></i>
+                            </button>
+                            <a href="{{ route('admin.product') }}" class="btn btn-outline-secondary btn-sm icon-only-btn" title="Reset" aria-label="Reset">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </a>
+                        </form>
+                        <div class="pe-1 mb-xl-0 d-flex align-items-center">
                             <input class="form-check-input" type="checkbox" value="Y" id="trashed_file"
                                 name="trashed_file">
-                            <label class="form-check-label" for="trashed_file">
+                            <label class="form-check-label ms-2" for="trashed_file">
                                 View Deleted
                             </label>
                         </div>
@@ -60,12 +74,12 @@
                                 <th>S.No</th>
                                 <th>Product Name</th>
                                 <th>Category</th>
+                                <th>Formulation</th>
+                                <th>Unit</th>
+                                <th>Reorder Level</th>
                                 <th>Stock Qty</th>
-                                <th>Order</th>
-                                <th>Generic Name</th>
-                                <th>Price</th>
-                                <th>Image</th>
-                                <th>Keywords</th>
+                                <th>MRP</th>
+                                <th>CC Rate</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
@@ -121,22 +135,22 @@
                         data: "category"
                     },
                     {
+                        data: "formulation"
+                    },
+                    {
+                        data: "unit"
+                    },
+                    {
+                        data: "reorder_level"
+                    },
+                    {
                         data: "stock_quantity"
                     },
                     {
-                        data: "order_number"
+                        data: "mrp"
                     },
                     {
-                        data: "generic_name"
-                    },
-                    {
-                        data: "display_price"
-                    },
-                    {
-                        data:"image"
-                    },
-                    {
-                        data: "keywords"
+                        data: "cc_rate"
                     },
                     {
                         data: "status"
@@ -148,6 +162,7 @@
                 ajaxUrl: '{{route('admin.product.list')}}',
                 ajaxData: function(d) {
                     d.type = $('#trashed_file').is(':checked') == true ? 'trashed' : 'nottrashed';
+                    d.category_id = $('#product_category_id').val() || '';
                 }
             });
 

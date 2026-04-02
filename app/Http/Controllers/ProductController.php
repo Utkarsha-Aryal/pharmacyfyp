@@ -17,16 +17,18 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
-     public function index()
+    // Keep only one main product page so users do not have to guess between Product and Product Master.
+    public function index()
     {
-        return view('product.index');
-    }
-
-    public function inventoryIndex()
-    {
-        return view('inventory.product.index', [
+        return view('product.index', [
             'categories' => Category::query()->orderBy('name')->get(),
         ]);
+    }
+
+    // Old inventory products link now points back to the same unified product page.
+    public function inventoryIndex()
+    {
+        return redirect()->route('admin.product', request()->only('category_id'));
     }
 
 
@@ -57,57 +59,82 @@ public function globalSearch(Request $request)
 }
 
 
-   public function form(Request $request)
-{
-    try {
-        $post = $request->all();
-        $category = Category::all();
-        $unit = Unit::all();
-        $prevPost = [];
+    public function form(Request $request)
+    {
+        try {
+            $post = $request->all();
+            $category = Category::all();
+            $unit = Unit::all();
+            $prevPost = [];
 
-        if (!empty($post['id'])) {
-            $prevPost = Product::find($post['id']);
+            if (!empty($post['id'])) {
+                $prevPost = Product::find($post['id']);
 
-            if (!$prevPost) {
-                throw new \Exception("Couldn't find product details.", 1);
+                if (!$prevPost) {
+                    throw new \Exception("Couldn't find product details.", 1);
+                }
             }
+
+            $data = [
+                'category' => $category,
+                'prevPost' => $prevPost,
+                'unit' => $unit,
+            ];
+
+            if (!empty($prevPost) && $prevPost->image) {
+                $data['image'] = '<img src="' . asset('/storage/product/' . $prevPost->image) . '" class="_image" height="160px" width="160px" alt="No image"/>';
+            } else {
+                $data['image'] = '<img src="' . asset('/no-image.jpg') . '" class="_image" height="160px" width="160px" alt="No image"/>';
+            }
+
+            $data['type'] = 'success';
+            $data['message'] = 'Successfully got data.';
+        } catch (QueryException $e) {
+            $data['type'] = 'error';
+            $data['message'] = $this->queryMessage;
+        } catch (Exception $e) {
+            $data['type'] = 'error';
+            $data['message'] = $e->getMessage();
         }
 
-        // Prepare the base data array
-        $data = [
-            'category' => $category,
-            'prevPost' => $prevPost,
-            'unit'=>$unit,
-        ];
-
-        // Add image HTML based on existence
-        if (!empty($prevPost) && $prevPost->image) {
-            $data['image'] = '<img src="' . asset('/storage/product/' . $prevPost->image) . '" class="_image" height="160px" width="160px" alt="No image"/>';
-        } else {
-            $data['image'] = '<img src="' . asset('/no-image.jpg') . '" class="_image" height="160px" width="160px" alt="No image"/>';
-        }
-
-        $data['type'] = 'success';
-        $data['message'] = 'Successfully got data.';
-    } catch (QueryException $e) {
-        $data['type'] = 'error';
-        $data['message'] = $this->queryMessage;
-    } catch (Exception $e) {
-        $data['type'] = 'error';
-        $data['message'] = $e->getMessage();
+        return view('product.form', $data);
     }
 
-    return view('product.form', $data);
-}
 
-
+    // Product save now has backend validation too, not only html required attributes.
     public function save(Request $request)
     {
         try{
-        $post = $request->all();
-        $type = 'success';
-        $message = 'Product added sucessfully';
-         DB::beginTransaction();
+            $validated = $request->validate([
+                'id' => ['nullable', 'exists:products,id'],
+                'category_id' => ['required', 'exists:categories,id'],
+                'unit_sale_id' => ['required', 'exists:units,id'],
+                'unit_purchase_id' => ['required', 'exists:units,id'],
+                'product_name' => ['required', 'string', 'max:255'],
+                'generic_name' => ['nullable', 'string', 'max:255'],
+                'composition' => ['nullable', 'string', 'max:255'],
+                'group_name' => ['nullable', 'string', 'max:255'],
+                'manufacturer' => ['nullable', 'string', 'max:255'],
+                'product_status' => ['nullable', 'in:instock,stockout'],
+                'formulation' => ['nullable', 'in:tablet,capsule,syrup,injection,cream,drops,other'],
+                'unit' => ['nullable', 'string', 'max:100'],
+                'order_number' => ['nullable', 'integer', 'min:0'],
+                'reorder_level' => ['nullable', 'integer', 'min:0'],
+                'previous_price' => ['nullable', 'numeric', 'min:0'],
+                'mrp' => ['required', 'numeric', 'min:0'],
+                'cc_rate' => ['nullable', 'numeric', 'min:0'],
+                'discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
+                'purchase_price' => ['nullable', 'numeric', 'min:0'],
+                'keywords' => ['nullable', 'string'],
+                'description' => ['required', 'string'],
+                'image' => [$request->filled('id') ? 'nullable' : 'required', 'image', 'max:5120'],
+                'is_active' => ['nullable', 'boolean'],
+            ]);
+
+            $post = array_merge($request->all(), $validated);
+            $type = 'success';
+            $message = 'Product saved successfully';
+            DB::beginTransaction();
             $result = Product::saveData($post);
             if (!$result) {
                 throw new Exception('Could not save record', 1);
@@ -151,13 +178,15 @@ public function globalSearch(Request $request)
                 }
 
                 $array[$i]['sno'] = $i + 1;
-                $array[$i]['product_name'] = $row->product_name;
+                $array[$i]['product_name'] = $row->display_name;
                 $array[$i]['category'] = $row->category?->name ?? '-';
                 $array[$i]['stock_quantity'] = $currentStock;
                 $array[$i]['generic_name'] = $row->generic_name;
                 $array[$i]['formulation'] = ucfirst((string) ($row->formulation ?? 'Other'));
                 $array[$i]['unit'] = $row->unit ?: '-';
                 $array[$i]['reorder_level'] = $row->reorder_level ?? $row->alert_quantity ?? 10;
+                $array[$i]['mrp'] = money_value($row->mrp ?? 0);
+                $array[$i]['cc_rate'] = number_format((float) ($row->cc_rate ?? 0), 2) . '%';
                 $array[$i]['description'] = $row->description;
                 $array[$i]['keywords'] = Str::limit($row->keywords, 25, '...');
                 $array[$i]['display_price'] =$price;

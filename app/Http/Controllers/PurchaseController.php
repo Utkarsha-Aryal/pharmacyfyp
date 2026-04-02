@@ -152,6 +152,24 @@ class PurchaseController extends Controller
         ]);
     }
 
+    // Return current product purchase data so the purchase row can show MRP and CC rate quickly.
+    public function productInfo(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => ['required', 'exists:products,id'],
+        ]);
+
+        $product = Product::query()->findOrFail($validated['product_id']);
+
+        return response()->json([
+            'id' => $product->id,
+            'name' => $product->display_name,
+            'mrp' => round((float) ($product->mrp ?? 0), 2),
+            'cc_rate' => round((float) ($product->cc_rate ?? 0), 2),
+            'purchase_price' => round((float) ($product->purchase_price ?? 0), 2),
+        ]);
+    }
+
     public function save(Request $request)
     {
         try {

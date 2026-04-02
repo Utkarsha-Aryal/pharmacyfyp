@@ -78,14 +78,14 @@ class DemoDataSeeder extends Seeder
         }
 
         $productRows = [
-            ['name' => 'Ibuprofen 400mg', 'generic' => 'Ibuprofen', 'category' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 12, 'mrp' => 110, 'purchase_price' => 78, 'alert' => 12, 'manufacturer' => 'Himalaya Labs'],
-            ['name' => 'Paracetamol 500mg', 'generic' => 'Paracetamol', 'category' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 20, 'mrp' => 95, 'purchase_price' => 60, 'alert' => 20, 'manufacturer' => 'Health First'],
-            ['name' => 'Amoxicillin 500mg', 'generic' => 'Amoxicillin', 'category' => 2, 'formulation' => 'capsule', 'unit' => 'Strip', 'reorder' => 18, 'mrp' => 145, 'purchase_price' => 102, 'alert' => 18, 'manufacturer' => 'ABC Pharma'],
-            ['name' => 'Azithromycin 250mg', 'generic' => 'Azithromycin', 'category' => 2, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 15, 'mrp' => 220, 'purchase_price' => 170, 'alert' => 15, 'manufacturer' => 'Nepal Remedies'],
-            ['name' => 'Vitamin C 1000mg', 'generic' => 'Ascorbic Acid', 'category' => 3, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 10, 'mrp' => 310, 'purchase_price' => 250, 'alert' => 10, 'manufacturer' => 'Nutri Life'],
-            ['name' => 'Metformin 500mg', 'generic' => 'Metformin', 'category' => 4, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 14, 'mrp' => 180, 'purchase_price' => 132, 'alert' => 14, 'manufacturer' => 'Life Care'],
-            ['name' => 'Amlodipine 5mg', 'generic' => 'Amlodipine', 'category' => 5, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 10, 'mrp' => 165, 'purchase_price' => 120, 'alert' => 10, 'manufacturer' => 'Heart Care Pharma'],
-            ['name' => 'Atorvastatin 10mg', 'generic' => 'Atorvastatin', 'category' => 5, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 8, 'mrp' => 265, 'purchase_price' => 190, 'alert' => 8, 'manufacturer' => 'Cardio Care'],
+            ['name' => 'Ibuprofen 400mg', 'generic' => 'Ibuprofen', 'category' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 12, 'mrp' => 110, 'purchase_price' => 78, 'alert' => 12, 'manufacturer' => 'Himalaya Labs', 'cc_rate' => 7.50],
+            ['name' => 'Paracetamol 500mg', 'generic' => 'Paracetamol', 'category' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 20, 'mrp' => 95, 'purchase_price' => 60, 'alert' => 20, 'manufacturer' => 'Health First', 'cc_rate' => 5.00],
+            ['name' => 'Amoxicillin 500mg', 'generic' => 'Amoxicillin', 'category' => 2, 'formulation' => 'capsule', 'unit' => 'Strip', 'reorder' => 18, 'mrp' => 145, 'purchase_price' => 102, 'alert' => 18, 'manufacturer' => 'ABC Pharma', 'cc_rate' => 8.25],
+            ['name' => 'Azithromycin 250mg', 'generic' => 'Azithromycin', 'category' => 2, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 15, 'mrp' => 220, 'purchase_price' => 170, 'alert' => 15, 'manufacturer' => 'Nepal Remedies', 'cc_rate' => 6.00],
+            ['name' => 'Vitamin C 1000mg', 'generic' => 'Ascorbic Acid', 'category' => 3, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 10, 'mrp' => 310, 'purchase_price' => 250, 'alert' => 10, 'manufacturer' => 'Nutri Life', 'cc_rate' => 10.00],
+            ['name' => 'Metformin 500mg', 'generic' => 'Metformin', 'category' => 4, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 14, 'mrp' => 180, 'purchase_price' => 132, 'alert' => 14, 'manufacturer' => 'Life Care', 'cc_rate' => 7.00],
+            ['name' => 'Amlodipine 5mg', 'generic' => 'Amlodipine', 'category' => 5, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 10, 'mrp' => 165, 'purchase_price' => 120, 'alert' => 10, 'manufacturer' => 'Heart Care Pharma', 'cc_rate' => 5.50],
+            ['name' => 'Atorvastatin 10mg', 'generic' => 'Atorvastatin', 'category' => 5, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 8, 'mrp' => 265, 'purchase_price' => 190, 'alert' => 8, 'manufacturer' => 'Cardio Care', 'cc_rate' => 6.75],
         ];
 
         $productIds = [];
@@ -99,6 +99,7 @@ class DemoDataSeeder extends Seeder
                 'description' => $product['name'] . ' sample record for pharmacy demo.',
                 'previous_price' => $product['purchase_price'],
                 'mrp' => $product['mrp'],
+                'cc_rate' => $product['cc_rate'],
                 'generic_name' => $product['generic'],
                 'product_status' => 'instock',
                 'slug' => Str::slug($product['name']) . '-' . Str::random(8),

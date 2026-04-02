@@ -14,26 +14,31 @@ class Product extends Model
 {
     protected $guarded = [];
 
+    // One product belongs to one category.
     public function category()
     {
         return $this->belongsTo(Category::class, 'category_id');
     }
 
+    // Old purchase bill batches still point here, so this relation stays for backward compatibility.
     public function productBatches()
     {
         return $this->hasMany(ProductBatch::class, 'product_id');
     }
 
+    // Newer inventory flow uses the clean batches table.
     public function batches()
     {
         return $this->hasMany(Batch::class, 'product_id');
     }
 
+    // Keep one simple display name so views do not guess which name column to use.
     public function getDisplayNameAttribute(): string
     {
         return (string) ($this->name ?: $this->product_name ?: 'Untitled product');
     }
 
+    // Reorder level can come from the newer field or the old alert field.
     public function getEffectiveReorderLevelAttribute(): int
     {
         if (!is_null($this->reorder_level)) {
@@ -43,40 +48,42 @@ class Product extends Model
         return (int) ($this->alert_quantity ?? 10);
     }
 
+    // Unit is also mixed between legacy and new data, so keep a fallback.
     public function getEffectiveUnitAttribute(): string
     {
         return (string) ($this->unit ?? 'Unit');
     }
 
+    // Keep product save logic in one place because both add and edit use the same modal form.
     public static function saveData($post)
     {
         try {
             $dataArray = [
-                'name' => $post['product_name'],
-                'product_name' => $post['product_name'],
-                'generic_name' => $post['generic_name'],
-                'composition' => $post['composition'],
-                'order_number' => $post['order_number'],
-                'group_name'=>$post['group_name'],
-                'description' => $post['description'],
-                'manufacturer'=>$post['manufacturer'], 
-                'previous_price' => $post['previous_price'],
-                'mrp'=>$post['mrp'],
-                'category_id' => $post['category_id'],
+                'name' => $post['product_name'] ?? null,
+                'product_name' => $post['product_name'] ?? null,
+                'generic_name' => $post['generic_name'] ?? null,
+                'composition' => $post['composition'] ?? null,
+                'order_number' => $post['order_number'] ?? null,
+                'group_name' => $post['group_name'] ?? null,
+                'description' => $post['description'] ?? null,
+                'manufacturer' => $post['manufacturer'] ?? null,
+                'previous_price' => $post['previous_price'] ?? null,
+                'mrp' => $post['mrp'] ?? null,
+                'cc_rate' => $post['cc_rate'] ?? 0,
+                'category_id' => $post['category_id'] ?? null,
                 'formulation' => $post['formulation'] ?? 'other',
                 'unit' => $post['unit_name'] ?? $post['unit'] ?? null,
                 'reorder_level' => $post['reorder_level'] ?? $post['alert_quantity'] ?? 10,
                 'alert_quantity' => $post['reorder_level'] ?? $post['alert_quantity'] ?? 10,
                 'is_active' => array_key_exists('is_active', $post) ? (bool) $post['is_active'] : true,
-                'sale_unit_id'=>$post['unit_sale_id'],
-                'purchase_unit_id'=>$post['unit_purchase_id'],
+                'sale_unit_id' => $post['unit_sale_id'] ?? null,
+                'purchase_unit_id' => $post['unit_purchase_id'] ?? null,
                 'product_status' => $post['product_status'] ?? 'stockout',
-                'slug' => Str::slug($post['product_name']) . '-' . Str::random(30) . '-' . time() . '-' . Str::slug($post['description']) . '-' . Str::random(30) . '-' . time(),
-                'keywords' => $post['keywords'],
-                'alert_quantity'=>$post['alert_quantity'],
-                'discount'=>$post['discount'],
-                'purchase_price'=>$post['purchase_price']
-
+                'slug' => Str::slug((string) ($post['product_name'] ?? 'product')) . '-' . Str::random(12) . '-' . time(),
+                'keywords' => $post['keywords'] ?? null,
+                'alert_quantity' => $post['alert_quantity'] ?? ($post['reorder_level'] ?? 10),
+                'discount' => $post['discount'] ?? 0,
+                'purchase_price' => $post['purchase_price'] ?? null,
             ];
 
             if (!empty($post['image'])) {
@@ -150,7 +157,8 @@ class Product extends Model
                 },
             ])
                 ->selectRaw("(SELECT COUNT(*) FROM products WHERE {$cond}) 
-               AS totalrecs, id, name, product_name, description,mrp,discount,slug, image, category_id,keywords,order_number,generic_name,display_price,manufacturer,formulation,unit,reorder_level,is_active")->whereRaw($cond);
+               AS totalrecs, id, name, product_name, description, mrp, cc_rate, discount, slug, image, category_id, keywords, order_number, generic_name, display_price, manufacturer, formulation, unit, reorder_level, is_active")
+                ->whereRaw($cond);
             if ($limit > -1) {
                 $result = $query->orderByRaw($orderby)->offset($offset)->limit($limit)->get();
             } else {

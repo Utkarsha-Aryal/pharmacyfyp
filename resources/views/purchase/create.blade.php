@@ -90,8 +90,9 @@
                                 <tr>
                                     <td class="purchase-row-number">1</td>
                                     <td>
-                                        <select name="items[0][product_id]" class="form-select js-select2-ajax"
+                                        <select name="items[0][product_id]" class="form-select js-select2-ajax purchase-product-select"
                                             data-ajax-url="{{ route('admin.purchase.product-options') }}"
+                                            data-product-info-url="{{ route('admin.purchase.product-info') }}"
                                             data-placeholder="Search product"
                                             data-allow-clear="1" required>
                                             <option value="">Select Product</option>
@@ -99,6 +100,7 @@
                                                 <option value="{{ $productItem->id }}">{{ $productItem->product_name }}</option>
                                             @endforeach
                                         </select>
+                                        <small class="text-muted d-block purchase-stock-note">Select product to auto fill latest purchase rate.</small>
                                     </td>
                                     <td><input type="text" name="items[0][batch_no]" class="form-control" placeholder="Batch no"></td>
                                     <td><input type="month" name="items[0][expiry_date]" class="form-control" required></td>
@@ -119,8 +121,9 @@
                         <tr>
                             <td class="purchase-row-number">__ROW__</td>
                             <td>
-                                <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax"
+                                <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax purchase-product-select"
                                     data-ajax-url="{{ route('admin.purchase.product-options') }}"
+                                    data-product-info-url="{{ route('admin.purchase.product-info') }}"
                                     data-placeholder="Search product"
                                     data-allow-clear="1" required>
                                     <option value="">Select Product</option>
@@ -128,6 +131,7 @@
                                         <option value="{{ $productItem->id }}">{{ $productItem->product_name }}</option>
                                     @endforeach
                                 </select>
+                                <small class="text-muted d-block purchase-stock-note">Select product to auto fill latest purchase rate.</small>
                             </td>
                             <td><input type="text" name="items[__INDEX__][batch_no]" class="form-control" placeholder="Batch no"></td>
                             <td><input type="month" name="items[__INDEX__][expiry_date]" class="form-control" required></td>

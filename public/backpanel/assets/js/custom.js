@@ -749,6 +749,36 @@
       updatePurchaseTotal();
     });
 
+    $(document).off("change.purchase", ".purchase-product-select");
+    $(document).on("change.purchase", ".purchase-product-select", function () {
+      var $select = $(this);
+      var productId = $select.val();
+      var infoUrl = $select.data("productInfoUrl");
+      var $row = $select.closest("tr");
+
+      if (!productId || !infoUrl) {
+        return;
+      }
+
+      $.get(infoUrl, { product_id: productId }, function (response) {
+        if (!response) {
+          return;
+        }
+
+        if (response.purchase_price !== undefined) {
+          $row.find(".price-input").val(parseFloat(response.purchase_price || 0).toFixed(2));
+        }
+
+        var infoText = response.name
+          ? response.name + " | MRP: " + parseFloat(response.mrp || 0).toFixed(2) + " | CC: " + parseFloat(response.cc_rate || 0).toFixed(2) + "%"
+          : "Select product to auto fill latest purchase rate.";
+        $row.find(".purchase-stock-note").text(infoText);
+
+        updatePurchaseRow($row);
+        updatePurchaseTotal();
+      });
+    });
+
     $(form).off("submit.purchase");
     $(form).on("submit.purchase", function (event) {
       event.preventDefault();
@@ -835,7 +865,9 @@
         $row.find(".sales-price-input").val(parseFloat(response.price || 0).toFixed(2));
       }
 
-      var stockText = response.name ? response.name + " stock: " + (response.stock || 0) : "Select product to auto fill price and stock.";
+      var stockText = response.name
+        ? response.name + " | Stock: " + (response.stock || 0) + " | MRP: " + parseFloat(response.mrp || 0).toFixed(2) + " | CC: " + parseFloat(response.cc_rate || 0).toFixed(2) + "%"
+        : "Select product to auto fill price and stock.";
       $row.find(".sales-stock-note").text(stockText);
 
       updateSalesRow($row);
@@ -1174,7 +1206,7 @@
             {
               label: "Overview Count",
               data: JSON.parse(overviewBarChart.dataset.values || "[]"),
-              backgroundColor: ["#2563eb", "#16a34a", "#f97316", "#7c3aed", "#ef4444"],
+              backgroundColor: ["#2563eb", "#16a34a", "#f97316", "#7c3aed", "#ef4444", "#0ea5e9"],
               borderRadius: 8,
               maxBarThickness: 36,
             },
@@ -1272,6 +1304,94 @@
               labels: {
                 boxWidth: 10,
                 usePointStyle: true,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    var salesPurchaseChart = byId("salesPurchaseChart");
+    if (salesPurchaseChart) {
+      createChart(salesPurchaseChart, {
+        type: "bar",
+        data: {
+          labels: JSON.parse(salesPurchaseChart.dataset.labels || "[]"),
+          datasets: [
+            {
+              label: "Sales",
+              data: JSON.parse(salesPurchaseChart.dataset.sales || "[]"),
+              backgroundColor: "rgba(34, 197, 94, 0.72)",
+              borderRadius: 8,
+              maxBarThickness: 28,
+            },
+            {
+              label: "Purchase",
+              data: JSON.parse(salesPurchaseChart.dataset.purchase || "[]"),
+              backgroundColor: "rgba(37, 99, 235, 0.72)",
+              borderRadius: 8,
+              maxBarThickness: 28,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "top",
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: "rgba(148, 163, 184, 0.15)",
+              },
+            },
+            x: {
+              grid: {
+                display: false,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    var topSellingProductsChart = byId("topSellingProductsChart");
+    if (topSellingProductsChart) {
+      createChart(topSellingProductsChart, {
+        type: "bar",
+        data: {
+          labels: JSON.parse(topSellingProductsChart.dataset.labels || "[]"),
+          datasets: [
+            {
+              label: "Qty Sold",
+              data: JSON.parse(topSellingProductsChart.dataset.values || "[]"),
+              backgroundColor: "rgba(249, 115, 22, 0.78)",
+              borderRadius: 8,
+              maxBarThickness: 22,
+            },
+          ],
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              grid: {
+                color: "rgba(148, 163, 184, 0.15)",
+              },
+            },
+            y: {
+              grid: {
+                display: false,
               },
             },
           },

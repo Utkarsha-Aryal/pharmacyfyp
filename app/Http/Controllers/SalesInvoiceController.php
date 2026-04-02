@@ -230,6 +230,8 @@ class SalesInvoiceController extends Controller
             'id' => $product->id,
             'name' => $product->display_name,
             'price' => $this->resolveSalePrice($product),
+            'mrp' => round((float) ($product->mrp ?? 0), 2),
+            'cc_rate' => round((float) ($product->cc_rate ?? 0), 2),
             'stock' => (int) $activeBatches->sum('quantity_available'),
             'batches' => $activeBatches->map(function ($batch) {
                 return [

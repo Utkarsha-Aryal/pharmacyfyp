@@ -35,14 +35,31 @@ class ReportController extends Controller
         ]);
     }
 
-    public function expiryAlert()
+    // Expiry report now supports a proper date range with quick 3 month and 6 month windows.
+    public function expiryAlert(Request $request)
     {
         $today = Carbon::today();
-        $nearDate = $today->copy()->addDays(60);
+        $validated = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'window' => ['nullable', 'in:3m,6m'],
+        ]);
+
+        $dateFrom = !empty($validated['date_from'])
+            ? Carbon::parse($validated['date_from'])->startOfDay()
+            : $today->copy()->startOfDay();
+        $dateTo = !empty($validated['date_to'])
+            ? Carbon::parse($validated['date_to'])->endOfDay()
+            : (
+                ($validated['window'] ?? '6m') === '3m'
+                    ? $today->copy()->addMonths(3)->endOfDay()
+                    : $today->copy()->addMonths(6)->endOfDay()
+            );
 
         $expiryItems = Batch::with(['product', 'supplier'])
             ->where('is_active', true)
-            ->whereDate('expiry_date', '<=', $nearDate)
+            ->whereDate('expiry_date', '>=', $dateFrom->toDateString())
+            ->whereDate('expiry_date', '<=', $dateTo->toDateString())
             ->orderBy('expiry_date')
             ->get()
             ->map(function ($batch) use ($today) {
@@ -55,7 +72,7 @@ class ReportController extends Controller
                 $batch->days_left = $today->diffInDays($expiryDate, false);
                 $batch->expiry_state = $expiryDate->lt($today)
                     ? 'expired'
-                    : ($batch->days_left <= 7 ? 'critical' : ($batch->days_left <= 15 ? 'warning' : ($batch->days_left <= 30 ? 'near' : 'safe')));
+                    : ($batch->days_left <= 90 ? 'critical' : ($batch->days_left <= 180 ? 'warning' : 'safe'));
 
                 return $batch;
             })
@@ -67,6 +84,11 @@ class ReportController extends Controller
             'expiredCount' => $expiryItems->where('expiry_state', 'expired')->count(),
             'nearCount' => $expiryItems->whereIn('expiry_state', ['critical', 'warning', 'near'])->count(),
             'safeCount' => $expiryItems->where('expiry_state', 'safe')->count(),
+            'filters' => [
+                'date_from' => $dateFrom->toDateString(),
+                'date_to' => $dateTo->toDateString(),
+                'window' => $validated['window'] ?? '6m',
+            ],
         ]);
     }
 

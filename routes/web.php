@@ -106,6 +106,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('/addpurchase', [PurchaseController::class, 'addpurchase'])->name('purchase.addpurchase');
         Route::get('/supplier-options', [PurchaseController::class, 'supplierOptions'])->name('purchase.supplier-options');
         Route::get('/product-options', [PurchaseController::class, 'productOptions'])->name('purchase.product-options');
+        Route::get('/product-info', [PurchaseController::class, 'productInfo'])->name('purchase.product-info');
         Route::post('/save', [PurchaseController::class, 'save'])->name('purchase.save');
     });
 
