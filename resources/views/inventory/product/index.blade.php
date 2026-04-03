@@ -23,7 +23,7 @@
     </div>
 
     <div class="modal fade" id="productModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content"></div>
         </div>
     </div>
@@ -87,6 +87,9 @@
                 var url = '{{ route('admin.product.form') }}';
                 $.get(url, function(response) {
                     $('#productModal .modal-content').html(response);
+                    if (window.syncCsrfInputs) {
+                        window.syncCsrfInputs(document.getElementById('productModal'));
+                    }
                     if (window.initEnhancedSelects) {
                         window.initEnhancedSelects(document.getElementById('productModal'));
                     }
@@ -125,6 +128,9 @@
                 var url = '{{ route('admin.product.form') }}';
                 $.post(url, { id: id }, function(response) {
                     $('#productModal .modal-content').html(response);
+                    if (window.syncCsrfInputs) {
+                        window.syncCsrfInputs(document.getElementById('productModal'));
+                    }
                     if (window.initEnhancedSelects) {
                         window.initEnhancedSelects(document.getElementById('productModal'));
                     }

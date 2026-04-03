@@ -52,7 +52,12 @@
 
         <div class="col-md-4">
             <strong>Product Status:</strong>
-            <p class="text-capitalize">{{ $prevPost->product_status ?? 'N/A' }}</p>
+            <p>{{ $prevPost->product_status_label ?? 'N/A' }}</p>
+        </div>
+
+        <div class="col-md-4">
+            <strong>Formulation:</strong>
+            <p>{{ $prevPost->formulation_label ?? 'N/A' }}</p>
         </div>
 
         <div class="col-md-4">

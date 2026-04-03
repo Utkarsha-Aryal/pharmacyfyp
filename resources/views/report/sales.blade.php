@@ -74,11 +74,11 @@
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">Sale Type</label>
-                        <select name="sale_type" class="form-select js-select2">
+                        <select name="sale_type_id" class="form-select js-select2">
                             <option value="">All</option>
-                            <option value="retail" @selected(($filters['sale_type'] ?? '') === 'retail')>Retail</option>
-                            <option value="wholesale" @selected(($filters['sale_type'] ?? '') === 'wholesale')>Wholesale</option>
-                            <option value="credit" @selected(($filters['sale_type'] ?? '') === 'credit')>Credit</option>
+                            @foreach ($saleTypes as $saleType)
+                                <option value="{{ $saleType->id }}" @selected((string) ($filters['sale_type_id'] ?? '') === (string) $saleType->id)>{{ $saleType->name }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-2">

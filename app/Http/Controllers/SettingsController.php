@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\DropdownOption;
 use App\Mail\SystemStatusMail;
 use App\Models\Common;
-use App\Models\PaymentMode;
+use App\Models\PartyType;
 use App\Models\Setting;
+use App\Models\SupplierType;
 use Illuminate\Mail\MailManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -36,7 +38,15 @@ class SettingsController extends Controller
                 'currency_symbol' => setting('currency_symbol', 'NPR'),
                 'low_stock_threshold' => setting('low_stock_threshold', 10),
             ],
-            'paymentModes' => PaymentMode::query()->orderBy('name')->get(),
+            'dropdownOptionAliases' => DropdownOption::managedAliases(),
+            'dropdownOptionGroups' => DropdownOption::query()
+                ->whereIn('alias', array_keys(DropdownOption::managedAliases()))
+                ->orderBy('alias')
+                ->orderBy('name')
+                ->get()
+                ->groupBy('alias'),
+            'partyTypes' => PartyType::query()->orderBy('name')->get(),
+            'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
         ]);
     }
 

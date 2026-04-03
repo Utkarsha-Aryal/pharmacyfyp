@@ -104,7 +104,7 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        $recentSales = SalesInvoice::with(['customer'])
+        $recentSales = SalesInvoice::with(['customer', 'saleTypeOption'])
             ->where('status', 'confirmed')
             ->latest('invoice_date')
             ->take(5)

@@ -36,8 +36,13 @@
                             <input type="text" name="reference" class="form-control" value="{{ $reference }}" readonly>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Supplier <span class="required-field">*</span></label>
-                            <select name="supplier_id" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.purchase-orders.supplier-options') }}" data-placeholder="Search supplier" data-allow-clear="1" required>
+                            <label class="form-label d-flex justify-content-between align-items-center">
+                                <span>Supplier <span class="required-field">*</span></span>
+                                <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-bs-toggle="tooltip" title="Quick add supplier" data-quick-modal="#quickSupplierModal" data-quick-target-select="#purchaseOrderSupplierSelect">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </label>
+                            <select name="supplier_id" id="purchaseOrderSupplierSelect" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.purchase-orders.supplier-options') }}" data-placeholder="Search supplier" data-allow-clear="1" required>
                                 <option value="">Select Supplier</option>
                                 @foreach ($suppliers as $supplier)
                                     <option value="{{ $supplier->id }}">{{ $supplier->supplier_name }}</option>
@@ -87,14 +92,21 @@
                             <tbody data-next-index="1">
                                 <tr>
                                     <td class="purchase-row-number">1</td>
-                                    <td>
+                            <td>
+                                <div class="d-flex gap-2 align-items-start">
+                                    <div class="flex-grow-1">
                                         <select name="items[0][product_id]" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.purchase-orders.product-options') }}" data-placeholder="Search product" data-allow-clear="1" required>
                                             <option value="">Select Product</option>
                                             @foreach ($products as $product)
                                                 <option value="{{ $product->id }}">{{ $product->display_name }}</option>
                                             @endforeach
                                         </select>
-                                    </td>
+                                    </div>
+                                    <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create mt-1" data-bs-toggle="tooltip" title="Quick add product" data-quick-modal="#quickProductModal" data-quick-target-select="select[name='items[0][product_id]']">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                </div>
+                            </td>
                                     <td><input type="number" name="items[0][quantity_ordered]" class="form-control qty-input" min="1" value="1" required></td>
                                     <td><input type="number" name="items[0][unit_price]" class="form-control price-input" step="0.01" min="0" value="0" required></td>
                                     <td><input type="text" class="form-control subtotal-input" value="0.00" readonly></td>
@@ -112,12 +124,19 @@
                         <tr>
                             <td class="purchase-row-number">__ROW__</td>
                             <td>
-                                <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.purchase-orders.product-options') }}" data-placeholder="Search product" data-allow-clear="1" required>
-                                    <option value="">Select Product</option>
-                                    @foreach ($products as $product)
-                                        <option value="{{ $product->id }}">{{ $product->display_name }}</option>
-                                    @endforeach
-                                </select>
+                                <div class="d-flex gap-2 align-items-start">
+                                    <div class="flex-grow-1">
+                                        <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.purchase-orders.product-options') }}" data-placeholder="Search product" data-allow-clear="1" required>
+                                            <option value="">Select Product</option>
+                                            @foreach ($products as $product)
+                                                <option value="{{ $product->id }}">{{ $product->display_name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create mt-1" data-bs-toggle="tooltip" title="Quick add product" data-quick-modal="#quickProductModal" data-quick-target-select="select[name='items[__INDEX__][product_id]']">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                </div>
                             </td>
                             <td><input type="number" name="items[__INDEX__][quantity_ordered]" class="form-control qty-input" min="1" value="1" required></td>
                             <td><input type="number" name="items[__INDEX__][unit_price]" class="form-control price-input" step="0.01" min="0" value="0" required></td>
@@ -144,5 +163,17 @@
                 </div>
             </div>
         </form>
+
+        @include('partials.quick-create-modals', [
+            'showQuickSupplier' => auth()->user()->can('purchase.supplier'),
+            'showQuickSupplierType' => auth()->user()->can('settings.manage'),
+            'showQuickProduct' => auth()->user()->can('inventory.product'),
+            'showQuickPaymentMode' => auth()->user()->can('settings.manage'),
+            'showQuickUnit' => auth()->user()->can('inventory.unit'),
+            'categories' => $categories,
+            'units' => $units,
+            'formulations' => $formulations,
+            'supplierTypes' => $supplierTypes,
+        ])
     </div>
 @endsection

@@ -9,10 +9,43 @@ use Exception;
 
 class Unit extends Model
 {
-      public function unit()
-{
-    return $this->hasMany(Product::class, 'unit_id');
-}
+    protected $fillable = [
+        'unit_name',
+        'type',
+        'description',
+        'status',
+    ];
+
+    protected $casts = [
+        'type' => 'string',
+    ];
+
+    public function unit()
+    {
+        return $this->hasMany(Product::class, 'unit_id');
+    }
+
+    // Sales unit dropdown should only show sales-friendly or shared units.
+    public function scopeForSales($query)
+    {
+        return $query->whereIn('type', ['sales', 'both']);
+    }
+
+    // Purchase unit dropdown should only show purchase-friendly or shared units.
+    public function scopeForPurchase($query)
+    {
+        return $query->whereIn('type', ['purchase', 'both']);
+    }
+
+    // A short readable label keeps the unit table and filters easy to scan.
+    public function getTypeLabelAttribute(): string
+    {
+        return match ($this->type) {
+            'sales' => 'Sales',
+            'purchase' => 'Purchase',
+            default => 'Both',
+        };
+    }
 
     
         public static function saveData($post)
@@ -20,6 +53,7 @@ class Unit extends Model
             try {
                 $dataArray = [
                     'unit_name' => $post['unit_name'],
+                    'type' => $post['type'] ?? 'both',
                     'description' => $post['description'],
                 ];
 
@@ -67,7 +101,7 @@ class Unit extends Model
                     $offset = $get["start"];
                 }
 
-                $query = self::selectRaw("(SELECT count(*) FROM units WHERE {$cond}) AS totalrecs, unit_name, description, id, status, created_at")
+                $query = self::selectRaw("(SELECT count(*) FROM units WHERE {$cond}) AS totalrecs, unit_name, type, description, id, status, created_at")
                     ->whereRaw($cond);
 
                 if ($limit > -1) {

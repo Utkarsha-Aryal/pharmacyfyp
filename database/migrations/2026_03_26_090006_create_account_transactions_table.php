@@ -21,6 +21,11 @@ return new class extends Migration
             $table->string('notes')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
+
+            $table->index(['transaction_date', 'account_type'], 'acct_tx_date_account_idx');
+            $table->index(['transaction_date', 'entry_type'], 'acct_tx_date_entry_idx');
+            $table->index(['party_type', 'party_id'], 'acct_tx_party_idx');
+            $table->index(['reference_type', 'reference_id'], 'acct_tx_reference_idx');
         });
     }
 

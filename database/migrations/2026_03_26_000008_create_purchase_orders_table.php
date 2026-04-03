@@ -24,6 +24,8 @@ return new class extends Migration
             $table->decimal('paid_amount', 10, 2)->default(0);
             $table->timestamp('received_at')->nullable();
             $table->timestamps();
+
+            $table->index(['order_date', 'status'], 'purchase_order_date_status_idx');
         });
     }
 

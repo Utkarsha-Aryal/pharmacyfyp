@@ -8,10 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('payments')) {
-            return;
-        }
-
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
             $table->enum('type', ['in', 'out']);
@@ -19,7 +15,7 @@ return new class extends Migration
             $table->string('party_type');
             $table->date('payment_date');
             $table->decimal('amount', 12, 2);
-            $table->foreignId('payment_mode_id')->constrained('payment_modes')->restrictOnDelete();
+            $table->unsignedBigInteger('payment_mode_id');
             $table->string('reference_number')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();

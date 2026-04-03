@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DropdownOptionController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExportController;
@@ -11,7 +12,7 @@ use App\Http\Controllers\InventoryBatchController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\OcrController;
 use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\PaymentModeController;
+use App\Http\Controllers\PartyTypeController;
 use App\Http\Controllers\ProductBatchesController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
@@ -24,6 +25,7 @@ use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierTypeController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Support\Facades\Route;
@@ -237,13 +239,25 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::get('/', [SettingsController::class, 'index'])->name('index');
             Route::post('/update', [SettingsController::class, 'update'])->name('update');
             Route::post('/test-mail', [SettingsController::class, 'testMail'])->name('test-mail');
+            Route::get('/options', [DropdownOptionController::class, 'index'])->name('options.index');
+            Route::post('/options', [DropdownOptionController::class, 'store'])->name('options.store');
+            Route::put('/options/{dropdownOption}', [DropdownOptionController::class, 'update'])->name('options.update');
+            Route::delete('/options/{dropdownOption}', [DropdownOptionController::class, 'destroy'])->name('options.destroy');
+            Route::redirect('/dropdown-options', '/admin/settings/options');
         });
 
-        Route::prefix('payment-modes')->name('payment-modes.')->middleware('permission:settings.manage')->group(function () {
-            Route::get('/', [PaymentModeController::class, 'index'])->name('index');
-            Route::post('/store', [PaymentModeController::class, 'store'])->name('store');
-            Route::post('/{paymentMode}/update', [PaymentModeController::class, 'update'])->name('update');
-            Route::post('/{paymentMode}/delete', [PaymentModeController::class, 'destroy'])->name('delete');
+        Route::prefix('party-types')->name('party-types.')->middleware('permission:settings.manage')->group(function () {
+            Route::get('/', [PartyTypeController::class, 'index'])->name('index');
+            Route::post('/store', [PartyTypeController::class, 'store'])->name('store');
+            Route::post('/{partyType}/update', [PartyTypeController::class, 'update'])->name('update');
+            Route::post('/{partyType}/delete', [PartyTypeController::class, 'destroy'])->name('delete');
+        });
+
+        Route::prefix('supplier-types')->name('supplier-types.')->middleware('permission:settings.manage')->group(function () {
+            Route::get('/', [SupplierTypeController::class, 'index'])->name('index');
+            Route::post('/store', [SupplierTypeController::class, 'store'])->name('store');
+            Route::post('/{supplierType}/update', [SupplierTypeController::class, 'update'])->name('update');
+            Route::post('/{supplierType}/delete', [SupplierTypeController::class, 'destroy'])->name('delete');
         });
 
         Route::prefix('imports')->name('imports.')->group(function () {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Common;
+use App\Models\SupplierType;
 use Exception;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -16,8 +17,9 @@ use Carbon\Carbon;
 class SupplierController extends Controller
 {
     public function index(){
-
-        return view('supplier.index');
+        return view('supplier.index', [
+            'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
+        ]);
     }
 
     public function save(Request $request){
@@ -31,7 +33,7 @@ class SupplierController extends Controller
                 'pan_number' => ['nullable', 'string', 'max:100'],
                 'opening_balance' => ['nullable', 'numeric'],
                 'address' => ['nullable', 'string'],
-                'type' => ['nullable', 'in:cash,credit'],
+                'type' => ['nullable', 'exists:supplier_types,code'],
             ]);
             $type = 'success';
             $message = 'Records saved successfully';

@@ -16,8 +16,10 @@ return new class extends Migration
             $table->date('purchase_date');
             $table->enum('order_status', ['pending', 'approved', 'received'])->default('received');
             $table->decimal('grand_total', 12, 2)->default(0);
+            $table->decimal('total_discount', 10, 2)->default(0);
             $table->decimal('paid_amount', 12, 2)->default(0);
             $table->enum('payment_status', ['unpaid', 'partial', 'paid'])->default('unpaid');
+            $table->unsignedBigInteger('payment_mode_id')->nullable();
             $table->text('remarks')->nullable();
             $table->enum('status', ['Y', 'N'])->default('Y');
             $table->timestamps();

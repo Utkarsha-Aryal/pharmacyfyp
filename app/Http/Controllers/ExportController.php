@@ -7,6 +7,7 @@ use App\Models\AccountTransaction;
 use App\Models\Batch;
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\DropdownOption;
 use App\Models\Expense;
 use App\Models\Product;
 use App\Models\ProductBatch;
@@ -209,14 +210,18 @@ class ExportController extends Controller
     public function inventoryProducts()
     {
         $rows = Product::query()
-            ->with(['category', 'batches' => fn ($query) => $query->where('is_active', true)])
+            ->with([
+                'category',
+                'formulationOption',
+                'batches' => fn ($query) => $query->where('is_active', true),
+            ])
             ->where('status', 'Y')
             ->orderBy('product_name')
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->display_name,
                 'Company' => $product->category?->name,
-                'Formulation' => $product->formulation,
+                'Formulation' => $product->formulation_label,
                 'Unit' => $product->unit,
                 'Reorder Level' => $product->effective_reorder_level,
                 'Current Stock' => $product->batches->sum('quantity_available'),
@@ -230,14 +235,18 @@ class ExportController extends Controller
     public function inventoryProductsPdf()
     {
         $rows = Product::query()
-            ->with(['category', 'batches' => fn ($query) => $query->where('is_active', true)])
+            ->with([
+                'category',
+                'formulationOption',
+                'batches' => fn ($query) => $query->where('is_active', true),
+            ])
             ->where('status', 'Y')
             ->orderBy('product_name')
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->display_name,
                 'Company' => $product->category?->name ?: '-',
-                'Formulation' => $product->formulation ?: '-',
+                'Formulation' => $product->formulation_label ?: '-',
                 'Unit' => $product->unit ?: '-',
                 'Reorder Level' => $product->effective_reorder_level,
                 'Current Stock' => $product->batches->sum('quantity_available'),
@@ -700,12 +709,12 @@ class ExportController extends Controller
     public function salesInvoices(Request $request)
     {
         $rows = SalesInvoice::query()
-            ->with('customer')
+            ->with(['customer', 'saleTypeOption'])
             ->when($request->filled('customer_id'), function ($query) use ($request) {
                 $query->where('customer_id', $request->customer_id);
             })
-            ->when($request->filled('sale_type'), function ($query) use ($request) {
-                $query->where('sale_type', $request->sale_type);
+            ->when($request->filled('sale_type_id'), function ($query) use ($request) {
+                $query->where('sale_type_id', $request->sale_type_id);
             })
             ->when($request->filled('status'), function ($query) use ($request) {
                 $query->where('status', $request->status);
@@ -740,12 +749,12 @@ class ExportController extends Controller
     public function salesInvoicesPdf(Request $request)
     {
         $rows = SalesInvoice::query()
-            ->with('customer')
+            ->with(['customer', 'saleTypeOption'])
             ->when($request->filled('customer_id'), function ($query) use ($request) {
                 $query->where('customer_id', $request->customer_id);
             })
-            ->when($request->filled('sale_type'), function ($query) use ($request) {
-                $query->where('sale_type', $request->sale_type);
+            ->when($request->filled('sale_type_id'), function ($query) use ($request) {
+                $query->where('sale_type_id', $request->sale_type_id);
             })
             ->when($request->filled('status'), function ($query) use ($request) {
                 $query->where('status', $request->status);
@@ -780,13 +789,14 @@ class ExportController extends Controller
     public function expenses()
     {
         $rows = Expense::query()
+            ->with(['expenseCategory', 'paymentModeOption'])
             ->latest('expense_date')
             ->get()
             ->map(fn ($expense) => [
                 'Date' => $expense->expense_date_show,
-                'Category' => $expense->category,
+                'Expense Category' => $expense->expense_category_label,
                 'Vendor' => $expense->vendor_name,
-                'Payment Mode' => ucfirst((string) $expense->payment_mode),
+                'Payment Mode' => $expense->payment_mode_label,
                 'Amount' => $expense->amount,
                 'Notes' => $expense->notes,
             ]);

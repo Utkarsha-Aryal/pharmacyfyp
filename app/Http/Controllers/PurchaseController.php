@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\DropdownOption;
 use App\Models\Product;
 use App\Models\ProductBatch;
-use App\Models\PaymentMode;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\PurchaseReference;
 use App\Models\Supplier;
+use App\Models\SupplierType;
 use App\Models\Unit;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
@@ -99,9 +100,11 @@ class PurchaseController extends Controller
             'supplier' => Supplier::where('status', 'Y')->orderBy('supplier_name')->get(),
             'product' => Product::where('status', 'Y')->orderBy('product_name')->get(),
             'reference' => PurchaseReference::makeNewReference(),
-            'paymentModes' => PaymentMode::query()->where('is_active', true)->orderBy('name')->get(),
+            'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
+            'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
             'categories' => Category::query()->orderBy('name')->get(),
             'units' => Unit::query()->orderBy('unit_name')->get(),
+            'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
         ]);
     }
 
@@ -194,7 +197,7 @@ class PurchaseController extends Controller
                 'payment_mode_id' => [
                     Rule::requiredIf((float) $request->input('paid_amount', 0) > 0),
                     'nullable',
-                    'exists:payment_modes,id',
+                    Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode')),
                 ],
                 'remarks' => ['nullable', 'string'],
                 'items' => ['required', 'array', 'min:1'],

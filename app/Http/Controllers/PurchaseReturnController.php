@@ -9,6 +9,7 @@ use App\Models\PurchaseItem;
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
 use App\Models\Supplier;
+use App\Models\SupplierType;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +38,7 @@ class PurchaseReturnController extends Controller
 
         return view('purchase-return.create', [
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
+            'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
         ]);
     }
 
@@ -49,6 +51,7 @@ class PurchaseReturnController extends Controller
 
         return view('purchase-return.edit', [
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
+            'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
             'purchaseReturn' => $purchaseReturn,
             'itemsRows' => $this->buildEditableRows($purchaseReturn),
         ]);

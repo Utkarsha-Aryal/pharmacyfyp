@@ -14,9 +14,13 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained('products')->restrictOnDelete();
             $table->foreignId('batch_id')->nullable()->constrained('batches')->nullOnDelete();
             $table->decimal('quantity', 10, 2);
+            $table->integer('free_qty')->default(0);
+            $table->decimal('mrp', 10, 2)->default(0);
             $table->decimal('unit_price', 10, 2);
+            $table->decimal('cc_rate', 5, 2)->default(0);
             $table->decimal('discount_percent', 10, 2)->default(0);
-            $table->decimal('tax_percent', 10, 2)->default(0);
+            $table->decimal('discount_amount', 10, 2)->default(0);
+            $table->decimal('free_goods_value', 10, 2)->default(0);
             $table->decimal('subtotal', 10, 2);
             $table->timestamps();
         });

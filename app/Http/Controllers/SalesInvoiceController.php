@@ -7,7 +7,8 @@ use App\Models\AccountTransaction;
 use App\Models\Batch;
 use App\Models\Category;
 use App\Models\Customer;
-use App\Models\PaymentMode;
+use App\Models\DropdownOption;
+use App\Models\PartyType;
 use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
@@ -29,10 +30,12 @@ class SalesInvoiceController extends Controller
     public function index(Request $request)
     {
         $summaryQuery = SalesInvoice::query();
+        $creditSaleTypeId = DropdownOption::findIdByAliasAndName('sales_type', 'Credit');
 
         return view('sales.index', [
             'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
-            'filters' => $request->only(['customer_id', 'sale_type', 'status', 'payment_status', 'date_from', 'date_to']),
+            'saleTypes' => DropdownOption::query()->forAlias('sales_type')->active()->orderBy('name')->get(),
+            'filters' => $request->only(['customer_id', 'sale_type_id', 'status', 'payment_status', 'date_from', 'date_to']),
             'summary' => [
                 'this_month' => (clone $summaryQuery)
                     ->whereMonth('invoice_date', now()->month)
@@ -42,7 +45,9 @@ class SalesInvoiceController extends Controller
                 'receivable' => (clone $summaryQuery)->get()->sum(fn (SalesInvoice $invoice) => $invoice->due_amount),
                 'paid' => (clone $summaryQuery)->sum('paid_amount'),
                 'pending' => (clone $summaryQuery)->where('status', 'draft')->count(),
-                'credit' => (clone $summaryQuery)->where('sale_type', 'credit')->count(),
+                'credit' => $creditSaleTypeId
+                    ? (clone $summaryQuery)->where('sale_type_id', $creditSaleTypeId)->count()
+                    : (clone $summaryQuery)->where('sale_type', 'credit')->count(),
             ],
         ]);
     }
@@ -55,7 +60,7 @@ class SalesInvoiceController extends Controller
         $length = max((int) $request->input('length', 10), 1);
 
         $query = SalesInvoice::query()
-            ->with(['customer', 'paymentMode'])
+            ->with(['customer', 'paymentMode', 'saleTypeOption'])
             ->orderByDesc('invoice_date')
             ->orderByDesc('id');
 
@@ -65,8 +70,8 @@ class SalesInvoiceController extends Controller
             $query->where('customer_id', $request->customer_id);
         }
 
-        if ($request->filled('sale_type')) {
-            $query->where('sale_type', $request->sale_type);
+        if ($request->filled('sale_type_id')) {
+            $query->where('sale_type_id', $request->sale_type_id);
         }
 
         if ($request->filled('status')) {
@@ -88,6 +93,9 @@ class SalesInvoiceController extends Controller
         if ($keyword !== '') {
             $query->where(function (Builder $builder) use ($keyword) {
                 $builder->where('reference', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('saleTypeOption', function (Builder $saleTypeQuery) use ($keyword) {
+                        $saleTypeQuery->where('name', 'like', '%' . $keyword . '%');
+                    })
                     ->orWhere('sale_type', 'like', '%' . $keyword . '%')
                     ->orWhereHas('customer', function (Builder $customerQuery) use ($keyword) {
                         $customerQuery->where('name', 'like', '%' . $keyword . '%');
@@ -143,15 +151,13 @@ class SalesInvoiceController extends Controller
         return view('sales.create', [
             'reference' => next_sales_reference(),
             'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
+            'partyTypes' => PartyType::query()->orderBy('name')->get(),
             'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
-            'paymentModes' => PaymentMode::query()->where('is_active', true)->orderBy('name')->get(),
+            'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
+            'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
             'categories' => Category::query()->orderBy('name')->get(),
             'units' => Unit::query()->orderBy('unit_name')->get(),
-            'saleTypes' => [
-                'retail' => 'Retail',
-                'wholesale' => 'Wholesale',
-                'credit' => 'Credit',
-            ],
+            'saleTypes' => DropdownOption::query()->forAlias('sales_type')->active()->orderBy('name')->get(),
         ]);
     }
 
@@ -249,11 +255,17 @@ class SalesInvoiceController extends Controller
             'customer_id' => [
                 'nullable',
                 'exists:customers,id',
-                Rule::requiredIf(in_array($request->input('sale_type'), ['wholesale', 'credit'], true)),
+                Rule::requiredIf(function () use ($request) {
+                    $saleType = DropdownOption::query()
+                        ->forAlias('sales_type')
+                        ->find($request->input('sale_type_id'));
+
+                    return in_array(strtolower((string) $saleType?->name), ['wholesale', 'credit'], true);
+                }),
             ],
             'invoice_date' => ['required', 'date'],
-            'sale_type' => ['required', Rule::in(['retail', 'wholesale', 'credit'])],
-            'payment_mode_id' => ['required', 'exists:payment_modes,id'],
+            'sale_type_id' => ['required', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'sales_type'))],
+            'payment_mode_id' => ['required', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode'))],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
@@ -272,7 +284,8 @@ class SalesInvoiceController extends Controller
                 $subtotal = 0;
                 $discountAmount = 0;
                 $invoiceTotal = 0;
-                $paymentMode = PaymentMode::query()->findOrFail($validated['payment_mode_id']);
+                $paymentMode = DropdownOption::query()->forAlias('payment_mode')->findOrFail($validated['payment_mode_id']);
+                $saleType = DropdownOption::query()->forAlias('sales_type')->findOrFail($validated['sale_type_id']);
 
                 $invoice = SalesInvoice::create([
                     'reference' => next_sales_reference(),
@@ -281,10 +294,11 @@ class SalesInvoiceController extends Controller
                     'created_by' => $request->user()->id,
                     'updated_by' => $request->user()->id,
                     'invoice_date' => $validated['invoice_date'],
-                    'sale_type' => $validated['sale_type'],
+                    'sale_type_id' => $saleType->id,
+                    'sale_type' => strtolower($saleType->name),
                     'status' => 'confirmed',
                     'payment_status' => 'unpaid',
-                    'payment_method' => $paymentMode->name,
+                    'payment_method' => $paymentMode->data ?: 'cash',
                     'payment_mode_id' => $paymentMode->id,
                     'subtotal' => 0,
                     'discount_amount' => 0,
@@ -458,12 +472,12 @@ class SalesInvoiceController extends Controller
         $validated = $request->validate([
             'payment_status' => ['required', Rule::in(['unpaid', 'partial', 'paid'])],
             'paid_amount' => ['required', 'numeric', 'min:0'],
-            'payment_mode_id' => ['required', 'exists:payment_modes,id'],
+            'payment_mode_id' => ['required', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode'))],
         ]);
 
         DB::transaction(function () use ($salesInvoice, $validated, $request) {
             $salesInvoice->loadMissing('customer');
-            $paymentMode = PaymentMode::query()->findOrFail($validated['payment_mode_id']);
+            $paymentMode = DropdownOption::query()->forAlias('payment_mode')->findOrFail($validated['payment_mode_id']);
             $oldPaid = (float) $salesInvoice->paid_amount;
             $oldDue = $salesInvoice->due_amount;
             $newPaid = round((float) $validated['paid_amount'], 2);
@@ -472,7 +486,7 @@ class SalesInvoiceController extends Controller
 
             $salesInvoice->update([
                 'payment_status' => $validated['payment_status'],
-                'payment_method' => $paymentMode->name,
+                'payment_method' => $paymentMode->data ?: 'cash',
                 'payment_mode_id' => $paymentMode->id,
                 'paid_amount' => $newPaid,
                 'updated_by' => $request->user()->id,
@@ -485,7 +499,7 @@ class SalesInvoiceController extends Controller
             }
 
             if ($paidDelta > 0) {
-                $cashAccount = $paymentMode->type === 'bank' ? 'bank' : 'cash';
+                $cashAccount = $paymentMode->data === 'cash' ? 'cash' : 'bank';
 
                 record_account_transaction([
                     'transaction_date' => $salesInvoice->invoice_date,
@@ -672,12 +686,8 @@ class SalesInvoiceController extends Controller
         return [
             'invoice' => $this->loadInvoiceRelations($salesInvoice),
             'company' => $this->invoiceCompanyDetails(),
-            'paymentModes' => PaymentMode::query()->where('is_active', true)->orderBy('name')->get(),
-            'saleTypes' => [
-                'retail' => 'Retail',
-                'wholesale' => 'Wholesale',
-                'credit' => 'Credit',
-            ],
+            'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
+            'saleTypes' => DropdownOption::query()->forAlias('sales_type')->active()->orderBy('name')->pluck('name', 'id'),
         ];
     }
 

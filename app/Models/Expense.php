@@ -9,6 +9,18 @@ class Expense extends Model
 {
     protected $guarded = [];
 
+    // Keep the selected master category attached to the expense row.
+    public function expenseCategory()
+    {
+        return $this->belongsTo(DropdownOption::class, 'expense_category_id');
+    }
+
+    // Expense payment mode also comes from the same shared dropdown table now.
+    public function paymentModeOption()
+    {
+        return $this->belongsTo(DropdownOption::class, 'payment_mode_id');
+    }
+
     // The staff member who saved this expense.
     public function creator()
     {
@@ -24,12 +36,20 @@ class Expense extends Model
     // Turn the payment mode into a neat label for the table.
     public function getPaymentModeLabelAttribute(): string
     {
-        return ucfirst((string) $this->payment_mode);
+        return (string) ($this->paymentModeOption?->name ?: ucfirst((string) $this->payment_mode));
     }
 
     // Let the Blade view keep its badge logic short.
     public function getPaymentBadgeClassAttribute(): string
     {
-        return $this->payment_mode === 'bank' ? 'report-badge-info' : 'report-badge-warning';
+        $modeGroup = $this->paymentModeOption?->data ?: $this->payment_mode;
+
+        return $modeGroup === 'bank' ? 'report-badge-info' : 'report-badge-warning';
+    }
+
+    // Prefer the linked master name, but keep the old text value as a safe fallback.
+    public function getExpenseCategoryLabelAttribute(): string
+    {
+        return $this->expenseCategory?->name ?: ($this->category ?: '-');
     }
 }

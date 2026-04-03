@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('customers', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->enum('party_type', ['customer', 'institution'])->default('customer');
+            $table->string('party_type')->default('customer');
             $table->string('contact_person')->nullable();
             $table->string('phone')->nullable();
             $table->string('email')->nullable();

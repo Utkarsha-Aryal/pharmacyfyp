@@ -42,7 +42,7 @@
     <!-- Modal -->
     <div class="modal fade" id="productModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
         aria-labelledby="staticBackdropLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 {{-- Content goes here --}}
             </div>
@@ -141,7 +141,14 @@
     <!--End::row-1 -->
 
     @include('partials.quick-create-modals', [
+        'showQuickDropdownOption' => auth()->user()->can('settings.manage'),
         'showQuickUnit' => auth()->user()->can('inventory.unit'),
+        'units' => $units,
+        'categories' => $categories,
+        'formulations' => $formulations,
+        'productStatuses' => $productStatuses,
+        'saleUnits' => $saleUnits,
+        'purchaseUnits' => $purchaseUnits,
     ])
 @endsection
 
@@ -157,6 +164,9 @@
                 var url = '{{route('admin.product.form')}}';
                 $.get(url, function(response) {
                     $('#productModal .modal-content').html(response);
+                    if (window.syncCsrfInputs) {
+                        window.syncCsrfInputs(document.getElementById('productModal'));
+                    }
                     if (window.initEnhancedSelects) {
                         window.initEnhancedSelects(document.getElementById('productModal'));
                     }
@@ -227,6 +237,9 @@
                 };
                 $.post(url, data, function(response) {
                     $('#productModal .modal-content').html(response);
+                    if (window.syncCsrfInputs) {
+                        window.syncCsrfInputs(document.getElementById('productModal'));
+                    }
                     if (window.initEnhancedSelects) {
                         window.initEnhancedSelects(document.getElementById('productModal'));
                     }
@@ -331,6 +344,9 @@
                 };
                 $.post(url, data, function(response) {
                     $('#productModal .modal-content').html(response);
+                    if (window.syncCsrfInputs) {
+                        window.syncCsrfInputs(document.getElementById('productModal'));
+                    }
                     if (window.initEnhancedSelects) {
                         window.initEnhancedSelects(document.getElementById('productModal'));
                     }

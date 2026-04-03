@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Batch;
 use App\Models\Customer;
+use App\Models\DropdownOption;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\SalesInvoice;
@@ -188,7 +189,7 @@ class ReportController extends Controller
     public function salesReport(Request $request)
     {
         $query = SalesInvoice::query()
-            ->with(['customer', 'paymentMode'])
+            ->with(['customer', 'paymentMode', 'saleTypeOption'])
             ->where('status', 'confirmed')
             ->latest('invoice_date');
 
@@ -196,8 +197,8 @@ class ReportController extends Controller
             $query->where('customer_id', $request->customer_id);
         }
 
-        if ($request->filled('sale_type')) {
-            $query->where('sale_type', $request->sale_type);
+        if ($request->filled('sale_type_id')) {
+            $query->where('sale_type_id', $request->sale_type_id);
         }
 
         if ($request->filled('payment_status')) {
@@ -217,7 +218,8 @@ class ReportController extends Controller
         return view('report.sales', [
             'sales' => $sales,
             'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
-            'filters' => $request->only(['customer_id', 'sale_type', 'payment_status', 'date_from', 'date_to']),
+            'saleTypes' => DropdownOption::query()->forAlias('sales_type')->active()->orderBy('name')->get(),
+            'filters' => $request->only(['customer_id', 'sale_type_id', 'payment_status', 'date_from', 'date_to']),
             'summary' => [
                 'invoice_count' => $sales->count(),
                 'total_sales' => round((float) $sales->sum('total_amount'), 2),

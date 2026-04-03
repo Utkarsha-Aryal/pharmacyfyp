@@ -27,8 +27,8 @@
             <div class="card-body">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-3">
-                        <label class="form-label">Type</label>
-                        <select name="type" class="form-select js-select2" data-placeholder="All type" data-allow-clear="1">
+                        <label class="form-label">Payment Direction</label>
+                        <select name="type" class="form-select js-select2" data-placeholder="All directions" data-allow-clear="1">
                             <option value="">All</option>
                             <option value="in" @selected(($filters['type'] ?? '') === 'in')>Payment In</option>
                             <option value="out" @selected(($filters['type'] ?? '') === 'out')>Payment Out</option>
@@ -65,7 +65,7 @@
                             <tr>
                                 <th>S.No</th>
                                 <th>Date</th>
-                                <th>Type</th>
+                                <th>Direction</th>
                                 <th>Party</th>
                                 <th>Mode</th>
                                 <th>Amount</th>
@@ -156,12 +156,12 @@
                                 <label class="form-label d-flex justify-content-between align-items-center">
                                     <span>Payment Mode</span>
                                     @can('settings.manage')
-                                        <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickPaymentModeModal" data-quick-target-select="#paymentInMode">
+                                        <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickDropdownOptionModal" data-quick-target-select="#paymentInMode" data-dropdown-alias="payment_mode" data-dropdown-label="Payment Mode" data-dropdown-supports-data="1" data-bs-toggle="tooltip" title="Add payment mode">
                                         <i class="fa-solid fa-plus"></i>
                                         </button>
                                     @endcan
                                 </label>
-                                <select name="payment_mode_id" id="paymentInMode" class="form-select js-select2" data-placeholder="Select mode" required>
+                                <select name="payment_mode_id" id="paymentInMode" class="form-select js-select2" data-placeholder="Select mode" data-dropdown-alias="payment_mode" required>
                                     <option value="">Select mode</option>
                                     @foreach ($paymentModes as $mode)
                                         <option value="{{ $mode->id }}">{{ $mode->name }}</option>
@@ -261,12 +261,12 @@
                                 <label class="form-label d-flex justify-content-between align-items-center">
                                     <span>Payment Mode</span>
                                     @can('settings.manage')
-                                        <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickPaymentModeModal" data-quick-target-select="#paymentOutMode">
+                                        <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickDropdownOptionModal" data-quick-target-select="#paymentOutMode" data-dropdown-alias="payment_mode" data-dropdown-label="Payment Mode" data-dropdown-supports-data="1" data-bs-toggle="tooltip" title="Add payment mode">
                                         <i class="fa-solid fa-plus"></i>
                                         </button>
                                     @endcan
                                 </label>
-                                <select name="payment_mode_id" id="paymentOutMode" class="form-select js-select2" data-placeholder="Select mode" required>
+                                <select name="payment_mode_id" id="paymentOutMode" class="form-select js-select2" data-placeholder="Select mode" data-dropdown-alias="payment_mode" required>
                                     <option value="">Select mode</option>
                                     @foreach ($paymentModes as $mode)
                                         <option value="{{ $mode->id }}">{{ $mode->name }}</option>
@@ -329,6 +329,10 @@
         'showQuickCustomer' => auth()->user()->can('party.manage'),
         'showQuickSupplier' => auth()->user()->can('purchase.supplier'),
         'showQuickPaymentMode' => auth()->user()->can('settings.manage'),
+        'showQuickPartyType' => auth()->user()->can('settings.manage'),
+        'showQuickSupplierType' => auth()->user()->can('settings.manage'),
+        'partyTypes' => $partyTypes,
+        'supplierTypes' => $supplierTypes ?? collect(),
     ])
 @endsection
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\PartyType;
 use App\Models\SalesInvoice;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -11,6 +12,7 @@ use Exception;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class CustomerController extends Controller
 {
@@ -26,6 +28,7 @@ class CustomerController extends Controller
 
         return view('customer.index', [
             'partySummary' => $partySummary,
+            'partyTypes' => PartyType::query()->orderBy('name')->get(),
             'filters' => [
                 'party_type' => request('party_type', ''),
                 'status' => request('status', ''),
@@ -72,6 +75,11 @@ class CustomerController extends Controller
             $toggleIcon = $customer->is_active ? 'fa-toggle-on' : 'fa-toggle-off';
             $agingDays = $this->customerAgingDays($customer);
             $agingBadge = $agingDays > 60 ? 'report-badge-danger' : ($agingDays > 30 ? 'report-badge-warning' : 'report-badge-info');
+            $partyBadgeClass = match ($customer->party_type) {
+                'customer' => 'report-badge-success',
+                'institution' => 'report-badge-info',
+                default => 'report-badge-primary',
+            };
 
             $statusHtml = '<div class="d-inline-flex align-items-center gap-2">';
             $statusHtml .= '<form action="' . route('admin.customers.toggle-active', $customer) . '" method="POST" class="js-confirm-submit" data-confirm-title="Change customer status?" data-confirm-text="This will switch the account access." data-confirm-button="Yes, update status">' . csrf_field() . '<button type="submit" class="btn btn-sm ' . $toggleClass . ' table-action-btn status-toggle-btn" title="' . e($customer->is_active ? 'Deactivate Customer' : 'Activate Customer') . '" aria-label="' . e($customer->is_active ? 'Deactivate Customer' : 'Activate Customer') . '"><i class="fa-solid ' . $toggleIcon . '"></i></button></form>';
@@ -87,7 +95,7 @@ class CustomerController extends Controller
             $data[] = [
                 'sno' => $start + $index + 1,
                 'name' => e($customer->name),
-                'party_type' => '<span class="report-badge ' . ($customer->party_type === 'institution' ? 'report-badge-info' : 'report-badge-success') . '">' . e(ucfirst($customer->party_type)) . '</span>',
+                'party_type' => '<span class="report-badge ' . $partyBadgeClass . '">' . e($customer->party_type_label ?: Str::headline((string) $customer->party_type)) . '</span>',
                 'contact_person' => e($customer->contact_person ?: '-'),
                 'phone' => e($customer->phone ?: '-'),
                 'credit_limit' => money_value($customer->credit_limit),
@@ -113,7 +121,7 @@ class CustomerController extends Controller
             $validated = $request->validate([
                 'id' => ['nullable', 'integer', 'exists:customers,id'],
                 'name' => ['required', 'string', 'max:255'],
-                'party_type' => ['required', Rule::in(['customer', 'institution'])],
+                'party_type' => ['required', 'string', Rule::exists('party_types', 'code')],
                 'contact_person' => ['nullable', 'string', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
                 'email' => ['nullable', 'email', 'max:255'],

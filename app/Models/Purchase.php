@@ -23,7 +23,7 @@ class Purchase extends Model
     // Purchase bill can also remember which payment mode was used for direct payment.
     public function paymentMode()
     {
-        return $this->belongsTo(PaymentMode::class, 'payment_mode_id');
+        return $this->belongsTo(DropdownOption::class, 'payment_mode_id');
     }
 
     public function batches()

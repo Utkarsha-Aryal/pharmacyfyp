@@ -110,7 +110,8 @@ class ProductBatch extends Model
 
                 // keep latest purchase side data on master product
                 Product::where('id', $item['product_id'])->update([
-                    'product_status' => 'instock',
+                    'product_status' => Product::legacyStatusCode('In Stock'),
+                    'product_status_id' => DropdownOption::findIdByAliasAndName('product_status', 'In Stock'),
                     'purchase_price' => $item['purchase_price'],
                     'mrp' => $mrp,
                     'cc_rate' => $ccRate,

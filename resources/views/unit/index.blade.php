@@ -55,6 +55,14 @@
                                 <label for="unit_name" class="form-label">Unit Name <span class="required-field">*</span></label>
                                 <input type="text" class="form-control" id="unit_name" placeholder="Enter unit name..." name="unit_name">
                             </div>
+                            <div class="col-md-6">
+                                <label for="type" class="form-label">Usage Type <span class="required-field">*</span></label>
+                                <select class="form-select" id="type" name="type">
+                                    <option value="both">Both</option>
+                                    <option value="sales">Sales</option>
+                                    <option value="purchase">Purchase</option>
+                                </select>
+                            </div>
                             <div class="col-12">
                                 <label for="description" class="form-label">Description</label>
                                 <textarea class="form-control" id="description" placeholder="Enter description..." name="description"></textarea>
@@ -127,6 +135,7 @@
                                 <tr>
                                     <th>S.No</th>
                                     <th>Unit Name</th>
+                                    <th>Usage Type</th>
                                     <th>Description</th>
                                     <th>Added At</th>
                                     <th>Action</th>
@@ -175,6 +184,7 @@
                 columns: [
                     { data: "sno" },
                     { data: "unit_name" },
+                    { data: "type" },
                     { data: "description" },
                     { data: "added_date" },
                     { data: "action" },
@@ -244,9 +254,11 @@
             $(document).on('click', '.editUnit', function() {
                 var id = $(this).data('id');
                 var unit_name = $(this).data('unit_name');
+                var type = $(this).data('type');
                 var description = $(this).data('description');
                 $('#unitForm input[name = "id"]').val(id);
                 $('#unitForm input[name = "unit_name"]').val(unit_name);
+                $('#unitForm select[name = "type"]').val(type);
                 $('#unitForm textarea[name = "description"]').val(description);
                 $('.saveData').html('<i class="fa fa-save"></i> Update');
                 if (unitModal) {

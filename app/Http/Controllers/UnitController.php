@@ -17,6 +17,7 @@ class UnitController extends Controller
     public function index(){
         return view('unit.index');
     }
+
     public function save(UnitRequest $request)
     {
         try {
@@ -48,6 +49,7 @@ class UnitController extends Controller
                 ? [
                     'id' => $savedUnit->id,
                     'text' => $savedUnit->unit_name,
+                    'type' => $savedUnit->type,
                 ]
                 : null,
         ]);
@@ -67,12 +69,13 @@ class UnitController extends Controller
             foreach ($data as $row) {
                 $array[$i]["sno"] = $i + 1;
                 $array[$i]["unit_name"] = $row->unit_name;
+                $array[$i]["type"] = '<span class="badge bg-info-subtle text-info-emphasis">' . e($row->type_label) . '</span>';
                 $array[$i]["description"] = $row->description;
                 $array[$i]["status"] = $row->status;
                 $array[$i]["added_date"] = Carbon::parse($row->created_at)->format('M j, Y');
                 $action = '<div class="table-action-group">';
                 if (!empty($post['type']) && $post['type'] != 'trashed') {
-                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editUnit" title="Edit Unit" data-id="' . $row->id . '" data-unit_name="' . $row->unit_name . '" data-description="' . $row->description . '" data-status="' . $row->status . '"><i class="fa-solid fa-pen-to-square"></i></button>';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editUnit" title="Edit Unit" data-id="' . $row->id . '" data-unit_name="' . $row->unit_name . '" data-type="' . e($row->type) . '" data-description="' . $row->description . '" data-status="' . $row->status . '"><i class="fa-solid fa-pen-to-square"></i></button>';
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
                     $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreUnit" title="Restore Unit" data-id="' . $row->id . '"><i class="fa-solid fa-undo"></i></button>';
                 }

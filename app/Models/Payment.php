@@ -12,7 +12,7 @@ class Payment extends Model
     // Each payment uses one selected mode.
     public function paymentMode()
     {
-        return $this->belongsTo(PaymentMode::class, 'payment_mode_id');
+        return $this->belongsTo(DropdownOption::class, 'payment_mode_id');
     }
 
     // Keep bill allocations grouped under the payment row.

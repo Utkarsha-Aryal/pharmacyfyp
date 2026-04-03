@@ -28,7 +28,7 @@
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <label class="form-label text-muted">Type</label>
+                        <label class="form-label text-muted">Direction</label>
                         <div class="fw-semibold">{{ $payment->type === 'in' ? 'Payment In' : 'Payment Out' }}</div>
                     </div>
                     <div class="col-md-3">

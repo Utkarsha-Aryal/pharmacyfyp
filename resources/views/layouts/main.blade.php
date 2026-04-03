@@ -32,6 +32,9 @@
     <title>@yield('title') | {{ setting('app_name', 'Pharmacy Management System') }}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" href="{{ app_favicon_url() }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
     <!-- Choices JS -->
     <script src="{{ asset('backpanel/assets/libs/choices.js/public/assets/scripts/choices.min.js') }}"></script>
 
@@ -88,6 +91,37 @@
     <link rel="stylesheet" href="{{ asset('backpanel/assets/libs/toastr/toastr.min.css') }}">
 
     @yield('styles')
+
+    <style>
+        :root {
+            --app-font-family: "Inter", sans-serif;
+            --brand-font-family: "Poppins", sans-serif;
+        }
+
+        body,
+        .page,
+        .main-content,
+        .app-sidebar,
+        .app-header,
+        .card,
+        .modal-content,
+        .btn,
+        .form-control,
+        .form-select,
+        .table,
+        input,
+        select,
+        textarea {
+            font-family: var(--app-font-family);
+        }
+
+        .dashboard-hero-title,
+        .invoice-sheet-brand h1,
+        .brand-font,
+        .settings-brand-preview-title {
+            font-family: var(--brand-font-family);
+        }
+    </style>
 
 </head>
 

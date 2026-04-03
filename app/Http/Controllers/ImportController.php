@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\DropdownOption;
+use App\Models\PartyType;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\Unit;
@@ -92,7 +94,10 @@ class ImportController extends Controller
                     'status' => 'Y',
                     'is_active' => true,
                     'slug' => $product?->slug ?: (Str::slug($data['product_name']) . '-' . Str::lower(Str::random(6))),
-                    'product_status' => 'instock',
+                    'product_status_id' => DropdownOption::findIdByAliasAndName('product_status', 'In Stock'),
+                    'product_status' => Product::legacyStatusCode('In Stock'),
+                    'formulation_id' => !empty($data['formulation']) ? DropdownOption::findIdByAliasAndName('formulation', ucwords(strtolower($data['formulation']))) : null,
+                    'formulation' => !empty($data['formulation']) ? ucwords(strtolower($data['formulation'])) : null,
                 ];
 
                 if ($product) {
@@ -120,6 +125,7 @@ class ImportController extends Controller
 
         $sheetRows = $this->sheetRows($validated['file']);
         $summary = ['imported' => 0, 'updated' => 0, 'failed' => 0, 'errors' => []];
+        $partyTypeCodes = PartyType::query()->where('is_active', true)->pluck('code')->all();
 
         foreach ($sheetRows as $rowIndex => $row) {
             try {
@@ -128,14 +134,15 @@ class ImportController extends Controller
                 $validator = Validator::make($data, [
                     'name' => ['required', 'string', 'max:255'],
                     'phone' => ['required', 'string', 'max:100'],
-                    'party_type' => ['nullable', 'in:customer,institution'],
+                    'party_type' => ['nullable', 'string'],
                 ]);
                 $validator->validate();
 
+                $partyType = $this->resolvePartyTypeCode($data['party_type'] ?? null, $partyTypeCodes);
                 $customer = Customer::query()->where('phone', $data['phone'])->first();
                 $payload = [
                     'name' => $data['name'],
-                    'party_type' => $data['party_type'] ?? 'customer',
+                    'party_type' => $partyType,
                     'contact_person' => $data['contact_person'] ?? null,
                     'phone' => $data['phone'],
                     'email' => $data['email'] ?? null,
@@ -343,5 +350,18 @@ class ImportController extends Controller
         }
 
         return $normalised;
+    }
+
+    // Convert a party type from the file into an active code, falling back to customer when blank.
+    private function resolvePartyTypeCode(?string $value, array $activeCodes): string
+    {
+        $normalized = Str::of((string) $value)->trim()->lower()->replace([' ', '-'], '_')->toString();
+        $activeCodes = array_values(array_filter($activeCodes));
+
+        if ($normalized !== '' && in_array($normalized, $activeCodes, true)) {
+            return $normalized;
+        }
+
+        return in_array('customer', $activeCodes, true) ? 'customer' : ($activeCodes[0] ?? 'customer');
     }
 }

@@ -4,18 +4,22 @@ namespace Database\Seeders;
 
 use App\Models\Batch;
 use App\Models\Customer;
+use App\Models\DropdownOption;
 use App\Models\Expense;
+use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
 use App\Models\SalesReturn;
 use App\Models\ProductBatch;
 use App\Models\Purchase;
+use App\Models\PurchaseItem;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseReference;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class DemoDataSeeder extends Seeder
@@ -32,13 +36,17 @@ class DemoDataSeeder extends Seeder
 
         $unitIds = [];
         foreach ([
-            ['unit_name' => 'Strip', 'description' => 'Tablet strip'],
-            ['unit_name' => 'Bottle', 'description' => 'Liquid bottle'],
-            ['unit_name' => 'Vial', 'description' => 'Injection vial'],
-            ['unit_name' => 'Tube', 'description' => 'Cream tube'],
+            ['unit_name' => 'Piece', 'type' => 'both', 'description' => 'Single medicine piece'],
+            ['unit_name' => 'Strip', 'type' => 'sales', 'description' => 'Tablet strip'],
+            ['unit_name' => 'Box', 'type' => 'purchase', 'description' => 'Purchase box'],
+            ['unit_name' => 'Carton', 'type' => 'purchase', 'description' => 'Large purchase carton'],
+            ['unit_name' => 'Tablet', 'type' => 'sales', 'description' => 'Single tablet unit'],
+            ['unit_name' => 'Bottle', 'type' => 'both', 'description' => 'Liquid bottle'],
+            ['unit_name' => 'Sachet', 'type' => 'both', 'description' => 'Single sachet packet'],
         ] as $unit) {
-            $unitIds[] = DB::table('units')->insertGetId([
+            $unitIds[$unit['unit_name']] = DB::table('units')->insertGetId([
                 'unit_name' => $unit['unit_name'],
+                'type' => $unit['type'],
                 'description' => $unit['description'],
                 'status' => 'Y',
                 'created_at' => $now,
@@ -77,6 +85,36 @@ class DemoDataSeeder extends Seeder
             ]));
         }
 
+        $findDropdownId = function (string $alias, string $name): ?int {
+            return DropdownOption::findIdByAliasAndName($alias, $name);
+        };
+
+        $paymentModeIdFromLegacy = function (?string $legacyMode) use ($findDropdownId): ?int {
+            return match (strtolower(trim((string) $legacyMode))) {
+                'bank', 'bank transfer', 'transfer' => $findDropdownId('payment_mode', 'Bank Transfer'),
+                'cheque', 'check' => $findDropdownId('payment_mode', 'Cheque'),
+                'esewa' => $findDropdownId('payment_mode', 'eSewa'),
+                'khalti' => $findDropdownId('payment_mode', 'Khalti'),
+                default => $findDropdownId('payment_mode', 'Cash'),
+            };
+        };
+
+        $expenseCategoryIdFromLegacy = function (?string $legacyName) use ($findDropdownId): ?int {
+            $normalized = strtolower(trim((string) $legacyName));
+            $mappedName = match ($normalized) {
+                'salary' => 'Salary',
+                'rent' => 'Rent',
+                'utilities', 'utility' => 'Utilities',
+                'supplies', 'office', 'stationery' => 'Supplies',
+                'maintenance', 'fuel' => 'Maintenance',
+                default => 'Miscellaneous',
+            };
+
+            return $findDropdownId('expense_category', $mappedName);
+        };
+
+        $productStatusId = $findDropdownId('product_status', 'In Stock');
+
         $productRows = [
             ['name' => 'Ibuprofen 400mg', 'generic' => 'Ibuprofen', 'category' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 12, 'mrp' => 110, 'purchase_price' => 78, 'alert' => 12, 'manufacturer' => 'Himalaya Labs', 'cc_rate' => 7.50],
             ['name' => 'Paracetamol 500mg', 'generic' => 'Paracetamol', 'category' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 20, 'mrp' => 95, 'purchase_price' => 60, 'alert' => 20, 'manufacturer' => 'Health First', 'cc_rate' => 5.00],
@@ -101,17 +139,19 @@ class DemoDataSeeder extends Seeder
                 'mrp' => $product['mrp'],
                 'cc_rate' => $product['cc_rate'],
                 'generic_name' => $product['generic'],
-                'product_status' => 'instock',
+                'product_status' => Product::legacyStatusCode('In Stock'),
+                'product_status_id' => $productStatusId,
                 'slug' => Str::slug($product['name']) . '-' . Str::random(8),
                 'keywords' => strtolower($product['name']) . ', medicine, sample',
                 'order_number' => $index + 1,
                 'alert_quantity' => $product['alert'],
                 'reorder_level' => $product['reorder'],
                 'category_id' => $categoryIds[$product['category'] - 1],
-                'formulation' => $product['formulation'],
+                'formulation' => ucfirst($product['formulation']),
+                'formulation_id' => $findDropdownId('formulation', ucfirst($product['formulation'])),
                 'unit' => $product['unit'],
-                'sale_unit_id' => $unitIds[0],
-                'purchase_unit_id' => $unitIds[0],
+                'sale_unit_id' => $unitIds['Strip'] ?? reset($unitIds),
+                'purchase_unit_id' => $unitIds['Box'] ?? reset($unitIds),
                 'conversion rate' => 1,
                 'discount' => 5,
                 'display_price' => $product['mrp'] - (($product['mrp'] * 5) / 100),
@@ -203,12 +243,15 @@ class DemoDataSeeder extends Seeder
                 return $item['quantity'] * $item['purchase_price'];
             });
 
-            Purchase::query()->create([
+            $purchase = Purchase::query()->create([
                 'supplier_id' => $purchaseRow['supplier_id'],
                 'reference_id' => $reference->id,
                 'invoice_no' => $purchaseRow['invoice_no'],
                 'purchase_date' => $purchaseRow['purchase_date'],
                 'order_status' => $purchaseRow['order_status'],
+                'payment_mode_id' => (float) $purchaseRow['paid_amount'] > 0
+                    ? $paymentModeIdFromLegacy(($index % 2 === 0) ? 'bank' : 'cash')
+                    : $paymentModeIdFromLegacy('cash'),
                 'grand_total' => $grandTotal,
                 'paid_amount' => $purchaseRow['paid_amount'],
                 'payment_status' => Purchase::resolvePaymentStatus($grandTotal, (float) $purchaseRow['paid_amount']),
@@ -217,16 +260,39 @@ class DemoDataSeeder extends Seeder
             ]);
 
             foreach ($purchaseRow['items'] as $item) {
+                $product = Product::query()->find($item['product_id']);
+                $purchaseExpiryDate = preg_match('/^\d{4}-\d{2}$/', (string) $item['expiry_date']) === 1
+                    ? Carbon::createFromFormat('Y-m', $item['expiry_date'])->endOfMonth()->toDateString()
+                    : Carbon::parse($item['expiry_date'])->toDateString();
+                $lineAmount = round($item['quantity'] * $item['purchase_price'], 2);
+
                 ProductBatch::query()->create([
                     'product_id' => $item['product_id'],
                     'batch_no' => $item['batch_no'],
                     'expiry_date' => $item['expiry_date'],
                     'quantity' => $item['quantity'],
                     'purchase_price' => $item['purchase_price'],
-                    'subtotal' => $item['quantity'] * $item['purchase_price'],
+                    'subtotal' => $lineAmount,
                     'status' => 'Y',
                     'supplier_id' => $purchaseRow['supplier_id'],
                     'reference_id' => $reference->id,
+                ]);
+
+                PurchaseItem::query()->create([
+                    'purchase_id' => $purchase->id,
+                    'product_id' => $item['product_id'],
+                    'batch_id' => null,
+                    'batch_no' => $item['batch_no'],
+                    'expiry_date' => $purchaseExpiryDate,
+                    'quantity' => $item['quantity'],
+                    'free_qty' => 0,
+                    'mrp' => round((float) ($product?->mrp ?? 0), 2),
+                    'rate' => round((float) $item['purchase_price'], 2),
+                    'cc_rate' => round((float) ($product?->cc_rate ?? 0), 2),
+                    'discount_percent' => 0,
+                    'discount_amount' => 0,
+                    'free_goods_value' => 0,
+                    'amount' => $lineAmount,
                 ]);
             }
         }
@@ -391,6 +457,9 @@ class DemoDataSeeder extends Seeder
             $subtotal = 0;
             $discountAmount = 0;
             $totalAmount = 0;
+            $saleTypeName = ucfirst(strtolower((string) $row['sale_type']));
+            $paymentModeId = $paymentModeIdFromLegacy($row['payment_method']);
+            $paymentMode = $paymentModeId ? DropdownOption::query()->find($paymentModeId) : null;
 
             $invoice = SalesInvoice::create([
                 'reference' => SalesInvoice::makeReference(),
@@ -400,9 +469,11 @@ class DemoDataSeeder extends Seeder
                 'updated_by' => $adminId,
                 'invoice_date' => $row['invoice_date'],
                 'sale_type' => $row['sale_type'],
+                'sale_type_id' => $findDropdownId('sales_type', $saleTypeName),
                 'status' => 'confirmed',
                 'payment_status' => 'unpaid',
-                'payment_method' => $row['payment_method'],
+                'payment_method' => $paymentMode?->data ?: strtolower((string) $row['payment_method']),
+                'payment_mode_id' => $paymentModeId,
                 'subtotal' => 0,
                 'discount_amount' => 0,
                 'total_amount' => 0,
@@ -463,7 +534,7 @@ class DemoDataSeeder extends Seeder
                     'party_type' => 'customer',
                     'party_id' => $invoice->customer_id,
                     'entry_type' => 'debit',
-                    'account_type' => $row['payment_method'] === 'bank' ? 'bank' : 'cash',
+                    'account_type' => ($paymentMode?->data === 'cash') ? 'cash' : 'bank',
                     'amount' => $row['paid_amount'],
                     'notes' => 'Demo sale payment for ' . $invoice->reference,
                     'created_by' => $adminId,
@@ -567,11 +638,18 @@ class DemoDataSeeder extends Seeder
             ['date' => now()->subDays(5)->toDateString(), 'category' => 'Utilities', 'vendor' => 'NEA', 'payment_mode' => 'bank', 'amount' => 3800, 'notes' => 'Electricity bill paid online'],
             ['date' => now()->subDays(3)->toDateString(), 'category' => 'Office', 'vendor' => 'Stationery Hub', 'payment_mode' => 'bank', 'amount' => 1200, 'notes' => 'Stationery and office items'],
         ] as $expenseRow) {
+            $paymentModeId = $paymentModeIdFromLegacy($expenseRow['payment_mode']);
+            $paymentMode = $paymentModeId ? DropdownOption::query()->find($paymentModeId) : null;
+            $expenseCategoryId = $expenseCategoryIdFromLegacy($expenseRow['category']);
+            $expenseCategoryName = DropdownOption::query()->find($expenseCategoryId)?->name ?? 'Miscellaneous';
+
             $expense = Expense::create([
                 'expense_date' => $expenseRow['date'],
-                'category' => $expenseRow['category'],
+                'expense_category_id' => $expenseCategoryId,
+                'category' => $expenseCategoryName,
                 'vendor_name' => $expenseRow['vendor'],
-                'payment_mode' => $expenseRow['payment_mode'],
+                'payment_mode_id' => $paymentModeId,
+                'payment_mode' => $paymentMode?->data ?: 'cash',
                 'amount' => $expenseRow['amount'],
                 'notes' => $expenseRow['notes'],
                 'created_by' => $adminId,
@@ -593,9 +671,9 @@ class DemoDataSeeder extends Seeder
                 'reference_type' => 'Expense',
                 'reference_id' => $expense->id,
                 'entry_type' => 'credit',
-                'account_type' => $expense->payment_mode === 'bank' ? 'bank' : 'cash',
+                'account_type' => ($paymentMode?->data === 'cash') ? 'cash' : 'bank',
                 'amount' => $expense->amount,
-                'notes' => 'Demo expense payment via ' . ucfirst($expense->payment_mode),
+                'notes' => 'Demo expense payment via ' . ($paymentMode?->name ?? 'Cash'),
                 'created_by' => $adminId,
             ]);
         }
@@ -761,8 +839,10 @@ class DemoDataSeeder extends Seeder
 
             $historicalExpense = Expense::create([
                 'expense_date' => $historyBaseDate->copy()->addMonths(2)->toDateString(),
+                'expense_category_id' => $expenseCategoryIdFromLegacy('Maintenance'),
                 'category' => 'Maintenance',
                 'vendor_name' => 'Historical Service Vendor ' . $yearOffset,
+                'payment_mode_id' => $paymentModeIdFromLegacy($yearOffset % 2 === 0 ? 'bank' : 'cash'),
                 'payment_mode' => $yearOffset % 2 === 0 ? 'bank' : 'cash',
                 'amount' => 1400 + ($yearOffset * 250),
                 'notes' => 'Older seeded expense for long term finance report demo.',
@@ -785,7 +865,7 @@ class DemoDataSeeder extends Seeder
                 'reference_type' => 'Expense',
                 'reference_id' => $historicalExpense->id,
                 'entry_type' => 'credit',
-                'account_type' => $historicalExpense->payment_mode === 'bank' ? 'bank' : 'cash',
+                'account_type' => $historicalExpense->paymentModeOption?->data === 'cash' ? 'cash' : 'bank',
                 'amount' => $historicalExpense->amount,
                 'notes' => 'Historical expense payment entry.',
                 'created_by' => $adminId,

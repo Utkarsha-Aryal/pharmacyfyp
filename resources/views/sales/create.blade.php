@@ -42,10 +42,18 @@
                             <input type="date" name="invoice_date" class="form-control" value="{{ now()->toDateString() }}" required>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Sale Type</label>
-                            <select name="sale_type" class="form-select" required>
-                                @foreach ($saleTypes as $key => $label)
-                                    <option value="{{ $key }}">{{ $label }}</option>
+                            <label class="form-label d-flex justify-content-between align-items-center">
+                                <span>Sale Type</span>
+                                @can('settings.manage')
+                                    <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickDropdownOptionModal" data-quick-target-select="#salesTypeSelect" data-dropdown-alias="sales_type" data-dropdown-label="Sales Type" data-dropdown-supports-data="0" data-bs-toggle="tooltip" title="Add sales type">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                @endcan
+                            </label>
+                            <select name="sale_type_id" id="salesTypeSelect" class="form-select js-select2" data-placeholder="Select sale type" data-dropdown-alias="sales_type" required>
+                                <option value="">Select sale type</option>
+                                @foreach ($saleTypes as $saleType)
+                                    <option value="{{ $saleType->id }}">{{ $saleType->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -53,12 +61,12 @@
                             <label class="form-label d-flex justify-content-between align-items-center">
                                 <span>Payment Mode</span>
                                 @can('settings.manage')
-                                    <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickPaymentModeModal" data-quick-target-select="#salesPaymentMode">
+                                    <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickDropdownOptionModal" data-quick-target-select="#salesPaymentMode" data-dropdown-alias="payment_mode" data-dropdown-label="Payment Mode" data-dropdown-supports-data="1" data-bs-toggle="tooltip" title="Add payment mode">
                                         <i class="fa-solid fa-plus"></i>
                                     </button>
                                 @endcan
                             </label>
-                            <select name="payment_mode_id" id="salesPaymentMode" class="form-select js-select2" data-placeholder="Select mode" required>
+                            <select name="payment_mode_id" id="salesPaymentMode" class="form-select js-select2" data-placeholder="Select mode" data-dropdown-alias="payment_mode" required>
                                 <option value="">Select mode</option>
                                 @foreach ($paymentModes as $mode)
                                     <option value="{{ $mode->id }}">{{ $mode->name }}</option>
@@ -247,6 +255,9 @@
             'showQuickUnit' => auth()->user()->can('inventory.unit'),
             'categories' => $categories,
             'units' => $units,
+            'partyTypes' => $partyTypes,
+            'showQuickPartyType' => auth()->user()->can('settings.manage'),
+            'formulations' => $formulations,
         ])
     </div>
 @endsection

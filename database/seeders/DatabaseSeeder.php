@@ -12,6 +12,9 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             AdminUserSeeder::class,
             SettingSeeder::class,
+            DropdownOptionSeeder::class,
+            PartyTypeSeeder::class,
+            SupplierTypeSeeder::class,
             DemoDataSeeder::class,
         ]);
     }

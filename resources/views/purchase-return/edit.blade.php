@@ -25,7 +25,12 @@
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="form-label">Supplier</label>
+                        <label class="form-label d-flex justify-content-between align-items-center">
+                            <span>Supplier</span>
+                            <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-bs-toggle="tooltip" title="Quick add supplier" data-quick-modal="#quickSupplierModal" data-quick-target-select="#purchaseReturnSupplier">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </label>
                         <select name="supplier_id" id="purchaseReturnSupplier" class="form-select js-select2" data-placeholder="Select supplier" required>
                             <option value="">Select supplier</option>
                             @foreach ($suppliers as $supplier)
@@ -120,6 +125,12 @@
                 </button>
             </div>
         </form>
+
+        @include('partials.quick-create-modals', [
+            'showQuickSupplier' => auth()->user()->can('purchase.supplier'),
+            'showQuickSupplierType' => auth()->user()->can('settings.manage'),
+            'supplierTypes' => $supplierTypes ?? collect(),
+        ])
     </div>
 @endsection
 

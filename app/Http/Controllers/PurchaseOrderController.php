@@ -5,10 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\AccountTransaction;
 use App\Models\Batch;
+use App\Models\Category;
+use App\Models\DropdownOption;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\Supplier;
+use App\Models\SupplierType;
+use App\Models\Unit;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -63,6 +67,10 @@ class PurchaseOrderController extends Controller
             'reference' => PurchaseOrder::makeReference(),
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
             'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
+            'categories' => Category::query()->orderBy('name')->get(),
+            'units' => Unit::query()->orderBy('unit_name')->get(),
+            'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
+            'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
         ]);
     }
 

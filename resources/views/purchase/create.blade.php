@@ -97,12 +97,12 @@
                             <label class="form-label d-flex justify-content-between align-items-center">
                                 <span>Payment Mode</span>
                                 @can('settings.manage')
-                                    <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickPaymentModeModal" data-quick-target-select="#purchasePaymentMode">
+                                    <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickDropdownOptionModal" data-quick-target-select="#purchasePaymentMode" data-dropdown-alias="payment_mode" data-dropdown-label="Payment Mode" data-dropdown-supports-data="1" data-bs-toggle="tooltip" title="Add payment mode">
                                         <i class="fa-solid fa-plus"></i>
                                     </button>
                                 @endcan
                             </label>
-                            <select name="payment_mode_id" id="purchasePaymentMode" class="form-select js-select2" data-placeholder="Select mode">
+                            <select name="payment_mode_id" id="purchasePaymentMode" class="form-select js-select2" data-placeholder="Select mode" data-dropdown-alias="payment_mode">
                                 <option value="">Select mode</option>
                                 @foreach ($paymentModes as $mode)
                                     <option value="{{ $mode->id }}">{{ $mode->name }}</option>
@@ -264,11 +264,14 @@
 
         @include('partials.quick-create-modals', [
             'showQuickSupplier' => auth()->user()->can('purchase.supplier'),
+            'showQuickSupplierType' => auth()->user()->can('settings.manage'),
             'showQuickPaymentMode' => auth()->user()->can('settings.manage'),
             'showQuickProduct' => auth()->user()->can('inventory.product'),
             'showQuickUnit' => auth()->user()->can('inventory.unit'),
             'categories' => $categories,
             'units' => $units,
+            'formulations' => $formulations,
+            'supplierTypes' => $supplierTypes,
         ])
     </div>
 @endsection

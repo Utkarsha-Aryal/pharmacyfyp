@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('units', function (Blueprint $table) {
             $table->id();
             $table->string('unit_name')->nullable();
+            $table->enum('type', ['sales', 'purchase', 'both'])->default('both');
             $table->string('description')->nullable();
             $table->enum('status',['Y','N'])->default('Y');
             $table->timestamps();

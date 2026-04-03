@@ -29,7 +29,7 @@
                             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#settings-smtp" type="button">SMTP</button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#settings-payment-modes" type="button">Payment Modes</button>
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#settings-masters" type="button">Masters</button>
                         </li>
                     </ul>
 
@@ -140,59 +140,13 @@
                             </div>
                         </div>
 
-                        <div class="tab-pane fade" id="settings-payment-modes" role="tabpanel">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <div>
-                                    <h6 class="mb-1">Payment Mode Master</h6>
-                                    <p class="mb-0 text-muted">Cash and Bank stay fixed. Custom digital and bank-like modes can be added here.</p>
-                                </div>
-                                <button type="button" class="btn btn-primary" id="addPaymentModeBtn">
-                                    <i class="fa-solid fa-plus"></i> Add Payment Mode
-                                </button>
-                            </div>
-
-                            <div class="table-responsive">
-                                <table class="table table-bordered align-middle" id="paymentModeTable">
-                                    <thead>
-                                        <tr>
-                                            <th>S.No</th>
-                                            <th>Name</th>
-                                            <th>Type</th>
-                                            <th>Status</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($paymentModes as $index => $mode)
-                                            <tr data-id="{{ $mode->id }}">
-                                                <td>{{ $index + 1 }}</td>
-                                                <td class="mode-name">{{ $mode->name }}</td>
-                                                <td class="mode-type">{{ ucfirst($mode->type) }}</td>
-                                                <td class="mode-status">
-                                                    <span class="report-badge {{ $mode->is_active ? 'report-badge-success' : 'report-badge-danger' }}">
-                                                        {{ $mode->is_active ? 'Active' : 'Inactive' }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div class="table-action-group">
-                                                        <button type="button" class="btn btn-sm btn-outline-primary table-action-btn editPaymentModeBtn" data-id="{{ $mode->id }}" data-name="{{ $mode->name }}" data-type="{{ $mode->type }}" data-active="{{ $mode->is_active ? 1 : 0 }}" title="Edit">
-                                                            <i class="fa-solid fa-pen-to-square"></i>
-                                                        </button>
-                                                        <button type="button" class="btn btn-sm {{ $mode->is_active ? 'btn-outline-warning' : 'btn-outline-success' }} table-action-btn togglePaymentModeBtn" data-id="{{ $mode->id }}" data-active="{{ $mode->is_active ? 1 : 0 }}" title="Toggle">
-                                                            <i class="fa-solid {{ $mode->is_active ? 'fa-toggle-on' : 'fa-toggle-off' }}"></i>
-                                                        </button>
-                                                        @if (!in_array(strtolower($mode->name), ['cash', 'bank'], true))
-                                                            <button type="button" class="btn btn-sm btn-outline-danger table-action-btn deletePaymentModeBtn" data-id="{{ $mode->id }}" title="Delete">
-                                                                <i class="fa-solid fa-trash"></i>
-                                                            </button>
-                                                        @endif
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div class="tab-pane fade" id="settings-masters" role="tabpanel">
+                            @include('settings.partials.dropdown-options-manager', [
+                                'dropdownOptionAliases' => $dropdownOptionAliases,
+                                'dropdownOptionGroups' => $dropdownOptionGroups,
+                                'partyTypes' => $partyTypes,
+                                'supplierTypes' => $supplierTypes,
+                            ])
                         </div>
                     </div>
                 </div>
@@ -204,40 +158,20 @@
             </div>
         </form>
 
-        <div class="modal fade" id="paymentModeModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form id="paymentModeForm">
-                        @csrf
-                        <div class="modal-header">
-                            <h5 class="modal-title">Payment Mode</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <input type="hidden" id="payment_mode_id">
-                            <div class="mb-3">
-                                <label class="form-label">Name</label>
-                                <input type="text" id="payment_mode_name" class="form-control" placeholder="eSewa" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Type</label>
-                                <select id="payment_mode_type" class="form-select" required>
-                                    <option value="cash">Cash</option>
-                                    <option value="bank">Bank</option>
-                                    <option value="digital">Digital</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fa fa-save"></i> Save Mode
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+        @include('settings.partials.dropdown-options-modal')
+
+        @include('partials.quick-create-modals', [
+            'showQuickExpenseCategory' => false,
+            'showQuickPaymentMode' => false,
+            'showQuickCustomer' => false,
+            'showQuickSupplier' => false,
+            'showQuickProduct' => false,
+            'showQuickUnit' => false,
+            'showQuickPartyType' => true,
+            'showQuickSupplierType' => true,
+            'partyTypes' => $partyTypes,
+            'supplierTypes' => $supplierTypes,
+        ])
     </div>
 @endsection
 
@@ -247,10 +181,11 @@
             var editorElement = document.getElementById('companyAddressEditor');
             var hiddenInput = document.getElementById('company_address');
             var settingsForm = document.getElementById('settingsForm');
+            var addressEditor = null;
 
-            if (editorElement && hiddenInput && settingsForm && typeof Quill !== 'undefined') {
+            if (editorElement && hiddenInput && typeof Quill !== 'undefined') {
                 // small editor is enough here because admin may want styled address and footer text
-                var addressEditor = new Quill('#companyAddressEditor', {
+                addressEditor = new Quill('#companyAddressEditor', {
                     theme: 'snow',
                     modules: {
                         toolbar: [
@@ -264,9 +199,21 @@
                         ]
                     }
                 });
+            }
 
+            if (settingsForm) {
                 settingsForm.addEventListener('submit', function() {
-                    hiddenInput.value = addressEditor.root.innerHTML;
+                    if (hiddenInput && addressEditor) {
+                        hiddenInput.value = addressEditor.root.innerHTML;
+                    }
+
+                    if (window.syncCsrfInputs) {
+                        window.syncCsrfInputs(settingsForm);
+                    }
+
+                    if (window.showLoader) {
+                        window.showLoader();
+                    }
                 });
             }
 
@@ -311,133 +258,6 @@
                 });
             });
 
-            var paymentModeModalElement = document.getElementById('paymentModeModal');
-            var paymentModeModal = paymentModeModalElement ? new bootstrap.Modal(paymentModeModalElement) : null;
-
-            function paymentModeRow(mode, index) {
-                var deleteButton = ['cash', 'bank'].indexOf(String(mode.name).toLowerCase()) === -1
-                    ? '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deletePaymentModeBtn" data-id="' + mode.id + '" title="Delete"><i class="fa-solid fa-trash"></i></button>'
-                    : '';
-
-                return '<tr data-id="' + mode.id + '">' +
-                    '<td>' + index + '</td>' +
-                    '<td class="mode-name">' + mode.name + '</td>' +
-                    '<td class="mode-type">' + mode.type.charAt(0).toUpperCase() + mode.type.slice(1) + '</td>' +
-                    '<td class="mode-status"><span class="report-badge ' + (mode.is_active ? 'report-badge-success' : 'report-badge-danger') + '">' + (mode.is_active ? 'Active' : 'Inactive') + '</span></td>' +
-                    '<td><div class="table-action-group">' +
-                        '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editPaymentModeBtn" data-id="' + mode.id + '" data-name="' + mode.name + '" data-type="' + mode.type + '" data-active="' + (mode.is_active ? 1 : 0) + '" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>' +
-                        '<button type="button" class="btn btn-sm ' + (mode.is_active ? 'btn-outline-warning' : 'btn-outline-success') + ' table-action-btn togglePaymentModeBtn" data-id="' + mode.id + '" data-active="' + (mode.is_active ? 1 : 0) + '" title="Toggle"><i class="fa-solid ' + (mode.is_active ? 'fa-toggle-on' : 'fa-toggle-off') + '"></i></button>' +
-                        deleteButton +
-                    '</div></td>' +
-                '</tr>';
-            }
-
-            function refreshPaymentModeTable() {
-                $.get('{{ route('admin.payment-modes.index') }}', function(response) {
-                    var rows = response.data || [];
-                    var tbody = $('#paymentModeTable tbody');
-                    tbody.empty();
-
-                    rows.forEach(function(mode, index) {
-                        tbody.append(paymentModeRow(mode, index + 1));
-                    });
-                });
-            }
-
-            $(document).on('click', '#addPaymentModeBtn', function() {
-                $('#payment_mode_id').val('');
-                $('#payment_mode_name').val('');
-                $('#payment_mode_type').val('cash');
-                if (paymentModeModal) {
-                    paymentModeModal.show();
-                }
-            });
-
-            $(document).on('click', '.editPaymentModeBtn', function() {
-                $('#payment_mode_id').val($(this).data('id'));
-                $('#payment_mode_name').val($(this).data('name'));
-                $('#payment_mode_type').val($(this).data('type'));
-                if (paymentModeModal) {
-                    paymentModeModal.show();
-                }
-            });
-
-            $(document).on('submit', '#paymentModeForm', function(event) {
-                event.preventDefault();
-
-                var modeId = $('#payment_mode_id').val();
-                var url = modeId
-                    ? '{{ url('admin/payment-modes') }}/' + modeId + '/update'
-                    : '{{ route('admin.payment-modes.store') }}';
-
-                $.post(url, {
-                    _token: '{{ csrf_token() }}',
-                    name: $('#payment_mode_name').val(),
-                    type: $('#payment_mode_type').val()
-                }, function(response) {
-                    showNotification(response.message || 'Payment mode saved.', response.type || 'success');
-                    refreshPaymentModeTable();
-                    if (paymentModeModal) {
-                        paymentModeModal.hide();
-                    }
-                }).fail(function(xhr) {
-                    var response = xhr.responseJSON || {};
-                    showNotification(response.message || 'Could not save payment mode.', 'error');
-                });
-            });
-
-            $(document).on('click', '.togglePaymentModeBtn', function() {
-                var modeId = $(this).data('id');
-                var nextState = $(this).data('active') == 1 ? 0 : 1;
-
-                $.post('{{ url('admin/payment-modes') }}/' + modeId + '/update', {
-                    _token: '{{ csrf_token() }}',
-                    is_active: nextState
-                }, function(response) {
-                    showNotification(response.message || 'Payment mode updated.', response.type || 'success');
-                    refreshPaymentModeTable();
-                }).fail(function(xhr) {
-                    var response = xhr.responseJSON || {};
-                    showNotification(response.message || 'Could not update payment mode.', 'error');
-                });
-            });
-
-            $(document).on('click', '.deletePaymentModeBtn', function() {
-                var modeId = $(this).data('id');
-
-                function runDelete() {
-                    $.post('{{ url('admin/payment-modes') }}/' + modeId + '/delete', {
-                        _token: '{{ csrf_token() }}'
-                    }, function(response) {
-                        showNotification(response.message || 'Payment mode deleted.', response.type || 'success');
-                        refreshPaymentModeTable();
-                    }).fail(function(xhr) {
-                        var response = xhr.responseJSON || {};
-                        showNotification(response.message || 'Could not delete payment mode.', 'error');
-                    });
-                }
-
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        title: 'Delete payment mode?',
-                        text: 'This will remove the custom mode from the list.',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#DB1F48',
-                        cancelButtonColor: '#6b7280',
-                        confirmButtonText: 'Delete'
-                    }).then(function(result) {
-                        if (result.isConfirmed) {
-                            runDelete();
-                        }
-                    });
-                    return;
-                }
-
-                if (window.confirm('Delete this payment mode?')) {
-                    runDelete();
-                }
-            });
         });
     </script>
 @endsection

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Category;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Common;
+use App\Models\DropdownOption;
 use App\Models\Product;
 use App\Models\Unit;
 use Exception;
@@ -24,6 +25,10 @@ class ProductController extends Controller
         return view('product.index', [
             'categories' => Category::query()->orderBy('name')->get(),
             'units' => Unit::query()->orderBy('unit_name')->get(),
+            'saleUnits' => Unit::query()->forSales()->orderBy('unit_name')->get(),
+            'purchaseUnits' => Unit::query()->forPurchase()->orderBy('unit_name')->get(),
+            'productStatuses' => DropdownOption::query()->forAlias('product_status')->active()->orderBy('name')->get(),
+            'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
         ]);
     }
 
@@ -64,7 +69,7 @@ public function globalSearch(Request $request)
         try {
             $post = $request->all();
             $category = Category::all();
-            $unit = Unit::all();
+            $units = Unit::query()->orderBy('unit_name')->get();
             $prevPost = [];
 
             if (!empty($post['id'])) {
@@ -78,7 +83,11 @@ public function globalSearch(Request $request)
             $data = [
                 'category' => $category,
                 'prevPost' => $prevPost,
-                'unit' => $unit,
+                'unit' => $units,
+                'saleUnits' => $units->whereIn('type', ['sales', 'both'])->values(),
+                'purchaseUnits' => $units->whereIn('type', ['purchase', 'both'])->values(),
+                'productStatuses' => DropdownOption::query()->forAlias('product_status')->active()->orderBy('name')->get(),
+                'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
             ];
 
             if (!empty($prevPost) && $prevPost->image) {
@@ -108,16 +117,16 @@ public function globalSearch(Request $request)
             $validated = $request->validate([
                 'id' => ['nullable', 'exists:products,id'],
                 'category_id' => ['required', 'exists:categories,id'],
-                'unit_sale_id' => ['required', 'exists:units,id'],
-                'unit_purchase_id' => ['required', 'exists:units,id'],
+                'unit_sale_id' => ['required', Rule::exists('units', 'id')->where(fn ($query) => $query->whereIn('type', ['sales', 'both']))],
+                'unit_purchase_id' => ['required', Rule::exists('units', 'id')->where(fn ($query) => $query->whereIn('type', ['purchase', 'both']))],
                 'product_code' => ['nullable', 'string', 'max:100', Rule::unique('products', 'product_code')->ignore($request->input('id'))],
                 'product_name' => ['required', 'string', 'max:255'],
                 'generic_name' => ['nullable', 'string', 'max:255'],
                 'composition' => ['nullable', 'string', 'max:255'],
                 'group_name' => ['nullable', 'string', 'max:255'],
                 'manufacturer' => ['nullable', 'string', 'max:255'],
-                'product_status' => ['nullable', 'in:instock,stockout'],
-                'formulation' => ['nullable', 'in:tablet,capsule,syrup,injection,cream,drops,other'],
+                'product_status_id' => ['nullable', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'product_status'))],
+                'formulation_id' => ['nullable', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'formulation'))],
                 'unit' => ['nullable', 'string', 'max:100'],
                 'order_number' => ['nullable', 'integer', 'min:0'],
                 'reorder_level' => ['nullable', 'integer', 'min:0'],
@@ -163,12 +172,13 @@ public function globalSearch(Request $request)
     {
         $validated = $request->validate([
             'category_id' => ['required', 'exists:categories,id'],
-            'unit_sale_id' => ['required', 'exists:units,id'],
-            'unit_purchase_id' => ['required', 'exists:units,id'],
+            'unit_sale_id' => ['required', Rule::exists('units', 'id')->where(fn ($query) => $query->whereIn('type', ['sales', 'both']))],
+            'unit_purchase_id' => ['required', Rule::exists('units', 'id')->where(fn ($query) => $query->whereIn('type', ['purchase', 'both']))],
             'product_name' => ['required', 'string', 'max:255'],
             'generic_name' => ['nullable', 'string', 'max:255'],
             'manufacturer' => ['nullable', 'string', 'max:255'],
-            'formulation' => ['nullable', 'in:tablet,capsule,syrup,injection,cream,drops,other'],
+            'product_status_id' => ['nullable', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'product_status'))],
+            'formulation_id' => ['nullable', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'formulation'))],
             'mrp' => ['required', 'numeric', 'min:0'],
             'cc_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'purchase_price' => ['nullable', 'numeric', 'min:0'],
@@ -184,14 +194,18 @@ public function globalSearch(Request $request)
             'product_name' => $validated['product_name'],
             'generic_name' => $validated['generic_name'] ?? null,
             'manufacturer' => $validated['manufacturer'] ?? null,
-            'formulation' => $validated['formulation'] ?? 'other',
+            'formulation_id' => $validated['formulation_id'] ?? null,
+            'formulation' => DropdownOption::query()->find($validated['formulation_id'] ?? null)?->name,
             'mrp' => round((float) $validated['mrp'], 2),
             'cc_rate' => round((float) ($validated['cc_rate'] ?? 0), 2),
             'purchase_price' => round((float) ($validated['purchase_price'] ?? 0), 2),
             'reorder_level' => $validated['reorder_level'] ?? 10,
             'alert_quantity' => $validated['reorder_level'] ?? 10,
             'description' => $validated['description'] ?? ('Quick product created for billing: ' . $validated['product_name']),
-            'product_status' => 'instock',
+            'product_status_id' => $validated['product_status_id'] ?? DropdownOption::findIdByAliasAndName('product_status', 'In Stock'),
+            'product_status' => Product::legacyStatusCode(
+                DropdownOption::query()->find($validated['product_status_id'] ?? null)?->name ?? 'In Stock'
+            ),
             'status' => 'Y',
             'is_active' => true,
             'slug' => Str::slug($validated['product_name']) . '-' . Str::lower(Str::random(8)),
@@ -235,7 +249,7 @@ public function globalSearch(Request $request)
                 $array[$i]['category'] = $row->category?->name ?? '-';
                 $array[$i]['stock_quantity'] = $currentStock;
                 $array[$i]['generic_name'] = $row->generic_name;
-                $array[$i]['formulation'] = ucfirst((string) ($row->formulation ?? 'Other'));
+                $array[$i]['formulation'] = $row->formulation_label ?: '-';
                 $array[$i]['unit'] = $row->unit ?: '-';
                 $array[$i]['reorder_level'] = $row->reorder_level ?? $row->alert_quantity ?? 10;
                 $array[$i]['mrp'] = money_value($row->mrp ?? 0);

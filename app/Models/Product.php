@@ -14,10 +14,34 @@ class Product extends Model
 {
     protected $guarded = [];
 
+    public const LEGACY_STATUS_CODES = [
+        'In Stock' => 'instock',
+        'Out of Stock' => 'stockout',
+        'Discontinued' => 'discontinued',
+    ];
+
+    public const LEGACY_STATUS_LABELS = [
+        'instock' => 'In Stock',
+        'stockout' => 'Out of Stock',
+        'discontinued' => 'Discontinued',
+    ];
+
     // One product belongs to one category.
     public function category()
     {
         return $this->belongsTo(Category::class, 'category_id');
+    }
+
+    // Product status is now driven from the shared dropdown options table.
+    public function productStatusOption()
+    {
+        return $this->belongsTo(DropdownOption::class, 'product_status_id');
+    }
+
+    // Formulation is also managed from the shared dropdown options table now.
+    public function formulationOption()
+    {
+        return $this->belongsTo(DropdownOption::class, 'formulation_id');
     }
 
     // Old purchase bill batches still point here, so this relation stays for backward compatibility.
@@ -66,10 +90,30 @@ class Product extends Model
         return (string) ($this->unit ?? 'Unit');
     }
 
+    // Prefer the shared dropdown label, but keep the old string value as a fallback during migration.
+    public function getProductStatusLabelAttribute(): string
+    {
+        return (string) ($this->productStatusOption?->name ?: static::legacyStatusLabel($this->product_status) ?: 'Out of Stock');
+    }
+
+    // Prefer the shared dropdown label, but keep the old string value as a fallback during migration.
+    public function getFormulationLabelAttribute(): string
+    {
+        return (string) ($this->formulationOption?->name ?: ucfirst((string) ($this->formulation ?: '')));
+    }
+
     // Keep product save logic in one place because both add and edit use the same modal form.
     public static function saveData($post)
     {
         try {
+            $productStatus = !empty($post['product_status_id'])
+                ? DropdownOption::query()->forAlias('product_status')->find($post['product_status_id'])
+                : null;
+            $formulation = !empty($post['formulation_id'])
+                ? DropdownOption::query()->forAlias('formulation')->find($post['formulation_id'])
+                : null;
+            $legacyProductStatus = static::legacyStatusCode($productStatus?->name ?? ($post['product_status'] ?? null));
+
             $dataArray = [
                 'product_code' => $post['product_code'] ?? null,
                 'name' => $post['product_name'] ?? null,
@@ -84,14 +128,16 @@ class Product extends Model
                 'mrp' => $post['mrp'] ?? null,
                 'cc_rate' => $post['cc_rate'] ?? 0,
                 'category_id' => $post['category_id'] ?? null,
-                'formulation' => $post['formulation'] ?? 'other',
+                'formulation' => $formulation?->name ?? ($post['formulation'] ?? null),
+                'formulation_id' => $formulation?->id,
                 'unit' => $post['unit_name'] ?? $post['unit'] ?? null,
                 'reorder_level' => $post['reorder_level'] ?? $post['alert_quantity'] ?? 10,
                 'alert_quantity' => $post['reorder_level'] ?? $post['alert_quantity'] ?? 10,
                 'is_active' => array_key_exists('is_active', $post) ? (bool) $post['is_active'] : true,
                 'sale_unit_id' => $post['unit_sale_id'] ?? null,
                 'purchase_unit_id' => $post['unit_purchase_id'] ?? null,
-                'product_status' => $post['product_status'] ?? 'stockout',
+                'product_status' => $legacyProductStatus,
+                'product_status_id' => $productStatus?->id,
                 'slug' => Str::slug((string) ($post['product_name'] ?? 'product')) . '-' . Str::random(12) . '-' . time(),
                 'keywords' => $post['keywords'] ?? null,
                 'alert_quantity' => $post['alert_quantity'] ?? ($post['reorder_level'] ?? 10),
@@ -170,7 +216,7 @@ class Product extends Model
                 },
             ])
                 ->selectRaw("(SELECT COUNT(*) FROM products WHERE {$cond}) 
-               AS totalrecs, id, name, product_name, description, mrp, cc_rate, discount, slug, image, category_id, keywords, order_number, generic_name, display_price, manufacturer, formulation, unit, reorder_level, is_active")
+               AS totalrecs, id, name, product_name, description, mrp, cc_rate, discount, slug, image, category_id, keywords, order_number, generic_name, display_price, manufacturer, formulation, formulation_id, product_status, product_status_id, unit, reorder_level, is_active")
                 ->whereRaw($cond);
             if ($limit > -1) {
                 $result = $query->orderByRaw($orderby)->offset($offset)->limit($limit)->get();
@@ -190,7 +236,7 @@ class Product extends Model
         }
     }
 
-        public static function restoreData($post)
+    public static function restoreData($post)
     {
         try {
             $updateArray = [
@@ -204,5 +250,34 @@ class Product extends Model
         } catch (Exception $e) {
             throw $e;
         }
+    }
+
+    // Shared dropdown labels still need a safe value inside the old product_status enum column.
+    public static function legacyStatusCode(?string $value): string
+    {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return 'stockout';
+        }
+
+        $normalized = mb_strtolower($value);
+
+        return match ($normalized) {
+            'in stock', 'instock' => 'instock',
+            'out of stock', 'stockout' => 'stockout',
+            'discontinued' => 'discontinued',
+            default => self::LEGACY_STATUS_CODES[$value] ?? 'stockout',
+        };
+    }
+
+    // When only the old enum exists on a row, this keeps the UI label friendly.
+    public static function legacyStatusLabel(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        return self::LEGACY_STATUS_LABELS[mb_strtolower((string) $value)] ?? null;
     }
 }

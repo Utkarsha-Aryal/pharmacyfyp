@@ -4,9 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\AccountTransaction;
+use App\Models\DropdownOption;
 use App\Models\Payment;
 use App\Models\PaymentBillAllocation;
-use App\Models\PaymentMode;
+use App\Models\PartyType;
 use App\Models\Purchase;
 use App\Models\SalesInvoice;
 use App\Models\Supplier;
@@ -41,8 +42,9 @@ class PaymentController extends Controller
             'openModal' => $request->input('open'),
             'editPaymentId' => $request->input('edit'),
             'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
+            'partyTypes' => PartyType::query()->orderBy('name')->get(),
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
-            'paymentModes' => PaymentMode::query()->where('is_active', true)->orderBy('name')->get(),
+            'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
         ]);
     }
 
@@ -185,7 +187,7 @@ class PaymentController extends Controller
             'party_type' => ['required', Rule::in(['customer', 'supplier'])],
             'payment_date' => ['required', 'date'],
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_mode_id' => ['required', 'exists:payment_modes,id'],
+            'payment_mode_id' => ['required', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode'))],
             'reference_number' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string'],
             'allocations' => ['nullable', 'array'],
@@ -300,7 +302,7 @@ class PaymentController extends Controller
             }
 
             $payment->load('paymentMode');
-            $cashAccount = $payment->paymentMode?->type === 'cash' ? 'cash' : 'bank';
+            $cashAccount = $payment->paymentMode?->data === 'cash' ? 'cash' : 'bank';
 
             if ($type === 'in') {
                 record_account_transaction([

@@ -23,6 +23,7 @@ class UnitRequest extends FormRequest
     {
         $rules = [
             'unit_name' => 'required|string|min:2|max:50',
+            'type' => 'required|in:sales,purchase,both',
             'description' => 'nullable|string|max:255',
         ];
         return $rules;
@@ -38,6 +39,8 @@ class UnitRequest extends FormRequest
 
             'description.string' => 'The description must be a valid string.',
             'description.max' => 'The description must not exceed 255 characters.',
+            'type.required' => 'Please select where this unit can be used.',
+            'type.in' => 'Unit type must be sales, purchase or both.',
         ];
     }
 }

@@ -93,13 +93,15 @@
 
             <div class="col-md-4">
                 <label class="form-label d-flex justify-content-between align-items-center">Unit Sale <span>
-                        <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickUnitModal" data-quick-target-select="#productSaleUnitSelect">
-                            <i class="fa-solid fa-plus"></i> Quick Add
-                        </button>
+                        @can('inventory.unit')
+                            <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-bs-toggle="tooltip" title="Quick add sale unit" data-quick-modal="#quickUnitModal" data-quick-target-select="#productSaleUnitSelect" data-unit-type="sales">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        @endcan
                     </span></label>
                 <select class="form-select js-select2" id="productSaleUnitSelect" name="unit_sale_id" data-placeholder="Select Sale Unit" required>
                     <option disabled selected>Select Sale Unit</option>
-                    @foreach ($unit as $unitItem)
+                    @foreach ($saleUnits as $unitItem)
                         <option value="{{ $unitItem->id }}"
                             {{ @$prevPost->sale_unit_id == $unitItem->id ? 'selected' : '' }}>
                             {{ $unitItem->unit_name }}
@@ -110,13 +112,15 @@
 
             <div class="col-md-4">
                 <label class="form-label d-flex justify-content-between align-items-center">Unit Purchase <span>
-                        <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickUnitModal" data-quick-target-select="#productPurchaseUnitSelect">
-                            <i class="fa-solid fa-plus"></i> Quick Add
-                        </button>
+                        @can('inventory.unit')
+                            <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-bs-toggle="tooltip" title="Quick add purchase unit" data-quick-modal="#quickUnitModal" data-quick-target-select="#productPurchaseUnitSelect" data-unit-type="purchase">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        @endcan
                     </span></label>
                 <select class="form-select js-select2" id="productPurchaseUnitSelect" name="unit_purchase_id" data-placeholder="Select Purchase Unit" required>
                     <option disabled selected>Select Purchase Unit</option>
-                    @foreach ($unit as $unitItem)
+                    @foreach ($purchaseUnits as $unitItem)
                         <option value="{{ $unitItem->id }}"
                             {{ @$prevPost->purchase_unit_id == $unitItem->id ? 'selected' : '' }}>
                             {{ $unitItem->unit_name }}
@@ -168,23 +172,40 @@
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">Product Status</label>
-                <select class="form-select js-select2" name="product_status" data-placeholder="Select status">
-                    <option value="instock" @selected(old('product_status', $prevPost->product_status ?? '') == 'instock')>In Stock</option>
-                    <option value="stockout" @selected(old('product_status', $prevPost->product_status ?? '') == 'stockout')>Stock Out</option>
+                <label class="form-label d-flex justify-content-between align-items-center">
+                    <span>Product Status</span>
+                    @can('settings.manage')
+                        <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-bs-toggle="tooltip" title="Quick add product status" data-quick-modal="#quickDropdownOptionModal" data-quick-target-select="#productStatusSelect" data-dropdown-alias="product_status" data-dropdown-label="Product Status" data-dropdown-supports-data="0">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    @endcan
+                </label>
+                <select class="form-select js-select2" id="productStatusSelect" name="product_status_id" data-placeholder="Select status" data-dropdown-alias="product_status">
+                    <option value="">Select status</option>
+                    @foreach ($productStatuses as $statusOption)
+                        <option value="{{ $statusOption->id }}" @selected((int) old('product_status_id', $prevPost->product_status_id ?? 0) === (int) $statusOption->id)>
+                            {{ $statusOption->name }}
+                        </option>
+                    @endforeach
                 </select>
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">Formulation</label>
-                <select class="form-select js-select2" name="formulation" data-placeholder="Select formulation">
-                    <option value="tablet" @selected(old('formulation', $prevPost->formulation ?? '') === 'tablet')>Tablet</option>
-                    <option value="capsule" @selected(old('formulation', $prevPost->formulation ?? '') === 'capsule')>Capsule</option>
-                    <option value="syrup" @selected(old('formulation', $prevPost->formulation ?? '') === 'syrup')>Syrup</option>
-                    <option value="injection" @selected(old('formulation', $prevPost->formulation ?? '') === 'injection')>Injection</option>
-                    <option value="cream" @selected(old('formulation', $prevPost->formulation ?? '') === 'cream')>Cream</option>
-                    <option value="drops" @selected(old('formulation', $prevPost->formulation ?? '') === 'drops')>Drops</option>
-                    <option value="other" @selected(old('formulation', $prevPost->formulation ?? '') === 'other')>Other</option>
+                <label class="form-label d-flex justify-content-between align-items-center">
+                    <span>Formulation</span>
+                    @can('settings.manage')
+                        <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-bs-toggle="tooltip" title="Quick add formulation" data-quick-modal="#quickDropdownOptionModal" data-quick-target-select="#productFormulationSelect" data-dropdown-alias="formulation" data-dropdown-label="Formulation" data-dropdown-supports-data="0">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    @endcan
+                </label>
+                <select class="form-select js-select2" id="productFormulationSelect" name="formulation_id" data-placeholder="Select formulation" data-dropdown-alias="formulation">
+                    <option value="">Select formulation</option>
+                    @foreach ($formulations as $formulationOption)
+                        <option value="{{ $formulationOption->id }}" @selected((int) old('formulation_id', $prevPost->formulation_id ?? 0) === (int) $formulationOption->id)>
+                            {{ $formulationOption->name }}
+                        </option>
+                    @endforeach
                 </select>
             </div>
 

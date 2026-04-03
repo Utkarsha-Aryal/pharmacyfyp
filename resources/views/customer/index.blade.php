@@ -11,9 +11,9 @@
                 <h5 class="page-title fs-21 mb-1">Party Management</h5>
                 <p class="mb-0 text-muted">Customer and institution master with ledger access and quick status control.</p>
             </div>
-            <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="{{ route('admin.export.customers') }}" class="btn btn-excel">
-                    <i class="fa-solid fa-file-excel"></i> Excel
+        <div class="d-flex gap-2 mt-3 mt-md-0">
+            <a href="{{ route('admin.export.customers') }}" class="btn btn-excel">
+                <i class="fa-solid fa-file-excel"></i> Excel
                 </a>
                 <a href="{{ route('admin.export.customers-pdf') }}" class="btn btn-pdf">
                     <i class="fa-solid fa-file-pdf"></i> PDF
@@ -26,6 +26,16 @@
                 </button>
             </div>
         </div>
+
+        <ul class="nav nav-pills mb-4">
+            <li class="nav-item">
+                <a href="{{ route('admin.customers.index') }}" class="nav-link active">Customers</a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('admin.supplier') }}" class="nav-link">Suppliers</a>
+            </li>
+        </ul>
+
         @if (session('import_summary'))
             <div class="alert alert-info alert-dismissible fade show" role="alert">
                 Imported: {{ session('import_summary.imported', 0) }},
@@ -94,10 +104,18 @@
                                     <input type="text" name="name" class="form-control" placeholder="Kathmandu Clinic Pvt. Ltd." required>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">Party Type</label>
-                                    <select name="party_type" class="form-select" required>
-                                        <option value="customer">Customer</option>
-                                        <option value="institution">Institution</option>
+                                    <label class="form-label d-flex justify-content-between align-items-center">
+                                        <span>Party Type</span>
+                                        @can('settings.manage')
+                                            <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickPartyTypeModal" data-quick-target-select="#customerPartyType">
+                                                <i class="fa-solid fa-plus"></i> Quick Add
+                                            </button>
+                                        @endcan
+                                    </label>
+                                    <select name="party_type" id="customerPartyType" class="form-select js-party-type-select" required>
+                                        @foreach ($partyTypes as $partyType)
+                                            <option value="{{ $partyType->code }}">{{ $partyType->name }}</option>
+                                        @endforeach
                                     </select>
                                 </div>
                                 <div class="col-md-6">
@@ -174,10 +192,11 @@
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
                         <label class="form-label">Party Type</label>
-                        <select name="party_type" id="customerPartyTypeFilter" class="form-select js-select2" data-placeholder="All type" data-allow-clear="1">
+                        <select name="party_type" id="customerPartyTypeFilter" class="form-select js-select2" data-placeholder="All party types" data-allow-clear="1">
                             <option value="">All</option>
-                            <option value="customer" @selected(($filters['party_type'] ?? '') === 'customer')>Customer</option>
-                            <option value="institution" @selected(($filters['party_type'] ?? '') === 'institution')>Institution</option>
+                            @foreach ($partyTypes as $partyType)
+                                <option value="{{ $partyType->code }}" @selected(($filters['party_type'] ?? '') === $partyType->code)>{{ $partyType->name }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-4">
@@ -205,7 +224,7 @@
                             <tr>
                                 <th style="width: 70px;">S.No</th>
                                 <th>Name</th>
-                                <th>Type</th>
+                                <th>Party Type</th>
                                 <th>Contact Person</th>
                                 <th>Phone</th>
                                 <th>Credit Limit</th>
@@ -220,6 +239,17 @@
                 </div>
             </div>
         </div>
+
+        @include('partials.quick-create-modals', [
+            'showQuickCustomer' => false,
+            'showQuickSupplier' => false,
+            'showQuickPaymentMode' => false,
+            'showQuickExpenseCategory' => false,
+            'showQuickProduct' => false,
+            'showQuickUnit' => false,
+            'showQuickPartyType' => true,
+            'partyTypes' => $partyTypes,
+        ])
     </div>
 @endsection
 

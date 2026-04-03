@@ -11,12 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('product_batches', function (Blueprint $table) {
+Schema::create('product_batches', function (Blueprint $table) {
     $table->id();
     $table->foreignId('product_id')->constrained()->onDelete('cascade');
     $table->string('batch_no')->nullable();
     $table->string('expiry_date')->nullable();
     $table->integer('quantity')->default(0);
+    $table->integer('free_qty')->default(0);
+    $table->decimal('mrp', 10, 2)->default(0);
+    $table->decimal('cc_rate', 5, 2)->default(0);
+    $table->decimal('discount_percent', 5, 2)->default(0);
+    $table->decimal('free_goods_value', 10, 2)->default(0);
     $table->decimal('purchase_price', 8, 2)->nullable();
     $table->decimal('subtotal', 12, 2)->nullable(); // ← Fixed
     $table->enum('status', ['Y', 'N'])->default('Y');

@@ -25,6 +25,16 @@
             </button>
         </div>
     </div>
+
+    <ul class="nav nav-pills mb-4">
+        <li class="nav-item">
+            <a href="{{ route('admin.customers.index') }}" class="nav-link">Customers</a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ route('admin.supplier') }}" class="nav-link active">Suppliers</a>
+        </li>
+    </ul>
+
     @if (session('import_summary'))
         <div class="alert alert-info alert-dismissible fade show" role="alert">
             Imported: {{ session('import_summary.imported', 0) }},
@@ -79,10 +89,16 @@
                                 <input type="text" class="form-control" name="address" id="address" placeholder="Enter address">
                             </div>
                             <div class="col-md-6">
-                                <label for="type" class="form-label">Type</label>
-                                <select name="type" id="type" class="form-select">
-                                    <option value="credit" selected>Credit</option>
-                                    <option value="debit">Debit</option>
+                                <label for="type" class="form-label d-flex justify-content-between align-items-center">
+                                    <span>Type</span>
+                                    <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-bs-toggle="tooltip" title="Quick add supplier type" data-quick-modal="#quickSupplierTypeModal" data-quick-target-select="#type">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                </label>
+                                <select name="type" id="type" class="form-select js-supplier-type-select">
+                                    @foreach ($supplierTypes as $supplierType)
+                                        <option value="{{ $supplierType->code }}" @selected($supplierType->code === 'credit')>{{ $supplierType->name }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                         </div>
@@ -95,6 +111,11 @@
             </div>
         </div>
     </div>
+
+    @include('partials.quick-create-modals', [
+        'showQuickSupplierType' => auth()->user()->can('settings.manage'),
+        'supplierTypes' => $supplierTypes,
+    ])
 
     <div class="modal fade" id="supplierImportModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">

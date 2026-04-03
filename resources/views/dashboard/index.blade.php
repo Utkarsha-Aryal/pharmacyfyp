@@ -264,62 +264,106 @@
                                 </div>
                             </div>
 
-                            @if ($canPurchaseView)
+                            @if ($canPurchaseView || $canInventoryView || $canReportView)
                                 <div class="col-xl-7">
-                                    <div class="card custom-card dashboard-inner-card">
-                                        <div class="card-header justify-content-between">
-                                            <div class="card-title">Top Suppliers</div>
-                                            <a href="{{ route('admin.export.supplier-performance') }}" class="btn btn-sm btn-outline-primary">
-                                                <i class="fa-solid fa-file-excel"></i> Excel
-                                            </a>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="table-responsive dashboard-table-wrap">
-                                                <table class="table table-striped summary-table mb-0">
-                                                    <thead>
-                                                        <tr>
-                                                            <th style="width: 70px;">S.No</th>
-                                                            <th>Supplier</th>
-                                                            <th>Bills</th>
-                                                            <th>Total Amount</th>
-                                                            <th>Outstanding</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @forelse ($topSuppliers as $index => $supplier)
-                                                            <tr>
-                                                                <td>{{ $index + 1 }}</td>
-                                                                <td>{{ $supplier->supplier_name }}</td>
-                                                                <td>{{ $supplier->total_bill }}</td>
-                                                                <td>{{ money_value($supplier->total_amount) }}</td>
-                                                                <td>
-                                                                    @if ((float) $supplier->outstanding_amount > 0)
-                                                                        <span class="text-danger fw-semibold">
-                                                                            {{ money_value($supplier->outstanding_amount) }}
-                                                                        </span>
-                                                                    @else
-                                                                        <span class="report-badge report-badge-success">Paid</span>
-                                                                    @endif
-                                                                </td>
-                                                            </tr>
-                                                        @empty
-                                                            <tr>
-                                                                <td colspan="5" class="summary-empty">No supplier purchase data yet.</td>
-                                                            </tr>
-                                                        @endforelse
-                                                    </tbody>
-                                                </table>
+                                    <div class="row g-4">
+                                        @if ($canPurchaseView)
+                                            <div class="col-12">
+                                                <div class="card custom-card dashboard-inner-card h-100">
+                                                    <div class="card-header justify-content-between">
+                                                        <div class="card-title">Top Suppliers</div>
+                                                        <a href="{{ route('admin.export.supplier-performance') }}" class="btn btn-sm btn-outline-primary">
+                                                            <i class="fa-solid fa-file-excel"></i> Excel
+                                                        </a>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div class="table-responsive dashboard-table-wrap">
+                                                            <table class="table table-striped summary-table mb-0">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th style="width: 70px;">S.No</th>
+                                                                        <th>Supplier</th>
+                                                                        <th>Bills</th>
+                                                                        <th>Total Amount</th>
+                                                                        <th>Outstanding</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @forelse ($topSuppliers as $index => $supplier)
+                                                                        <tr>
+                                                                            <td>{{ $index + 1 }}</td>
+                                                                            <td>{{ $supplier->supplier_name }}</td>
+                                                                            <td>{{ $supplier->total_bill }}</td>
+                                                                            <td>{{ money_value($supplier->total_amount) }}</td>
+                                                                            <td>
+                                                                                @if ((float) $supplier->outstanding_amount > 0)
+                                                                                    <span class="text-danger fw-semibold">{{ money_value($supplier->outstanding_amount) }}</span>
+                                                                                @else
+                                                                                    <span class="badge bg-success">Paid</span>
+                                                                                @endif
+                                                                            </td>
+                                                                        </tr>
+                                                                    @empty
+                                                                        <tr>
+                                                                            <td colspan="5" class="summary-empty">No supplier purchase data yet.</td>
+                                                                        </tr>
+                                                                    @endforelse
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
+                                        @endif
+
+                                        @if ($canInventoryView || $canReportView)
+                                            <div class="col-12">
+                                                <div class="card custom-card dashboard-inner-card h-100">
+                                                    <div class="card-header justify-content-between">
+                                                        <div class="card-title">Low Stock Alerts</div>
+                                                        <a href="{{ route('admin.report.lowstock') }}" class="btn btn-sm btn-outline-primary">
+                                                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
+                                                        </a>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div class="table-responsive dashboard-table-wrap">
+                                                            <table class="table table-striped summary-table mb-0">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th style="width: 70px;">S.No</th>
+                                                                        <th>Product</th>
+                                                                        <th>Current Stock</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @forelse ($lowStockProducts->take(5) as $index => $item)
+                                                                        <tr>
+                                                                            <td>{{ $index + 1 }}</td>
+                                                                            <td>{{ $item->product_name }}</td>
+                                                                            <td><span class="badge {{ (int) $item->current_stock === 0 ? 'bg-danger' : 'bg-warning text-dark' }}">{{ $item->current_stock }}</span></td>
+                                                                        </tr>
+                                                                    @empty
+                                                                        <tr>
+                                                                            <td colspan="3" class="summary-empty">No low stock alerts right now.</td>
+                                                                        </tr>
+                                                                    @endforelse
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
+                            @endif
 
+                            @if ($canPurchaseView)
                                 <div class="col-12">
                                     <div class="card custom-card dashboard-inner-card">
                                         <div class="card-header justify-content-between align-items-start">
                                             <div>
                                                 <div class="card-title mb-2">Recent Purchases</div>
-                                                {{-- status pills are kept, but only for the role that can work on purchase flow --}}
                                                 <div class="dashboard-status-pill-wrap">
                                                     <a href="{{ route('admin.purchase-orders.index', ['status' => 'pending']) }}" class="dashboard-status-pill dashboard-status-pending">
                                                         Pending Orders <strong>{{ $purchaseStatusCounts['pending'] }}</strong>
@@ -356,12 +400,8 @@
                                                                 <td>{{ $index + 1 }}</td>
                                                                 <td>{{ $purchase->reference }}</td>
                                                                 <td>{{ $purchase->supplier?->supplier_name ?? '-' }}</td>
-                                                                <td>
-                                                                    <span class="report-badge {{ $purchase->status === 'pending' ? 'report-badge-warning' : ($purchase->status === 'approved' ? 'report-badge-info' : 'report-badge-success') }}">{{ $purchase->status_label }}</span>
-                                                                </td>
-                                                                <td>
-                                                                    <span class="report-badge {{ $purchase->payment_status === 'unpaid' ? 'report-badge-danger' : ($purchase->payment_status === 'partial' ? 'report-badge-warning' : 'report-badge-success') }}">{{ $purchase->payment_label }}</span>
-                                                                </td>
+                                                                <td><span class="report-badge {{ $purchase->status === 'pending' ? 'report-badge-warning' : ($purchase->status === 'approved' ? 'report-badge-info' : 'report-badge-success') }}">{{ $purchase->status_label }}</span></td>
+                                                                <td><span class="report-badge {{ $purchase->payment_status === 'unpaid' ? 'report-badge-danger' : ($purchase->payment_status === 'partial' ? 'report-badge-warning' : 'report-badge-success') }}">{{ $purchase->payment_label }}</span></td>
                                                                 <td>{{ $purchase->order_date_show }}</td>
                                                                 <td>{{ money_value($purchase->total_amount) }}</td>
                                                             </tr>
@@ -379,9 +419,9 @@
                             @endif
 
                             @if ($canSalesView)
-                                <div class="{{ $canPurchaseView ? 'col-xl-6' : 'col-xl-12' }}">
+                                <div class="col-12">
                                     <div class="card custom-card dashboard-inner-card">
-                                        <div class="card-header justify-content-between">
+                                        <div class="card-header justify-content-between align-items-start">
                                             <div class="card-title">Recent Sales</div>
                                             <a href="{{ route('admin.export.sales-invoices') }}" class="btn btn-sm btn-outline-primary">
                                                 <i class="fa-solid fa-file-excel"></i> Excel
@@ -395,6 +435,7 @@
                                                             <th style="width: 70px;">S.No</th>
                                                             <th>Reference</th>
                                                             <th>Party</th>
+                                                            <th>Sale Type</th>
                                                             <th>Payment</th>
                                                             <th>Date</th>
                                                             <th>Total</th>
@@ -406,17 +447,14 @@
                                                                 <td>{{ $index + 1 }}</td>
                                                                 <td>{{ $sale->reference }}</td>
                                                                 <td>{{ $sale->customer?->name ?? 'Walk In' }}</td>
-                                                                <td>
-                                                                    <span class="report-badge {{ $sale->payment_status === 'paid' ? 'report-badge-success' : ($sale->payment_status === 'partial' ? 'report-badge-warning' : 'report-badge-danger') }}">
-                                                                        {{ $sale->payment_label }}
-                                                                    </span>
-                                                                </td>
+                                                                <td><span class="report-badge report-badge-info">{{ $sale->sale_type_label }}</span></td>
+                                                                <td><span class="report-badge {{ $sale->payment_status === 'paid' ? 'report-badge-success' : ($sale->payment_status === 'partial' ? 'report-badge-warning' : 'report-badge-danger') }}">{{ $sale->payment_label }}</span></td>
                                                                 <td>{{ $sale->invoice_date_show }}</td>
                                                                 <td>{{ money_value($sale->total_amount) }}</td>
                                                             </tr>
                                                         @empty
                                                             <tr>
-                                                                <td colspan="6" class="summary-empty">No sales data available yet.</td>
+                                                                <td colspan="7" class="summary-empty">No sales data available yet.</td>
                                                             </tr>
                                                         @endforelse
                                                     </tbody>

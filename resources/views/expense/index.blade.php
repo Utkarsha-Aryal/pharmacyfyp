@@ -9,7 +9,7 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Expense Tracking</h5>
-                <p class="mb-0 text-muted">Quick admin expense entry with cash and bank payment lines.</p>
+                <p class="mb-0 text-muted">Quick admin expense entry with reusable category and payment mode options.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.export.expenses') }}" class="btn btn-outline-primary btn-excel">
@@ -77,18 +77,35 @@
                                     <input type="date" name="expense_date" class="form-control" value="{{ now()->toDateString() }}" required>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label">Category</label>
-                                    <select name="category" class="form-select" required>
+                                    <label class="form-label d-flex justify-content-between align-items-center">
+                                        <span>Expense Category</span>
+                                        @can('settings.manage')
+                                            <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickDropdownOptionModal" data-quick-target-select="#expenseCategoryId" data-dropdown-alias="expense_category" data-dropdown-label="Expense Category" data-dropdown-supports-data="0" data-bs-toggle="tooltip" title="Add expense category">
+                                                <i class="fa-solid fa-plus"></i>
+                                            </button>
+                                        @endcan
+                                    </label>
+                                    <select name="expense_category_id" id="expenseCategoryId" class="form-select js-select2" data-placeholder="Select category" data-dropdown-alias="expense_category" required>
+                                        <option value="">Select category</option>
                                         @foreach ($expenseCategories as $category)
-                                            <option value="{{ $category }}">{{ $category }}</option>
+                                            <option value="{{ $category->id }}">{{ $category->name }}{{ $category->status ? '' : ' (Inactive)' }}</option>
                                         @endforeach
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label">Payment Mode</label>
-                                    <select name="payment_mode" class="form-select" required>
-                                        <option value="cash">Cash</option>
-                                        <option value="bank">Bank</option>
+                                    <label class="form-label d-flex justify-content-between align-items-center">
+                                        <span>Payment Mode</span>
+                                        @can('settings.manage')
+                                            <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickDropdownOptionModal" data-quick-target-select="#expensePaymentMode" data-dropdown-alias="payment_mode" data-dropdown-label="Payment Mode" data-dropdown-supports-data="1" data-bs-toggle="tooltip" title="Add payment mode">
+                                                <i class="fa-solid fa-plus"></i>
+                                            </button>
+                                        @endcan
+                                    </label>
+                                    <select name="payment_mode_id" id="expensePaymentMode" class="form-select js-select2" data-placeholder="Select payment mode" data-dropdown-alias="payment_mode" required>
+                                        <option value="">Select payment mode</option>
+                                        @foreach ($paymentModes as $mode)
+                                            <option value="{{ $mode->id }}">{{ $mode->name }}</option>
+                                        @endforeach
                                     </select>
                                 </div>
                                 <div class="col-md-6">
@@ -120,11 +137,11 @@
             <div class="card-body border-bottom">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
-                        <label class="form-label">Category</label>
+                        <label class="form-label">Expense Category</label>
                         <select id="expenseCategoryFilter" class="form-select js-select2" data-placeholder="All category" data-allow-clear="1">
                             <option value="">All</option>
                             @foreach ($expenseCategories as $category)
-                                <option value="{{ $category }}">{{ $category }}</option>
+                                <option value="{{ $category->id }}">{{ $category->name }}{{ $category->status ? '' : ' (Inactive)' }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -132,8 +149,9 @@
                         <label class="form-label">Payment Mode</label>
                         <select id="expensePaymentFilter" class="form-select js-select2" data-placeholder="All payment" data-allow-clear="1">
                             <option value="">All</option>
-                            <option value="cash">Cash</option>
-                            <option value="bank">Bank</option>
+                            @foreach ($paymentModes as $mode)
+                                <option value="{{ $mode->id }}">{{ $mode->name }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-4 d-flex justify-content-md-end">
@@ -153,7 +171,7 @@
                             <tr>
                                 <th style="width: 70px;">S.No</th>
                                 <th>Date</th>
-                                <th>Category</th>
+                                <th>Expense Category</th>
                                 <th>Vendor</th>
                                 <th>Payment Mode</th>
                                 <th>Amount</th>
@@ -167,6 +185,15 @@
                 </div>
             </div>
         </div>
+
+        @include('partials.quick-create-modals', [
+            'showQuickExpenseCategory' => true,
+            'showQuickPaymentMode' => auth()->user()->can('settings.manage'),
+            'showQuickCustomer' => false,
+            'showQuickSupplier' => false,
+            'showQuickProduct' => false,
+            'showQuickUnit' => false,
+        ])
     </div>
 @endsection
 
@@ -181,7 +208,31 @@
             function resetExpenseForm() {
                 expenseForm[0].reset();
                 $('#expense_id').val('');
+                $('#expenseCategoryId').val('').trigger('change');
                 expenseSaveBtn.html('<i class="fa fa-save"></i> Save Expense');
+            }
+
+            function setExpenseCategoryValue(categoryId, categoryName) {
+                var $select = $('#expenseCategoryId');
+
+                if (categoryId) {
+                    $select.val(String(categoryId)).trigger('change');
+                    return;
+                }
+
+                if (categoryName) {
+                    var matchedOption = $select.find('option').filter(function () {
+                        var optionText = String($(this).text() || '').replace(/\s*\(Inactive\)\s*$/i, '').trim();
+                        return optionText === String(categoryName).trim();
+                    }).first();
+
+                    if (matchedOption.length) {
+                        $select.val(matchedOption.val()).trigger('change');
+                        return;
+                    }
+                }
+
+                $select.val('').trigger('change');
             }
 
             $(document).on('click', '.addExpenseBtn', function () {
@@ -194,9 +245,9 @@
             $(document).on('click', '.editExpense', function () {
                 $('#expense_id').val($(this).data('id'));
                 expenseForm.find('[name="expense_date"]').val($(this).data('expense-date'));
-                expenseForm.find('[name="category"]').val($(this).data('category'));
+                setExpenseCategoryValue($(this).data('expense-category-id'), $(this).data('expense-category-name'));
                 expenseForm.find('[name="vendor_name"]').val($(this).data('vendor-name'));
-                expenseForm.find('[name="payment_mode"]').val($(this).data('payment-mode'));
+                expenseForm.find('[name="payment_mode_id"]').val($(this).data('payment-mode-id')).trigger('change');
                 expenseForm.find('[name="amount"]').val($(this).data('amount'));
                 expenseForm.find('[name="notes"]').val($(this).data('notes'));
                 expenseSaveBtn.html('<i class="fa fa-save"></i> Update Expense');
@@ -227,8 +278,8 @@
                 ],
                 ajaxUrl: '{{ route('admin.expenses.list') }}',
                 ajaxData: function(request) {
-                    request.category = $('#expenseCategoryFilter').val() || '';
-                    request.payment_mode = $('#expensePaymentFilter').val() || '';
+                    request.expense_category_id = $('#expenseCategoryFilter').val() || '';
+                    request.payment_mode_id = $('#expensePaymentFilter').val() || '';
                 }
             });
 

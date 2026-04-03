@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 class SalesInvoice extends Model
 {
@@ -35,7 +34,13 @@ class SalesInvoice extends Model
     // Direct invoice payments can use the shared payment mode master too.
     public function paymentMode()
     {
-        return $this->belongsTo(PaymentMode::class, 'payment_mode_id');
+        return $this->belongsTo(DropdownOption::class, 'payment_mode_id');
+    }
+
+    // Sale type is now also driven from the shared dropdown options table.
+    public function saleTypeOption()
+    {
+        return $this->belongsTo(DropdownOption::class, 'sale_type_id');
     }
 
     // Keep a direct link to the creator for audit style tracing.
@@ -92,7 +97,7 @@ class SalesInvoice extends Model
     // Turn the sale type into a readable label for the invoice table.
     public function getSaleTypeLabelAttribute(): string
     {
-        return ucfirst((string) $this->sale_type);
+        return (string) ($this->saleTypeOption?->name ?: ucfirst((string) $this->sale_type));
     }
 
     // Keep the payment method label simple for the show page.

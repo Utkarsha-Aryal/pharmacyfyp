@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Customer extends Model
 {
@@ -48,7 +49,7 @@ class Customer extends Model
     // Let the party management table show a short badge label.
     public function getPartyTypeLabelAttribute(): string
     {
-        return ucfirst((string) $this->party_type);
+        return Str::headline((string) $this->party_type);
     }
 
     // Keep the party status label short and human friendly.

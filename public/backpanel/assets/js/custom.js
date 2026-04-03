@@ -47,6 +47,53 @@
     window.toastr[toastType](message || "Something happened.");
   }
 
+  function escapeHtml(value) {
+    return $("<div>").text(value == null ? "" : String(value)).html();
+  }
+
+  function getAjaxErrorMessage(xhr, fallbackMessage) {
+    if (xhr && xhr.status === 419) {
+      return "Your session expired. Refresh the page and try again.";
+    }
+
+    var response = xhr && xhr.responseJSON ? xhr.responseJSON : {};
+
+    if (response.message) {
+      return response.message;
+    }
+
+    if (response.errors && typeof response.errors === "object") {
+      var firstKey = Object.keys(response.errors)[0];
+      if (firstKey && Array.isArray(response.errors[firstKey]) && response.errors[firstKey].length) {
+        return response.errors[firstKey][0];
+      }
+    }
+
+    return fallbackMessage || "Something went wrong.";
+  }
+
+  function getCsrfToken() {
+    var metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken && metaToken.getAttribute("content")) {
+      return metaToken.getAttribute("content");
+    }
+
+    var hiddenToken = document.querySelector('input[name="_token"]');
+    return hiddenToken ? hiddenToken.value : "";
+  }
+
+  function syncCsrfInputs(context) {
+    var token = getCsrfToken();
+    if (!token) {
+      return;
+    }
+
+    var root = context || document;
+    root.querySelectorAll('input[name="_token"]').forEach(function (input) {
+      input.value = token;
+    });
+  }
+
   function initBootstrapUi() {
     if (typeof bootstrap === "undefined") {
       return;
@@ -1225,6 +1272,33 @@
       var resolvedTarget = ensureElementHasId($targetElement);
 
       modalElement.dataset.quickTargetSelect = resolvedTarget || targetSelector;
+      modalElement.dataset.quickDropdownAlias = this.dataset.dropdownAlias || "";
+      modalElement.dataset.quickDropdownLabel = this.dataset.dropdownLabel || "";
+      modalElement.dataset.quickDropdownSupportsData = this.dataset.dropdownSupportsData || "0";
+      modalElement.dataset.quickUnitType = this.dataset.unitType || "";
+      syncCsrfInputs(modalElement);
+
+      var parentModal = $(this).closest(".modal.show");
+      var parentModalId = parentModal.length ? (parentModal.attr("id") || "") : "";
+      modalElement.dataset.parentModalId = parentModalId;
+
+      if (document.activeElement && typeof document.activeElement.blur === "function") {
+        document.activeElement.blur();
+      }
+
+      if (parentModalId && parentModalId !== modalElement.id) {
+        var parentModalElement = byId(parentModalId);
+        var childModalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+        var handleParentHidden = function () {
+          parentModalElement.removeEventListener("hidden.bs.modal", handleParentHidden);
+          childModalInstance.show();
+        };
+
+        parentModalElement.addEventListener("hidden.bs.modal", handleParentHidden);
+        bootstrap.Modal.getOrCreateInstance(parentModalElement).hide();
+        return;
+      }
+
       bootstrap.Modal.getOrCreateInstance(modalElement).show();
     });
 
@@ -1235,6 +1309,7 @@
       var form = this;
       var modalElement = form.closest(".modal");
       var targetSelector = modalElement ? (modalElement.dataset.quickTargetSelect || "") : "";
+      syncCsrfInputs(modalElement || document);
 
       showLoader();
 
@@ -1244,6 +1319,9 @@
         data: new FormData(form),
         processData: false,
         contentType: false,
+        headers: {
+          "X-CSRF-TOKEN": getCsrfToken()
+        },
         success: function (response) {
           hideLoader();
           showNotification(response.message || "Saved successfully.", response.type || "success");
@@ -1260,11 +1338,550 @@
         },
         error: function (xhr) {
           hideLoader();
-          var response = xhr.responseJSON || {};
-          showNotification(response.message || "Could not save right now.", "error");
+          showNotification(getAjaxErrorMessage(xhr, "Could not save right now."), "error");
         },
       });
     });
+
+    document.querySelectorAll(".modal").forEach(function (modalElement) {
+      if (modalElement.dataset.quickStackReady === "true") {
+        return;
+      }
+
+      modalElement.addEventListener("shown.bs.modal", function () {
+        var unitTypeSelect = modalElement.querySelector('select[name="type"]');
+        if (unitTypeSelect && modalElement.dataset.quickUnitType) {
+          unitTypeSelect.value = modalElement.dataset.quickUnitType;
+        }
+      });
+
+      modalElement.addEventListener("hidden.bs.modal", function () {
+        var parentModalId = modalElement.dataset.parentModalId || "";
+
+        if (document.activeElement && typeof document.activeElement.blur === "function") {
+          document.activeElement.blur();
+        }
+
+        modalElement.dataset.parentModalId = "";
+        modalElement.dataset.quickUnitType = "";
+
+        if (parentModalId) {
+          var parentModalElement = byId(parentModalId);
+
+          if (parentModalElement) {
+            window.setTimeout(function () {
+              bootstrap.Modal.getOrCreateInstance(parentModalElement).show();
+            }, 120);
+          }
+        }
+      });
+
+      modalElement.dataset.quickStackReady = "true";
+    });
+  }
+
+  function dropdownOptionUrl(template, id) {
+    return String(template || "").replace("__ID__", String(id || ""));
+  }
+
+  function renderSettingsDropdownOptionRow(option, index) {
+    var statusClass = option.is_active ? "bg-success" : "bg-danger";
+    var toggleClass = option.is_active ? "btn-outline-warning" : "btn-outline-success";
+    var toggleIcon = option.is_active ? "fa-toggle-on" : "fa-toggle-off";
+
+    return '<tr data-id="' + option.id + '">' +
+      '<td>' + index + '</td>' +
+      '<td class="dropdown-option-name">' + escapeHtml(option.name) + '</td>' +
+      '<td><code>' + escapeHtml(option.alias) + '</code></td>' +
+      '<td class="dropdown-option-data">' + escapeHtml(option.data || "-") + '</td>' +
+      '<td class="dropdown-option-status"><span class="badge ' + statusClass + '">' + (option.is_active ? "Active" : "Inactive") + '</span></td>' +
+      '<td><div class="table-action-group">' +
+        '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn js-dropdown-option-edit" title="Edit" data-id="' + option.id + '" data-dropdown-alias="' + escapeHtml(option.alias) + '" data-dropdown-label="' + escapeHtml(option.alias_label || option.alias) + '" data-dropdown-supports-data="' + (option.alias === "payment_mode" || option.alias === "expense_category" ? 1 : 0) + '" data-name="' + escapeHtml(option.name) + '" data-data="' + escapeHtml(option.data || "") + '" data-status="' + (option.is_active ? 1 : 0) + '"><i class="fa-solid fa-pen-to-square"></i></button>' +
+        '<button type="button" class="btn btn-sm ' + toggleClass + ' table-action-btn js-dropdown-option-toggle" title="Toggle" data-id="' + option.id + '" data-dropdown-alias="' + escapeHtml(option.alias) + '" data-name="' + escapeHtml(option.name) + '" data-status="' + (option.is_active ? 1 : 0) + '"><i class="fa-solid ' + toggleIcon + '"></i></button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn js-dropdown-option-delete" title="Delete" data-id="' + option.id + '" data-dropdown-alias="' + escapeHtml(option.alias) + '" data-name="' + escapeHtml(option.name) + '"><i class="fa-solid fa-trash"></i></button>' +
+      '</div></td>' +
+    '</tr>';
+  }
+
+  function renderQuickDropdownOptionRow(option, index) {
+    var statusClass = option.is_active ? "bg-success" : "bg-danger";
+    var toggleClass = option.is_active ? "btn-outline-warning" : "btn-outline-success";
+    var toggleIcon = option.is_active ? "fa-toggle-on" : "fa-toggle-off";
+
+    return '<tr data-id="' + option.id + '">' +
+      '<td>' + index + '</td>' +
+      '<td>' + escapeHtml(option.name) + '</td>' +
+      '<td>' + escapeHtml(option.data || "-") + '</td>' +
+      '<td><span class="badge ' + statusClass + '">' + (option.is_active ? "Active" : "Inactive") + '</span></td>' +
+      '<td><div class="table-action-group">' +
+        '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn js-quick-dropdown-option-edit" title="Edit" data-id="' + option.id + '" data-dropdown-alias="' + escapeHtml(option.alias) + '" data-name="' + escapeHtml(option.name) + '" data-data="' + escapeHtml(option.data || "") + '" data-status="' + (option.is_active ? 1 : 0) + '"><i class="fa-solid fa-pen-to-square"></i></button>' +
+        '<button type="button" class="btn btn-sm ' + toggleClass + ' table-action-btn js-quick-dropdown-option-toggle" title="Toggle" data-id="' + option.id + '" data-dropdown-alias="' + escapeHtml(option.alias) + '" data-name="' + escapeHtml(option.name) + '" data-status="' + (option.is_active ? 1 : 0) + '"><i class="fa-solid ' + toggleIcon + '"></i></button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn js-quick-dropdown-option-delete" title="Delete" data-id="' + option.id + '" data-dropdown-alias="' + escapeHtml(option.alias) + '" data-name="' + escapeHtml(option.name) + '"><i class="fa-solid fa-trash"></i></button>' +
+      '</div></td>' +
+    '</tr>';
+  }
+
+  function syncDropdownOptionSelects(alias, options, preferredId, preferredTargetSelector) {
+    if (!window.jQuery || !alias) {
+      return;
+    }
+
+    var activeOptions = (options || []).filter(function (option) {
+      return !!option.is_active;
+    });
+    var preferredValue = preferredId != null ? String(preferredId) : "";
+
+    $("select[data-dropdown-alias='" + alias + "']").each(function () {
+      var $select = $(this);
+      var placeholderOption = $select.find("option:first");
+      var placeholderText = placeholderOption.length ? placeholderOption.text() : "Select option";
+      var currentValue = String($select.val() || "");
+      var keepValue = currentValue;
+
+      if (preferredValue && preferredTargetSelector && $select.is(preferredTargetSelector)) {
+        keepValue = preferredValue;
+      }
+
+      $select.empty().append(new Option(placeholderText, "", false, false));
+
+      activeOptions.forEach(function (option) {
+        var optionValue = String(option.id);
+        var isSelected = keepValue === optionValue;
+        $select.append(new Option(option.name, optionValue, isSelected, isSelected));
+      });
+
+      if (keepValue && !activeOptions.some(function (option) { return String(option.id) === keepValue; })) {
+        $select.val("");
+      }
+
+      $select.trigger("change");
+    });
+  }
+
+  function refreshSettingsDropdownOptionTable(alias, rows) {
+    var $tableBody = $("table.dropdown-option-table[data-dropdown-alias='" + alias + "'] tbody");
+
+    if (!$tableBody.length) {
+      return;
+    }
+
+    $tableBody.empty();
+
+    if (!rows.length) {
+      $tableBody.append('<tr><td colspan="6" class="text-center text-muted">No options added yet.</td></tr>');
+      return;
+    }
+
+    rows.forEach(function (option, index) {
+      $tableBody.append(renderSettingsDropdownOptionRow(option, index + 1));
+    });
+  }
+
+  function refreshQuickDropdownOptionTable(rows) {
+    var $tableBody = $("#quickDropdownOptionTable tbody");
+
+    if (!$tableBody.length) {
+      return;
+    }
+
+    $tableBody.empty();
+
+    if (!rows.length) {
+      $tableBody.append('<tr><td colspan="5" class="text-center text-muted">No options added yet.</td></tr>');
+      return;
+    }
+
+    rows.forEach(function (option, index) {
+      $tableBody.append(renderQuickDropdownOptionRow(option, index + 1));
+    });
+  }
+
+  function refreshDropdownOptionAlias(alias, preferredId, preferredTargetSelector) {
+    var listUrl = $("#quickDropdownOptionForm").data("listUrl") || $("#dropdownOptionForm").data("listUrl");
+
+    if (!listUrl || !alias) {
+      return $.Deferred().resolve().promise();
+    }
+
+    return $.get(listUrl, { alias: alias }, function (response) {
+      var rows = response.data || [];
+      var quickAlias = $("#quick_dropdown_option_alias").val() || "";
+
+      refreshSettingsDropdownOptionTable(alias, rows);
+
+      if (quickAlias === alias) {
+        refreshQuickDropdownOptionTable(rows);
+      }
+
+      syncDropdownOptionSelects(alias, rows, preferredId, preferredTargetSelector);
+    });
+  }
+
+  function setDropdownOptionDataVisibility($wrap, supportsData) {
+    if (!$wrap || !$wrap.length) {
+      return;
+    }
+
+    $wrap.toggleClass("d-none", !supportsData);
+    $wrap.find("input").prop("disabled", !supportsData);
+  }
+
+  function initQuickDropdownOptionCrud() {
+    if (!window.jQuery || typeof bootstrap === "undefined") {
+      return;
+    }
+
+    var modalElement = byId("quickDropdownOptionModal");
+    var form = byId("quickDropdownOptionForm");
+
+    if (!modalElement || !form || modalElement.dataset.quickCrudReady === "true") {
+      return;
+    }
+
+    var modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+    var $form = $(form);
+    var $title = $("#quickDropdownOptionModalTitle");
+    var $helpText = $("#quickDropdownOptionHelpText");
+    var $nameField = $("#quick_dropdown_option_name");
+    var $dataField = $("#quick_dropdown_option_data");
+    var $statusField = $("#quick_dropdown_option_status");
+    var $aliasField = $("#quick_dropdown_option_alias");
+    var $idField = $("#quick_dropdown_option_id");
+    var $dataWrap = $("#quickDropdownOptionDataWrap");
+    var $submitButton = $("#quickDropdownOptionSubmitBtn");
+
+    function resetQuickDropdownOptionForm() {
+      var alias = modalElement.dataset.quickDropdownAlias || "";
+      var label = modalElement.dataset.quickDropdownLabel || "Option";
+      var supportsData = modalElement.dataset.quickDropdownSupportsData === "1";
+
+      $idField.val("");
+      $aliasField.val(alias);
+      $nameField.val("");
+      $dataField.val("");
+      $statusField.prop("checked", true);
+      $title.text("Manage " + label);
+      $helpText.text("Use this quick modal when a " + label.toLowerCase() + " is missing during entry.");
+      $submitButton.html('<i class="fa-solid fa-save"></i> Save Option');
+      setDropdownOptionDataVisibility($dataWrap, supportsData);
+    }
+
+    modalElement.addEventListener("show.bs.modal", function () {
+      resetQuickDropdownOptionForm();
+      refreshDropdownOptionAlias($aliasField.val(), "", modalElement.dataset.quickTargetSelect || "");
+    });
+
+    $(document).off("click.quickDropdownOptionReset", "#quickDropdownOptionResetBtn");
+    $(document).on("click.quickDropdownOptionReset", "#quickDropdownOptionResetBtn", function () {
+      resetQuickDropdownOptionForm();
+    });
+
+    $(document).off("click.quickDropdownOptionEdit", ".js-quick-dropdown-option-edit");
+    $(document).on("click.quickDropdownOptionEdit", ".js-quick-dropdown-option-edit", function () {
+      $idField.val($(this).data("id"));
+      $aliasField.val($(this).data("dropdown-alias"));
+      $nameField.val($(this).data("name"));
+      $dataField.val($(this).data("data"));
+      $statusField.prop("checked", $(this).data("status") == 1);
+      $title.text("Edit " + (modalElement.dataset.quickDropdownLabel || "Option"));
+      $submitButton.html('<i class="fa-solid fa-save"></i> Update Option');
+    });
+
+    $(document).off("click.quickDropdownOptionToggle", ".js-quick-dropdown-option-toggle");
+    $(document).on("click.quickDropdownOptionToggle", ".js-quick-dropdown-option-toggle", function () {
+      var optionId = $(this).data("id");
+      var alias = $(this).data("dropdown-alias");
+      var nextState = $(this).data("status") == 1 ? 0 : 1;
+
+      showLoader();
+
+      $.ajax({
+        url: dropdownOptionUrl($form.data("updateUrlTemplate"), optionId),
+        type: "POST",
+        data: {
+          _token: $form.find('input[name="_token"]').val(),
+          _method: "PUT",
+          alias: alias,
+          status: nextState,
+          name: $(this).data("name")
+        },
+        success: function (response) {
+          hideLoader();
+          showNotification(response.message || "Option updated.", response.type || "success");
+          refreshDropdownOptionAlias(alias, "", modalElement.dataset.quickTargetSelect || "");
+        },
+        error: function (xhr) {
+          hideLoader();
+          showNotification(getAjaxErrorMessage(xhr, "Could not update option."), "error");
+        }
+      });
+    });
+
+    $(document).off("click.quickDropdownOptionDelete", ".js-quick-dropdown-option-delete");
+    $(document).on("click.quickDropdownOptionDelete", ".js-quick-dropdown-option-delete", function () {
+      var optionId = $(this).data("id");
+      var alias = $(this).data("dropdown-alias");
+
+      function runDelete() {
+        showLoader();
+
+        $.ajax({
+          url: dropdownOptionUrl($form.data("deleteUrlTemplate"), optionId),
+          type: "POST",
+          data: {
+            _token: $form.find('input[name="_token"]').val(),
+            _method: "DELETE"
+          },
+          success: function (response) {
+            hideLoader();
+            showNotification(response.message || "Option deleted.", response.type || "success");
+            resetQuickDropdownOptionForm();
+            refreshDropdownOptionAlias(alias, "", modalElement.dataset.quickTargetSelect || "");
+          },
+          error: function (xhr) {
+            hideLoader();
+            showNotification(getAjaxErrorMessage(xhr, "Could not delete option."), "error");
+          }
+        });
+      }
+
+      if (typeof Swal !== "undefined") {
+        Swal.fire({
+          title: "Delete option?",
+          text: "This will remove the option from the shared list.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#DB1F48",
+          cancelButtonColor: "#6b7280",
+          confirmButtonText: "Delete",
+        }).then(function (result) {
+          if (result.isConfirmed) {
+            runDelete();
+          }
+        });
+        return;
+      }
+
+      if (window.confirm("Delete this option?")) {
+        runDelete();
+      }
+    });
+
+    $form.off("submit.quickDropdownOptionCrud");
+    $form.on("submit.quickDropdownOptionCrud", function (event) {
+      event.preventDefault();
+
+      var optionId = $idField.val();
+      var alias = $aliasField.val();
+      var submitUrl = optionId
+        ? dropdownOptionUrl($form.data("updateUrlTemplate"), optionId)
+        : $form.data("storeUrl");
+
+      showLoader();
+
+      $.ajax({
+        url: submitUrl,
+        type: "POST",
+        data: {
+          _token: $form.find('input[name="_token"]').val(),
+          _method: optionId ? "PUT" : "POST",
+          alias: alias,
+          name: $nameField.val(),
+          data: $dataWrap.hasClass("d-none") ? "" : $dataField.val(),
+          status: $statusField.is(":checked") ? 1 : 0
+        },
+        success: function (response) {
+          hideLoader();
+          showNotification(response.message || "Option saved.", response.type || "success");
+          resetQuickDropdownOptionForm();
+          refreshDropdownOptionAlias(alias, response && response.data ? response.data.id : "", modalElement.dataset.quickTargetSelect || "");
+          modalInstance.hide();
+        },
+        error: function (xhr) {
+          hideLoader();
+          showNotification(getAjaxErrorMessage(xhr, "Could not save option."), "error");
+        }
+      });
+    });
+
+    modalElement.dataset.quickCrudReady = "true";
+  }
+
+  function initDropdownOptionManager() {
+    if (!window.jQuery || typeof bootstrap === "undefined") {
+      return;
+    }
+
+    var modalElement = byId("dropdownOptionModal");
+    var form = byId("dropdownOptionForm");
+
+    if (!modalElement || !form || modalElement.dataset.managerReady === "true") {
+      return;
+    }
+
+    var modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+    var $form = $(form);
+    var $idField = $("#dropdown_option_id");
+    var $aliasField = $("#dropdown_option_alias");
+    var $nameField = $("#dropdown_option_name");
+    var $dataField = $("#dropdown_option_data");
+    var $dataWrap = $("#dropdownOptionDataWrap");
+    var $statusField = $("#dropdown_option_status");
+    var $submitButton = $("#dropdownOptionSubmitBtn");
+    var $title = $("#dropdownOptionModalLabel");
+
+    function resetManagerForm(alias, label, supportsData) {
+      $idField.val("");
+      $aliasField.val(alias || "");
+      $nameField.val("");
+      $dataField.val("");
+      $statusField.prop("checked", true);
+      $title.text((label || "Dropdown Option") + " Master");
+      $submitButton.html('<i class="fa-solid fa-save me-1"></i> Save');
+      setDropdownOptionDataVisibility($dataWrap, !!supportsData);
+    }
+
+    $(document).off("click.dropdownOptionAdd", ".js-dropdown-option-add");
+    $(document).on("click.dropdownOptionAdd", ".js-dropdown-option-add", function () {
+      resetManagerForm(
+        $(this).data("dropdown-alias"),
+        $(this).data("dropdown-label"),
+        $(this).data("dropdown-supports-data") == 1
+      );
+      modalInstance.show();
+    });
+
+    $(document).off("click.dropdownOptionEdit", ".js-dropdown-option-edit");
+    $(document).on("click.dropdownOptionEdit", ".js-dropdown-option-edit", function () {
+      resetManagerForm(
+        $(this).data("dropdown-alias"),
+        $(this).data("dropdown-label"),
+        $(this).data("dropdown-supports-data") == 1
+      );
+      $idField.val($(this).data("id"));
+      $nameField.val($(this).data("name"));
+      $dataField.val($(this).data("data"));
+      $statusField.prop("checked", $(this).data("status") == 1);
+      $submitButton.html('<i class="fa-solid fa-save me-1"></i> Update');
+      modalInstance.show();
+    });
+
+    $(document).off("click.dropdownOptionToggle", ".js-dropdown-option-toggle");
+    $(document).on("click.dropdownOptionToggle", ".js-dropdown-option-toggle", function () {
+      var optionId = $(this).data("id");
+      var alias = $(this).data("dropdown-alias");
+      var nextState = $(this).data("status") == 1 ? 0 : 1;
+
+      showLoader();
+
+      $.ajax({
+        url: dropdownOptionUrl($form.data("updateUrlTemplate"), optionId),
+        type: "POST",
+        data: {
+          _token: $form.find('input[name="_token"]').val(),
+          _method: "PUT",
+          alias: alias,
+          status: nextState,
+          name: $(this).data("name")
+        },
+        success: function (response) {
+          hideLoader();
+          showNotification(response.message || "Option updated.", response.type || "success");
+          refreshDropdownOptionAlias(alias);
+        },
+        error: function (xhr) {
+          hideLoader();
+          showNotification(getAjaxErrorMessage(xhr, "Could not update option."), "error");
+        }
+      });
+    });
+
+    $(document).off("click.dropdownOptionDelete", ".js-dropdown-option-delete");
+    $(document).on("click.dropdownOptionDelete", ".js-dropdown-option-delete", function () {
+      var optionId = $(this).data("id");
+      var alias = $(this).data("dropdown-alias");
+
+      function runDelete() {
+        showLoader();
+
+        $.ajax({
+          url: dropdownOptionUrl($form.data("deleteUrlTemplate"), optionId),
+          type: "POST",
+          data: {
+            _token: $form.find('input[name="_token"]').val(),
+            _method: "DELETE"
+          },
+          success: function (response) {
+            hideLoader();
+            showNotification(response.message || "Option deleted.", response.type || "success");
+            refreshDropdownOptionAlias(alias);
+          },
+          error: function (xhr) {
+            hideLoader();
+            showNotification(getAjaxErrorMessage(xhr, "Could not delete option."), "error");
+          }
+        });
+      }
+
+      if (typeof Swal !== "undefined") {
+        Swal.fire({
+          title: "Delete option?",
+          text: "This will remove the option from the shared list.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#DB1F48",
+          cancelButtonColor: "#6b7280",
+          confirmButtonText: "Delete",
+        }).then(function (result) {
+          if (result.isConfirmed) {
+            runDelete();
+          }
+        });
+        return;
+      }
+
+      if (window.confirm("Delete this option?")) {
+        runDelete();
+      }
+    });
+
+    $form.off("submit.dropdownOptionManager");
+    $form.on("submit.dropdownOptionManager", function (event) {
+      event.preventDefault();
+
+      var optionId = $idField.val();
+      var alias = $aliasField.val();
+      var submitUrl = optionId
+        ? dropdownOptionUrl($form.data("updateUrlTemplate"), optionId)
+        : $form.data("storeUrl");
+
+      showLoader();
+
+      $.ajax({
+        url: submitUrl,
+        type: "POST",
+        data: {
+          _token: $form.find('input[name="_token"]').val(),
+          _method: optionId ? "PUT" : "POST",
+          alias: alias,
+          name: $nameField.val(),
+          data: $dataWrap.hasClass("d-none") ? "" : $dataField.val(),
+          status: $statusField.is(":checked") ? 1 : 0
+        },
+        success: function (response) {
+          hideLoader();
+          showNotification(response.message || "Option saved.", response.type || "success");
+          refreshDropdownOptionAlias(alias, response && response.data ? response.data.id : "");
+          modalInstance.hide();
+        },
+        error: function (xhr) {
+          hideLoader();
+          showNotification(getAjaxErrorMessage(xhr, "Could not save option."), "error");
+        }
+      });
+    });
+
+    modalElement.dataset.managerReady = "true";
   }
 
   function renderQuickPaymentModeRow(mode, index) {
@@ -1272,14 +1889,15 @@
     var deleteButton = canDelete
       ? '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn quickPaymentModeDeleteBtn" data-id="' + mode.id + '" title="Delete"><i class="fa-solid fa-trash"></i></button>'
       : "";
+    var modeType = String(mode.mode_type || mode.type || "cash");
 
     return '<tr data-id="' + mode.id + '">' +
       '<td>' + index + '</td>' +
       '<td>' + mode.name + '</td>' +
-      '<td>' + String(mode.type || "").charAt(0).toUpperCase() + String(mode.type || "").slice(1) + '</td>' +
+      '<td>' + modeType.charAt(0).toUpperCase() + modeType.slice(1) + '</td>' +
       '<td><span class="report-badge ' + (mode.is_active ? "report-badge-success" : "report-badge-danger") + '">' + (mode.is_active ? "Active" : "Inactive") + '</span></td>' +
       '<td><div class="table-action-group">' +
-        '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn quickPaymentModeEditBtn" data-id="' + mode.id + '" data-name="' + mode.name + '" data-type="' + mode.type + '" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>' +
+        '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn quickPaymentModeEditBtn" data-id="' + mode.id + '" data-name="' + mode.name + '" data-mode-type="' + modeType + '" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>' +
         '<button type="button" class="btn btn-sm ' + (mode.is_active ? "btn-outline-warning" : "btn-outline-success") + ' table-action-btn quickPaymentModeToggleBtn" data-id="' + mode.id + '" data-active="' + (mode.is_active ? 1 : 0) + '" title="Toggle"><i class="fa-solid ' + (mode.is_active ? "fa-toggle-on" : "fa-toggle-off") + '"></i></button>' +
         deleteButton +
       '</div></td>' +
@@ -1293,6 +1911,16 @@
 
     var activeModes = (paymentModes || []).filter(function (mode) {
       return !!mode.is_active;
+    });
+    var distinctTypes = [];
+    activeModes.forEach(function (mode) {
+      var modeType = String(mode.mode_type || mode.type || "").toLowerCase();
+      if (modeType && !distinctTypes.some(function (row) { return row.type === modeType; })) {
+        distinctTypes.push({
+          type: modeType,
+          label: String(mode.name || modeType).trim(),
+        });
+      }
     });
     var preferredValue = preferredModeId != null ? String(preferredModeId) : "";
 
@@ -1321,6 +1949,31 @@
 
       $select.trigger("change");
     });
+
+    $("select.js-payment-mode-select").each(function () {
+      var $select = $(this);
+      var placeholderOption = $select.find("option:first");
+      var placeholderText = placeholderOption.length ? placeholderOption.text() : "Select mode";
+      var currentValue = String($select.val() || "");
+      var keepValue = currentValue;
+
+      if (preferredValue && preferredTargetSelector && $select.is(preferredTargetSelector)) {
+        keepValue = preferredValue;
+      }
+
+      $select.empty().append(new Option(placeholderText, "", false, false));
+
+      distinctTypes.forEach(function (row) {
+        var isSelected = keepValue === row.type;
+        $select.append(new Option(row.label, row.type, isSelected, isSelected));
+      });
+
+      if (keepValue && !distinctTypes.some(function (row) { return row.type === keepValue; })) {
+        $select.val("");
+      }
+
+      $select.trigger("change");
+    });
   }
 
   function initQuickPaymentModeCrud() {
@@ -1342,7 +1995,7 @@
     var $submitButton = $("#quickPaymentModeSubmitBtn");
     var $idField = $("#quick_payment_mode_id");
     var $nameField = $("#quick_payment_mode_name");
-    var $typeField = $("#quick_payment_mode_type");
+    var $typeField = $("#quick_payment_mode_mode_type");
 
     function quickPaymentModeUrl(template, id) {
       return String(template || "").replace("__ID__", String(id || ""));
@@ -1388,7 +2041,7 @@
     $(document).on("click.quickPaymentModeEdit", ".quickPaymentModeEditBtn", function () {
       $idField.val($(this).data("id"));
       $nameField.val($(this).data("name"));
-      $typeField.val($(this).data("type"));
+      $typeField.val($(this).data("mode-type"));
       $title.text("Edit Payment Mode");
       $submitButton.html('<i class="fa-solid fa-save"></i> Update Mode');
     });
@@ -1471,7 +2124,7 @@
       $.post(submitUrl, {
         _token: $form.find('input[name="_token"]').val(),
         name: $nameField.val(),
-        type: $typeField.val()
+        mode_type: $typeField.val()
       }, function (response) {
         hideLoader();
         showNotification(response.message || "Payment mode saved.", response.type || "success");
@@ -1482,6 +2135,650 @@
         hideLoader();
         var response = xhr.responseJSON || {};
         showNotification(response.message || "Could not save payment mode.", "error");
+      });
+    });
+
+    modalElement.dataset.quickCrudReady = "true";
+  }
+
+  function renderQuickPartyTypeRow(partyType, index) {
+    return '<tr data-id="' + partyType.id + '">' +
+      '<td>' + index + '</td>' +
+      '<td>' + partyType.name + '</td>' +
+      '<td><code>' + partyType.code + '</code></td>' +
+      '<td><span class="badge ' + (partyType.is_active ? "bg-success" : "bg-danger") + '">' + (partyType.is_active ? "Active" : "Inactive") + '</span></td>' +
+      '<td><div class="table-action-group">' +
+        '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn quickPartyTypeEditBtn" data-id="' + partyType.id + '" data-name="' + partyType.name + '" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>' +
+        '<button type="button" class="btn btn-sm ' + (partyType.is_active ? "btn-outline-warning" : "btn-outline-success") + ' table-action-btn quickPartyTypeToggleBtn" data-id="' + partyType.id + '" data-active="' + (partyType.is_active ? 1 : 0) + '" title="Toggle"><i class="fa-solid ' + (partyType.is_active ? "fa-toggle-on" : "fa-toggle-off") + '"></i></button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn quickPartyTypeDeleteBtn" data-id="' + partyType.id + '" title="Delete"><i class="fa-solid fa-trash"></i></button>' +
+      '</div></td>' +
+    '</tr>';
+  }
+
+  function syncPartyTypeSelects(partyTypes, preferredPartyTypeId, preferredTargetSelector) {
+    if (!window.jQuery) {
+      return;
+    }
+
+    var availableTypes = partyTypes || [];
+    var preferredValue = preferredPartyTypeId != null ? String(preferredPartyTypeId) : "";
+
+    $("select.js-party-type-select").each(function () {
+      var $select = $(this);
+      var placeholderOption = $select.find("option:first");
+      var placeholderText = placeholderOption.length ? placeholderOption.text() : "Select party type";
+      var currentValue = String($select.val() || "");
+      var keepValue = currentValue;
+
+      if (preferredValue && preferredTargetSelector && $select.is(preferredTargetSelector)) {
+        keepValue = preferredValue;
+      }
+
+      $select.empty().append(new Option(placeholderText, "", false, false));
+
+      availableTypes.forEach(function (partyType) {
+        var optionValue = String(partyType.code || "");
+        var optionLabel = String(partyType.name || "") + (partyType.is_active ? "" : " (Inactive)");
+        var isSelected = keepValue === optionValue;
+        $select.append(new Option(optionLabel, optionValue, isSelected, isSelected));
+      });
+
+      if (keepValue && !availableTypes.some(function (partyType) { return String(partyType.code) === keepValue; })) {
+        $select.val("");
+      }
+
+      $select.trigger("change");
+    });
+  }
+
+  function initQuickPartyTypeCrud() {
+    if (!window.jQuery || typeof bootstrap === "undefined") {
+      return;
+    }
+
+    var modalElement = byId("quickPartyTypeModal");
+    var form = byId("quickPartyTypeForm");
+
+    if (!modalElement || !form || modalElement.dataset.quickCrudReady === "true") {
+      return;
+    }
+
+    var modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+    var $form = $(form);
+    var $tableBody = $("#quickPartyTypeTable tbody");
+    var $title = $("#quickPartyTypeModalTitle");
+    var $submitButton = $("#quickPartyTypeSubmitBtn");
+    var $idField = $("#quick_party_type_id");
+    var $nameField = $("#quick_party_type_name");
+
+    function quickPartyTypeUrl(template, id) {
+      return String(template || "").replace("__ID__", String(id || ""));
+    }
+
+    function resetQuickPartyTypeForm() {
+      $idField.val("");
+      $nameField.val("");
+      $title.text("Manage Party Types");
+      $submitButton.html('<i class="fa-solid fa-save"></i> Save Party Type');
+    }
+
+    function refreshQuickPartyTypeTable(preferredPartyTypeId) {
+      return $.get($form.data("listUrl"), function (response) {
+        var rows = response.data || [];
+        $tableBody.empty();
+        var $pageTableBody = $("#partyTypeTable tbody");
+        if ($pageTableBody.length) {
+          $pageTableBody.empty();
+        }
+
+        if (!rows.length) {
+          $tableBody.append('<tr><td colspan="5" class="text-center text-muted">No party types added yet.</td></tr>');
+          if ($pageTableBody.length) {
+            $pageTableBody.append('<tr><td colspan="5" class="text-center text-muted">No party types added yet.</td></tr>');
+          }
+        } else {
+          rows.forEach(function (partyType, index) {
+            var rowHtml = renderQuickPartyTypeRow(partyType, index + 1);
+            $tableBody.append(rowHtml);
+            if ($pageTableBody.length) {
+              $pageTableBody.append(rowHtml);
+            }
+          });
+        }
+
+        syncPartyTypeSelects(rows, preferredPartyTypeId, modalElement.dataset.quickTargetSelect || "");
+      });
+    }
+
+    modalElement.addEventListener("show.bs.modal", function () {
+      resetQuickPartyTypeForm();
+      refreshQuickPartyTypeTable();
+    });
+
+    $(document).off("click.quickPartyTypeReset", "#quickPartyTypeResetBtn");
+    $(document).on("click.quickPartyTypeReset", "#quickPartyTypeResetBtn", function () {
+      resetQuickPartyTypeForm();
+    });
+
+    $(document).off("click.quickPartyTypeEdit", ".quickPartyTypeEditBtn");
+    $(document).on("click.quickPartyTypeEdit", ".quickPartyTypeEditBtn", function () {
+      $idField.val($(this).data("id"));
+      $nameField.val($(this).data("name"));
+      $title.text("Edit Party Type");
+      $submitButton.html('<i class="fa-solid fa-save"></i> Update Party Type');
+    });
+
+    $(document).off("click.quickPartyTypeToggle", ".quickPartyTypeToggleBtn");
+    $(document).on("click.quickPartyTypeToggle", ".quickPartyTypeToggleBtn", function () {
+      var partyTypeId = $(this).data("id");
+      var nextState = $(this).data("active") == 1 ? 0 : 1;
+
+      showLoader();
+
+      $.post(quickPartyTypeUrl($form.data("updateUrlTemplate"), partyTypeId), {
+        _token: $form.find('input[name="_token"]').val(),
+        is_active: nextState
+      }, function (response) {
+        hideLoader();
+        showNotification(response.message || "Party type updated.", response.type || "success");
+        refreshQuickPartyTypeTable();
+      }).fail(function (xhr) {
+        hideLoader();
+        showNotification(getAjaxErrorMessage(xhr, "Could not update party type."), "error");
+      });
+    });
+
+    $(document).off("click.quickPartyTypeDelete", ".quickPartyTypeDeleteBtn");
+    $(document).on("click.quickPartyTypeDelete", ".quickPartyTypeDeleteBtn", function () {
+      var partyTypeId = $(this).data("id");
+
+      function runDelete() {
+        showLoader();
+
+        $.post(quickPartyTypeUrl($form.data("deleteUrlTemplate"), partyTypeId), {
+          _token: $form.find('input[name="_token"]').val()
+        }, function (response) {
+          hideLoader();
+          showNotification(response.message || "Party type deleted.", response.type || "success");
+          resetQuickPartyTypeForm();
+          refreshQuickPartyTypeTable();
+        }).fail(function (xhr) {
+          hideLoader();
+          showNotification(getAjaxErrorMessage(xhr, "Could not delete party type."), "error");
+        });
+      }
+
+      if (typeof Swal !== "undefined") {
+        Swal.fire({
+          title: "Delete party type?",
+          text: "This will remove the label from the reusable party list.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#DB1F48",
+          cancelButtonColor: "#6b7280",
+          confirmButtonText: "Delete",
+        }).then(function (result) {
+          if (result.isConfirmed) {
+            runDelete();
+          }
+        });
+        return;
+      }
+
+      if (window.confirm("Delete this party type?")) {
+        runDelete();
+      }
+    });
+
+    $form.off("submit.quickPartyTypeCrud");
+    $form.on("submit.quickPartyTypeCrud", function (event) {
+      event.preventDefault();
+
+      var partyTypeId = $idField.val();
+      var submitUrl = partyTypeId
+        ? quickPartyTypeUrl($form.data("updateUrlTemplate"), partyTypeId)
+        : $form.data("storeUrl");
+
+      showLoader();
+
+      $.post(submitUrl, {
+        _token: $form.find('input[name="_token"]').val(),
+        name: $nameField.val()
+      }, function (response) {
+        hideLoader();
+        showNotification(response.message || "Party type saved.", response.type || "success");
+        resetQuickPartyTypeForm();
+        refreshQuickPartyTypeTable(response && response.data ? response.data.id : "");
+        modalInstance.hide();
+      }).fail(function (xhr) {
+        hideLoader();
+        showNotification(getAjaxErrorMessage(xhr, "Could not save party type."), "error");
+      });
+    });
+
+    modalElement.dataset.quickCrudReady = "true";
+  }
+
+  function renderQuickSupplierTypeRow(supplierType, index) {
+    return '<tr data-id="' + supplierType.id + '">' +
+      '<td>' + index + '</td>' +
+      '<td>' + supplierType.name + '</td>' +
+      '<td><code>' + supplierType.code + '</code></td>' +
+      '<td><span class="badge ' + (supplierType.is_active ? "bg-success" : "bg-danger") + '">' + (supplierType.is_active ? "Active" : "Inactive") + '</span></td>' +
+      '<td><div class="table-action-group">' +
+        '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn quickSupplierTypeEditBtn" data-id="' + supplierType.id + '" data-name="' + supplierType.name + '" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>' +
+        '<button type="button" class="btn btn-sm ' + (supplierType.is_active ? "btn-outline-warning" : "btn-outline-success") + ' table-action-btn quickSupplierTypeToggleBtn" data-id="' + supplierType.id + '" data-active="' + (supplierType.is_active ? 1 : 0) + '" title="Toggle"><i class="fa-solid ' + (supplierType.is_active ? "fa-toggle-on" : "fa-toggle-off") + '"></i></button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn quickSupplierTypeDeleteBtn" data-id="' + supplierType.id + '" title="Delete"><i class="fa-solid fa-trash"></i></button>' +
+      '</div></td>' +
+    '</tr>';
+  }
+
+  function syncSupplierTypeSelects(supplierTypes, preferredSupplierTypeId, preferredTargetSelector) {
+    if (!window.jQuery) {
+      return;
+    }
+
+    var availableTypes = supplierTypes || [];
+    var preferredValue = preferredSupplierTypeId != null ? String(preferredSupplierTypeId) : "";
+
+    $("select.js-supplier-type-select").each(function () {
+      var $select = $(this);
+      var placeholderOption = $select.find("option:first");
+      var placeholderText = placeholderOption.length ? placeholderOption.text() : "Select supplier type";
+      var currentValue = String($select.val() || "");
+      var keepValue = currentValue;
+
+      if (preferredValue && preferredTargetSelector && $select.is(preferredTargetSelector)) {
+        keepValue = preferredValue;
+      }
+
+      $select.empty().append(new Option(placeholderText, "", false, false));
+
+      availableTypes.forEach(function (supplierType) {
+        var optionValue = String(supplierType.code || "");
+        var optionLabel = String(supplierType.name || "") + (supplierType.is_active ? "" : " (Inactive)");
+        var isSelected = keepValue === optionValue;
+        $select.append(new Option(optionLabel, optionValue, isSelected, isSelected));
+      });
+
+      if (keepValue && !availableTypes.some(function (supplierType) { return String(supplierType.code) === keepValue; })) {
+        $select.val("");
+      }
+
+      $select.trigger("change");
+    });
+  }
+
+  function initQuickSupplierTypeCrud() {
+    if (!window.jQuery || typeof bootstrap === "undefined") {
+      return;
+    }
+
+    var modalElement = byId("quickSupplierTypeModal");
+    var form = byId("quickSupplierTypeForm");
+
+    if (!modalElement || !form || modalElement.dataset.quickCrudReady === "true") {
+      return;
+    }
+
+    var modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+    var $form = $(form);
+    var $tableBody = $("#quickSupplierTypeTable tbody");
+    var $title = $("#quickSupplierTypeModalTitle");
+    var $submitButton = $("#quickSupplierTypeSubmitBtn");
+    var $idField = $("#quick_supplier_type_id");
+    var $nameField = $("#quick_supplier_type_name");
+
+    function quickSupplierTypeUrl(template, id) {
+      return String(template || "").replace("__ID__", String(id || ""));
+    }
+
+    function resetQuickSupplierTypeForm() {
+      $idField.val("");
+      $nameField.val("");
+      $title.text("Manage Supplier Types");
+      $submitButton.html('<i class="fa-solid fa-save"></i> Save Supplier Type');
+    }
+
+    function refreshQuickSupplierTypeTable(preferredSupplierTypeId) {
+      return $.get($form.data("listUrl"), function (response) {
+        var rows = response.data || [];
+        $tableBody.empty();
+        var $pageTableBody = $("#supplierTypeTable tbody");
+        if ($pageTableBody.length) {
+          $pageTableBody.empty();
+        }
+
+        if (!rows.length) {
+          $tableBody.append('<tr><td colspan="5" class="text-center text-muted">No supplier types added yet.</td></tr>');
+          if ($pageTableBody.length) {
+            $pageTableBody.append('<tr><td colspan="5" class="text-center text-muted">No supplier types added yet.</td></tr>');
+          }
+        } else {
+          rows.forEach(function (supplierType, index) {
+            var rowHtml = renderQuickSupplierTypeRow(supplierType, index + 1);
+            $tableBody.append(rowHtml);
+            if ($pageTableBody.length) {
+              $pageTableBody.append(rowHtml);
+            }
+          });
+        }
+
+        syncSupplierTypeSelects(rows, preferredSupplierTypeId, modalElement.dataset.quickTargetSelect || "");
+      });
+    }
+
+    modalElement.addEventListener("show.bs.modal", function () {
+      resetQuickSupplierTypeForm();
+      refreshQuickSupplierTypeTable();
+    });
+
+    $(document).off("click.quickSupplierTypeReset", "#quickSupplierTypeResetBtn");
+    $(document).on("click.quickSupplierTypeReset", "#quickSupplierTypeResetBtn", function () {
+      resetQuickSupplierTypeForm();
+    });
+
+    $(document).off("click.quickSupplierTypeEdit", ".quickSupplierTypeEditBtn");
+    $(document).on("click.quickSupplierTypeEdit", ".quickSupplierTypeEditBtn", function () {
+      $idField.val($(this).data("id"));
+      $nameField.val($(this).data("name"));
+      $title.text("Edit Supplier Type");
+      $submitButton.html('<i class="fa-solid fa-save"></i> Update Supplier Type');
+    });
+
+    $(document).off("click.quickSupplierTypeToggle", ".quickSupplierTypeToggleBtn");
+    $(document).on("click.quickSupplierTypeToggle", ".quickSupplierTypeToggleBtn", function () {
+      var supplierTypeId = $(this).data("id");
+      var nextState = $(this).data("active") == 1 ? 0 : 1;
+
+      showLoader();
+
+      $.post(quickSupplierTypeUrl($form.data("updateUrlTemplate"), supplierTypeId), {
+        _token: $form.find('input[name="_token"]').val(),
+        is_active: nextState
+      }, function (response) {
+        hideLoader();
+        showNotification(response.message || "Supplier type updated.", response.type || "success");
+        refreshQuickSupplierTypeTable();
+      }).fail(function (xhr) {
+        hideLoader();
+        showNotification(getAjaxErrorMessage(xhr, "Could not update supplier type."), "error");
+      });
+    });
+
+    $(document).off("click.quickSupplierTypeDelete", ".quickSupplierTypeDeleteBtn");
+    $(document).on("click.quickSupplierTypeDelete", ".quickSupplierTypeDeleteBtn", function () {
+      var supplierTypeId = $(this).data("id");
+
+      function runDelete() {
+        showLoader();
+
+        $.post(quickSupplierTypeUrl($form.data("deleteUrlTemplate"), supplierTypeId), {
+          _token: $form.find('input[name="_token"]').val()
+        }, function (response) {
+          hideLoader();
+          showNotification(response.message || "Supplier type deleted.", response.type || "success");
+          resetQuickSupplierTypeForm();
+          refreshQuickSupplierTypeTable();
+        }).fail(function (xhr) {
+          hideLoader();
+          showNotification(getAjaxErrorMessage(xhr, "Could not delete supplier type."), "error");
+        });
+      }
+
+      if (typeof Swal !== "undefined") {
+        Swal.fire({
+          title: "Delete supplier type?",
+          text: "This will remove the label from the reusable supplier list.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#DB1F48",
+          cancelButtonColor: "#6b7280",
+          confirmButtonText: "Delete",
+        }).then(function (result) {
+          if (result.isConfirmed) {
+            runDelete();
+          }
+        });
+        return;
+      }
+
+      if (window.confirm("Delete this supplier type?")) {
+        runDelete();
+      }
+    });
+
+    $form.off("submit.quickSupplierTypeCrud");
+    $form.on("submit.quickSupplierTypeCrud", function (event) {
+      event.preventDefault();
+
+      var supplierTypeId = $idField.val();
+      var submitUrl = supplierTypeId
+        ? quickSupplierTypeUrl($form.data("updateUrlTemplate"), supplierTypeId)
+        : $form.data("storeUrl");
+
+      showLoader();
+
+      $.post(submitUrl, {
+        _token: $form.find('input[name="_token"]').val(),
+        name: $nameField.val()
+      }, function (response) {
+        hideLoader();
+        showNotification(response.message || "Supplier type saved.", response.type || "success");
+        resetQuickSupplierTypeForm();
+        refreshQuickSupplierTypeTable(response && response.data ? response.data.id : "");
+        modalInstance.hide();
+      }).fail(function (xhr) {
+        hideLoader();
+        showNotification(getAjaxErrorMessage(xhr, "Could not save supplier type."), "error");
+      });
+    });
+
+    modalElement.dataset.quickCrudReady = "true";
+  }
+
+  function renderQuickExpenseCategoryRow(category, index) {
+    return '<tr data-id="' + category.id + '">' +
+      '<td>' + index + '</td>' +
+      '<td>' + category.name + '</td>' +
+      '<td><span class="report-badge ' + (category.is_active ? "report-badge-success" : "report-badge-danger") + '">' + (category.is_active ? "Active" : "Inactive") + '</span></td>' +
+      '<td><div class="table-action-group">' +
+        '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn quickExpenseCategoryEditBtn" data-id="' + category.id + '" data-name="' + category.name + '" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>' +
+        '<button type="button" class="btn btn-sm ' + (category.is_active ? "btn-outline-warning" : "btn-outline-success") + ' table-action-btn quickExpenseCategoryToggleBtn" data-id="' + category.id + '" data-active="' + (category.is_active ? 1 : 0) + '" title="Toggle"><i class="fa-solid ' + (category.is_active ? "fa-toggle-on" : "fa-toggle-off") + '"></i></button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn quickExpenseCategoryDeleteBtn" data-id="' + category.id + '" title="Delete"><i class="fa-solid fa-trash"></i></button>' +
+      '</div></td>' +
+    '</tr>';
+  }
+
+  function syncExpenseCategorySelects(categories, preferredCategoryId, preferredTargetSelector) {
+    if (!window.jQuery) {
+      return;
+    }
+
+    var preferredValue = preferredCategoryId != null ? String(preferredCategoryId) : "";
+
+    $("select[name='expense_category_id']").each(function () {
+      var $select = $(this);
+      var placeholderOption = $select.find("option:first");
+      var placeholderText = placeholderOption.length ? placeholderOption.text() : "Select category";
+      var currentValue = String($select.val() || "");
+      var keepValue = currentValue;
+
+      if (preferredValue && preferredTargetSelector && $select.is(preferredTargetSelector)) {
+        keepValue = preferredValue;
+      }
+
+      $select.empty().append(new Option(placeholderText, "", false, false));
+
+      (categories || []).forEach(function (category) {
+        var optionValue = String(category.id);
+        var optionLabel = String(category.name || "") + (category.is_active ? "" : " (Inactive)");
+        var isSelected = keepValue === optionValue;
+        $select.append(new Option(optionLabel, optionValue, isSelected, isSelected));
+      });
+
+      if (keepValue && !categories.some(function (category) { return String(category.id) === keepValue; })) {
+        $select.val("");
+      }
+
+      $select.trigger("change");
+    });
+  }
+
+  function initQuickExpenseCategoryCrud() {
+    if (!window.jQuery || typeof bootstrap === "undefined") {
+      return;
+    }
+
+    var modalElement = byId("quickExpenseCategoryModal");
+    var form = byId("quickExpenseCategoryForm");
+
+    if (!modalElement || !form || modalElement.dataset.quickCrudReady === "true") {
+      return;
+    }
+
+    var modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+    var $form = $(form);
+    var $tableBody = $("#quickExpenseCategoryTable tbody");
+    var $title = $("#quickExpenseCategoryModalTitle");
+    var $submitButton = $("#quickExpenseCategorySubmitBtn");
+    var $idField = $("#quick_expense_category_id");
+    var $nameField = $("#quick_expense_category_name");
+
+    function quickExpenseCategoryUrl(template, id) {
+      return String(template || "").replace("__ID__", String(id || ""));
+    }
+
+    function resetQuickExpenseCategoryForm() {
+      $idField.val("");
+      $nameField.val("");
+      $title.text("Manage Expense Categories");
+      $submitButton.html('<i class="fa-solid fa-save"></i> Save Category');
+    }
+
+    function refreshQuickExpenseCategoryTable(preferredCategoryId) {
+      return $.get($form.data("listUrl"), function (response) {
+        var rows = response.data || [];
+        $tableBody.empty();
+
+        if (!rows.length) {
+          $tableBody.append('<tr><td colspan="4" class="text-center text-muted">No expense categories added yet.</td></tr>');
+        } else {
+          rows.forEach(function (category, index) {
+            $tableBody.append(renderQuickExpenseCategoryRow(category, index + 1));
+          });
+        }
+
+        syncExpenseCategorySelects(rows, preferredCategoryId, modalElement.dataset.quickTargetSelect || "");
+      });
+    }
+
+    modalElement.addEventListener("show.bs.modal", function () {
+      resetQuickExpenseCategoryForm();
+      refreshQuickExpenseCategoryTable();
+    });
+
+    $(document).off("click.quickExpenseCategoryReset", "#quickExpenseCategoryResetBtn");
+    $(document).on("click.quickExpenseCategoryReset", "#quickExpenseCategoryResetBtn", function () {
+      resetQuickExpenseCategoryForm();
+    });
+
+    $(document).off("click.quickExpenseCategoryEdit", ".quickExpenseCategoryEditBtn");
+    $(document).on("click.quickExpenseCategoryEdit", ".quickExpenseCategoryEditBtn", function () {
+      $idField.val($(this).data("id"));
+      $nameField.val($(this).data("name"));
+      $title.text("Edit Expense Category");
+      $submitButton.html('<i class="fa-solid fa-save"></i> Update Category');
+    });
+
+    $(document).off("click.quickExpenseCategoryToggle", ".quickExpenseCategoryToggleBtn");
+    $(document).on("click.quickExpenseCategoryToggle", ".quickExpenseCategoryToggleBtn", function () {
+      var categoryId = $(this).data("id");
+      var nextState = $(this).data("active") == 1 ? 0 : 1;
+
+      showLoader();
+
+      $.post(quickExpenseCategoryUrl($form.data("updateUrlTemplate"), categoryId), {
+        _token: $form.find('input[name="_token"]').val(),
+        is_active: nextState
+      }, function (response) {
+        hideLoader();
+        showNotification(response.message || "Expense category updated.", response.type || "success");
+        refreshQuickExpenseCategoryTable();
+      }).fail(function (xhr) {
+        hideLoader();
+        var response = xhr.responseJSON || {};
+        showNotification(response.message || "Could not update expense category.", "error");
+      });
+    });
+
+    $(document).off("click.quickExpenseCategoryDelete", ".quickExpenseCategoryDeleteBtn");
+    $(document).on("click.quickExpenseCategoryDelete", ".quickExpenseCategoryDeleteBtn", function () {
+      var categoryId = $(this).data("id");
+
+      function runDelete() {
+        showLoader();
+
+        $.post(quickExpenseCategoryUrl($form.data("deleteUrlTemplate"), categoryId), {
+          _token: $form.find('input[name="_token"]').val()
+        }, function (response) {
+          hideLoader();
+          showNotification(response.message || "Expense category deleted.", response.type || "success");
+          resetQuickExpenseCategoryForm();
+          refreshQuickExpenseCategoryTable();
+        }).fail(function (xhr) {
+          hideLoader();
+          var response = xhr.responseJSON || {};
+          showNotification(response.message || "Could not delete expense category.", "error");
+        });
+      }
+
+      if (typeof Swal !== "undefined") {
+        Swal.fire({
+          title: "Delete expense category?",
+          text: "This will remove the category from the master list.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#DB1F48",
+          cancelButtonColor: "#6b7280",
+          confirmButtonText: "Delete",
+        }).then(function (result) {
+          if (result.isConfirmed) {
+            runDelete();
+          }
+        });
+        return;
+      }
+
+      if (window.confirm("Delete this expense category?")) {
+        runDelete();
+      }
+    });
+
+    $form.off("submit.quickExpenseCategoryCrud");
+    $form.on("submit.quickExpenseCategoryCrud", function (event) {
+      event.preventDefault();
+
+      var categoryId = $idField.val();
+      var submitUrl = categoryId
+        ? quickExpenseCategoryUrl($form.data("updateUrlTemplate"), categoryId)
+        : $form.data("storeUrl");
+
+      showLoader();
+
+      $.post(submitUrl, {
+        _token: $form.find('input[name="_token"]').val(),
+        name: $nameField.val()
+      }, function (response) {
+        hideLoader();
+        showNotification(response.message || "Expense category saved.", response.type || "success");
+        resetQuickExpenseCategoryForm();
+        refreshQuickExpenseCategoryTable(response && response.data ? response.data.id : "");
+        modalInstance.hide();
+      }).fail(function (xhr) {
+        hideLoader();
+        var response = xhr.responseJSON || {};
+        showNotification(response.message || "Could not save expense category.", "error");
       });
     });
 
@@ -1925,6 +3222,7 @@
   window.initEnhancedSelects = initEnhancedSelects;
   window.addTableColumnSearch = addColumnSearch;
   window.initServerSideDataTable = initServerSideDataTable;
+  window.syncCsrfInputs = syncCsrfInputs;
   window.showDatePicker = function () {
     if (window.jQuery && $("#nepali-datepicker").length && $("#nepali-datepicker").nepaliDatePicker) {
       $("#nepali-datepicker").nepaliDatePicker({
@@ -1934,6 +3232,7 @@
   };
 
   document.addEventListener("DOMContentLoaded", function () {
+    syncCsrfInputs(document);
     initBootstrapUi();
     initChoices();
     initFooterYear();
@@ -1948,11 +3247,14 @@
     initAjaxForms();
     initImportPreview();
     initQuickCreateModals();
-      initQuickPaymentModeCrud();
-      initSidebarPreference();
-      initDataTableTabAdjust();
-      initStandardDataTables();
-      initEntryFormShortcuts();
+    initQuickDropdownOptionCrud();
+    initDropdownOptionManager();
+    initQuickPartyTypeCrud();
+    initQuickSupplierTypeCrud();
+    initSidebarPreference();
+    initDataTableTabAdjust();
+    initStandardDataTables();
+    initEntryFormShortcuts();
   });
 
   window.addEventListener("load", function () {
