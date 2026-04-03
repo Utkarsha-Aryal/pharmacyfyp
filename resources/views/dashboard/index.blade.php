@@ -15,6 +15,7 @@
         $canUserManage = $currentUser?->can('user.manage');
         $showAnalyticsTab = $canSalesView;
         $showAlertsTab = $canInventoryView || $canReportView;
+        $showHeroRevenueToggle = $canPurchaseView && $canSalesView;
         $dashboardCards = [
             ['label' => "Today's Sales", 'value' => money_value($todaySales), 'note' => 'Confirmed invoice total for today.', 'icon' => 'fa-cash-register', 'url' => route('admin.sales.index')],
             ['label' => 'This Month Sales', 'value' => money_value($monthSales), 'note' => 'Sales total for the current month.', 'icon' => 'fa-chart-line', 'url' => route('admin.sales.index')],
@@ -96,23 +97,54 @@
                         </div>
                     </div>
                     <div class="col-xl-5">
-                        <div class="dashboard-hero-stat">
-                            @if ($canPurchaseView)
-                                <span>This Month's Purchase Value</span>
-                                <strong>{{ money_value($monthPurchase) }}</strong>
-                                <small>Received purchase value for {{ now()->format('F Y') }} only.</small>
+                        <div class="dashboard-hero-stat-stack d-grid gap-3">
+                            @if ($showHeroRevenueToggle)
+                                <div class="dashboard-hero-toggle">
+                                    <button type="button" class="btn btn-sm dashboard-hero-toggle-btn active" data-hero-toggle="sales">
+                                        <i class="fa-solid fa-chart-line me-1"></i> Sales
+                                    </button>
+                                    <button type="button" class="btn btn-sm dashboard-hero-toggle-btn" data-hero-toggle="purchase">
+                                        <i class="fa-solid fa-file-invoice-dollar me-1"></i> Purchase
+                                    </button>
+                                </div>
+                                <div class="dashboard-hero-stat-panel" data-hero-panel="sales">
+                                    <div class="dashboard-hero-stat">
+                                        <span>This Month's Sales</span>
+                                        <strong>{{ money_value($monthSales) }}</strong>
+                                        <small>Confirmed invoice value for {{ now()->format('F Y') }}.</small>
+                                    </div>
+                                </div>
+                                <div class="dashboard-hero-stat-panel d-none" data-hero-panel="purchase">
+                                    <div class="dashboard-hero-stat">
+                                        <span>This Month's Purchase Value</span>
+                                        <strong>{{ money_value($monthPurchase) }}</strong>
+                                        <small>Received purchase value for {{ now()->format('F Y') }} only.</small>
+                                    </div>
+                                </div>
                             @elseif ($canSalesView)
-                                <span>This Month's Sales</span>
-                                <strong>{{ money_value($monthSales) }}</strong>
-                                <small>Confirmed invoice value for {{ now()->format('F Y') }}.</small>
+                                <div class="dashboard-hero-stat">
+                                    <span>This Month's Sales</span>
+                                    <strong>{{ money_value($monthSales) }}</strong>
+                                    <small>Confirmed invoice value for {{ now()->format('F Y') }}.</small>
+                                </div>
+                            @elseif ($canPurchaseView)
+                                <div class="dashboard-hero-stat">
+                                    <span>This Month's Purchase Value</span>
+                                    <strong>{{ money_value($monthPurchase) }}</strong>
+                                    <small>Received purchase value for {{ now()->format('F Y') }} only.</small>
+                                </div>
                             @elseif ($canInventoryView)
-                                <span>Total Stock Qty</span>
-                                <strong>{{ $totalStock }}</strong>
-                                <small>Only the stock data this role needs to watch.</small>
+                                <div class="dashboard-hero-stat">
+                                    <span>Total Stock Qty</span>
+                                    <strong>{{ $totalStock }}</strong>
+                                    <small>Only the stock data this role needs to watch.</small>
+                                </div>
                             @else
-                                <span>Role View</span>
-                                <strong>Limited</strong>
-                                <small>This dashboard is trimmed for your account.</small>
+                                <div class="dashboard-hero-stat">
+                                    <span>Role View</span>
+                                    <strong>Limited</strong>
+                                    <small>This dashboard is trimmed for your account.</small>
+                                </div>
                             @endif
                         </div>
                     </div>
@@ -525,4 +557,28 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    @if ($showHeroRevenueToggle)
+        <script>
+            $(function () {
+                var $buttons = $('[data-hero-toggle]');
+                var $panels = $('[data-hero-panel]');
+
+                function setHeroPanel(panelName) {
+                    $buttons.removeClass('active');
+                    $buttons.filter('[data-hero-toggle="' + panelName + '"]').addClass('active');
+                    $panels.addClass('d-none');
+                    $panels.filter('[data-hero-panel="' + panelName + '"]').removeClass('d-none');
+                }
+
+                $(document).on('click', '[data-hero-toggle]', function () {
+                    setHeroPanel($(this).data('hero-toggle'));
+                });
+
+                setHeroPanel('sales');
+            });
+        </script>
+    @endif
 @endsection

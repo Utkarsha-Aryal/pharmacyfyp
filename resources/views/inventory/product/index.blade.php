@@ -35,8 +35,8 @@
                     <div class="card-title">Inventory Product List</div>
                     <div class="d-flex my-xl-auto right-content gap-2">
                         <form class="d-flex gap-2 align-items-end" method="GET">
-                            <select name="category_id" class="form-select js-select2" data-placeholder="All categories" data-allow-clear="1" style="min-width: 220px;">
-                                <option value="">All Category</option>
+                            <select name="category_id" class="form-select js-select2" data-placeholder="All companies" data-allow-clear="1" style="min-width: 220px;">
+                                <option value="">All Companies</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category->id }}" @selected(request('category_id') == $category->id)>{{ $category->name }}</option>
                                 @endforeach
@@ -57,7 +57,7 @@
                                 <tr>
                                     <th>S.No</th>
                                     <th>Name</th>
-                                    <th>Category</th>
+                                    <th>Company</th>
                                     <th>Formulation</th>
                                     <th>Unit</th>
                                     <th>Reorder Level</th>

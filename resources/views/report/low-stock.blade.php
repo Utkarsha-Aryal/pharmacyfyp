@@ -62,7 +62,7 @@
                             <tr>
                                 <th>S.No</th>
                                 <th>Product</th>
-                                <th>Category</th>
+                                <th>Company</th>
                                 <th>Reorder Level</th>
                                 <th>Current Stock</th>
                                 <th>Deficit</th>

@@ -209,9 +209,9 @@
                                 <input type="text" name="generic_name" class="form-control">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Category</label>
-                                <select name="category_id" class="form-select js-select2" data-placeholder="Select category" required>
-                                    <option value="">Select category</option>
+                                <label class="form-label">Company</label>
+                                <select name="category_id" class="form-select js-select2" data-placeholder="Select company" required>
+                                    <option value="">Select company</option>
                                     @foreach ($categories as $category)
                                         <option value="{{ $category->id }}">{{ $category->name }}</option>
                                     @endforeach

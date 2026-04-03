@@ -21,7 +21,7 @@
     <h6 class="border-bottom pb-2 mb-3">Basic Information</h6>
     <div class="row g-3">
         <div class="col-md-4">
-            <strong>Category:</strong>
+            <strong>Company:</strong>
             <p>{{ $category->name ?? 'N/A' }}</p>
         </div>
 

@@ -27,7 +27,7 @@ class CategoryController extends Controller
         try {
             $post = $request->all();
             $type = 'success';
-            $message = 'Records saved successfully';
+            $message = 'Company saved successfully';
             DB::beginTransaction();
             $result = Category::saveData($post);
             if (!$result) {
@@ -73,12 +73,12 @@ class CategoryController extends Controller
                 $array[$i]["image"] = '<img src="' . $image . '" height="30px" width="30px" alt="' . ' image"/>';
                 $action = '<div class="table-action-group">';
                 if (!empty($post['type']) && $post['type'] != 'trashed') {
-                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editCategory" title="Edit Category" data-id="' . $row->id . '" data-name="' . $row->name . '" data-order_number="' . $row->order_number . '" data-image="' . $image . '"><i class="fa-solid fa-pen-to-square"></i></button>';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editCategory" title="Edit Company" data-id="' . $row->id . '" data-name="' . $row->name . '" data-order_number="' . $row->order_number . '" data-image="' . $image . '"><i class="fa-solid fa-pen-to-square"></i></button>';
                 } else if (!empty($post['type']) && $post['type'] == 'trashed') {
-                    $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreCategory" title="Restore Category" data-id="' . $row->id . '"><i class="fa-solid fa-undo"></i></button>';
+                    $action .= '<button type="button" class="btn btn-sm btn-outline-success table-action-btn restoreCategory" title="Restore Company" data-id="' . $row->id . '"><i class="fa-solid fa-undo"></i></button>';
                 }
 
-                $action .= '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deletecategory" title="Delete Category" data-id="' . $row->id . '"><i class="fa fa-trash"></i></button>';
+                $action .= '<button type="button" class="btn btn-sm btn-outline-danger table-action-btn deletecategory" title="Delete Company" data-id="' . $row->id . '"><i class="fa fa-trash"></i></button>';
                 $action .= '</div>';
                 $array[$i]["action"] = $action;
                 $i++;
@@ -104,7 +104,7 @@ class CategoryController extends Controller
     {
         try {
             $type = 'success';
-            $message = 'Record deleted successfully';
+            $message = 'Company deleted successfully';
             $post = $request->all();
             $class = new Category();
             $directory = public_path('storage/category');
@@ -132,11 +132,11 @@ class CategoryController extends Controller
         try {
             $post = $request->all();
             $type = 'success';
-            $message = "Category restored successfully";
+            $message = "Company restored successfully";
             DB::beginTransaction();
             $result = Category::restoreData($post);
             if (!$result) {
-                throw new Exception("Could not restore Category. Please try again.", 1);
+                throw new Exception("Could not restore Company. Please try again.", 1);
             }
             DB::commit();
         } catch (QueryException $e) {

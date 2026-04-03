@@ -1,14 +1,14 @@
 @extends('layouts.main')
 
 @section('title')
-    Category
+    Company
 @endsection
 
 @section('main-content')
     <!-- Page Header -->
     <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
         <div class="my-auto">
-            <h5 class="page-title fs-21 mb-1">Category</h5>
+            <h5 class="page-title fs-21 mb-1">Company</h5>
         </div>
         <div class="d-flex gap-2 mt-3 mt-md-0">
             <a href="{{ route('admin.export.category') }}" class="btn btn-excel">
@@ -21,7 +21,7 @@
                 <i class="fa-solid fa-upload"></i> Import
             </button>
             <button type="button" class="btn btn-primary addCategoryBtn">
-                <i class="fa fa-plus"></i> Add Category
+                <i class="fa fa-plus"></i> Add Company
             </button>
         </div>
     </div>
@@ -45,15 +45,15 @@
                 <form action="{{ route('admin.category.save')}}" method="POST" id="categoryForm" enctype="multipart/form-data">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title">Category Form</h5>
+                        <h5 class="modal-title">Company Form</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <div class="row gy-4">
                             <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6">
                                 <input type="hidden" name="id" value="" id="id">
-                                <label for="name" class="form-label">Category Name <span class="required-field">*</span></label>
-                                <input type="text" class="form-control" id="name" placeholder="Enter name..." name="name">
+                                <label for="name" class="form-label">Company Name <span class="required-field">*</span></label>
+                                <input type="text" class="form-control" id="name" placeholder="Enter company name..." name="name">
                             </div>
                             <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6">
                                 <label for="order_number" class="form-label">Display Order <span class="required-field">*</span></label>
@@ -93,13 +93,13 @@
                 <form action="{{ route('admin.imports.categories') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title">Import Categories</h5>
+                        <h5 class="modal-title">Import Companies</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
                             <a href="{{ route('admin.imports.sample.categories') }}" class="btn btn-outline-primary">
-                                <i class="fa-solid fa-download"></i> Download Sample File
+                                <i class="fa-solid fa-download"></i> Download Company Sample File
                             </a>
                         </div>
                         <div class="mb-3">
@@ -125,7 +125,7 @@
             <div class="card custom-card">
                 <div class="card-header justify-content-between">
                     <div class="card-title">
-                        Category List
+                        Company List
                     </div>
                     <div class="row ms-0">
                         <div class="form-check col-xl-12 col-lg-12 col-md-12 col-sm-12">
@@ -143,7 +143,7 @@
                             <thead>
                                 <tr>
                                     <th>S.No</th>
-                                    <th>Name</th>
+                                    <th>Company Name</th>
                                     <th>Display Order</th>
                                     <th>Image</th>
                                     <th>Action</th>
@@ -317,15 +317,15 @@
             // view trashed items-ends
 
 
-            // Delete Category
+            // Delete company
             $(document).on('click', '.deletecategory', function(e) {
                 e.preventDefault();
 
                 var type = $('#trashed_file').is(':checked') == true ? 'trashed' :
                     'nottrashed';
                 Swal.fire({
-                    title: type === "nottrashed" ? "Are you sure you want to delete this item?" :
-                        "Are you sure you want to delete permanently  this item?",
+                    title: type === "nottrashed" ? "Are you sure you want to delete this company?" :
+                        "Are you sure you want to delete this company permanently?",
                     text: "You won't be able to revert it!",
                     icon: "warning",
                     showCancelButton: true,
@@ -355,12 +355,12 @@
                 });
             });
 
-            // Restore category
+            // Restore company
             $(document).off('click', '.restoreCategory');
             $(document).on('click', '.restoreCategory', function() {
                 Swal.fire({
-                    title: "Are you sure you want to restore Category?",
-                    text: "This will restore the Category.",
+                    title: "Are you sure you want to restore Company?",
+                    text: "This will restore the Company.",
                     icon: "warning",
                     showCancelButton: true,
                     confirmButtonColor: "#28a745",

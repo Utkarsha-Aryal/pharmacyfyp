@@ -78,7 +78,7 @@
                             </li>
                             @can('inventory.category')
                                 <li class="slide {{ request()->routeIs('admin.category', 'admin.category.*') ? 'active' : '' }}">
-                                    <a href="{{ route('admin.category') }}" class="side-menu__item">Category</a>
+                                    <a href="{{ route('admin.category') }}" class="side-menu__item">Company</a>
                                 </li>
                             @endcan
                             @can('inventory.unit')

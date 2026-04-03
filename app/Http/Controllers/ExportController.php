@@ -74,7 +74,7 @@ class ExportController extends Controller
             ->orderBy('order_number')
             ->get()
             ->map(fn ($category) => [
-                'Name' => $category->name,
+                'Company Name' => $category->name,
                 'Order' => $category->order_number,
                 'Added Date' => $category->created_at?->format('M j, Y'),
             ]);
@@ -90,12 +90,12 @@ class ExportController extends Controller
             ->orderBy('order_number')
             ->get()
             ->map(fn ($category) => [
-                'Name' => $category->name,
+                'Company Name' => $category->name,
                 'Display Order' => $category->order_number,
                 'Added Date' => $category->created_at?->format('M j, Y'),
             ]);
 
-        return $this->downloadTablePdf('categories.pdf', 'Category List', 'Sorted category master list', ['Name', 'Display Order', 'Added Date'], $rows);
+        return $this->downloadTablePdf('categories.pdf', 'Company List', 'Sorted company master list', ['Company Name', 'Display Order', 'Added Date'], $rows);
     }
 
     public function units()
@@ -175,7 +175,7 @@ class ExportController extends Controller
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->product_name,
-                'Category' => $product->category?->name,
+                'Company' => $product->category?->name,
                 'Generic Name' => $product->generic_name,
                 'MRP' => $product->mrp,
                 'Purchase Price' => $product->purchase_price,
@@ -196,14 +196,14 @@ class ExportController extends Controller
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->product_name,
-                'Category' => $product->category?->name ?: '-',
+                'Company' => $product->category?->name ?: '-',
                 'Generic Name' => $product->generic_name ?: '-',
                 'MRP' => number_format((float) $product->mrp, 2),
                 'Alert Qty' => (int) $product->alert_quantity,
                 'Stock Qty' => $product->productBatches->sum('quantity'),
             ]);
 
-        return $this->downloadTablePdf('products.pdf', 'Product List', 'Product master with stock overview', ['Product', 'Category', 'Generic Name', 'MRP', 'Alert Qty', 'Stock Qty'], $rows);
+        return $this->downloadTablePdf('products.pdf', 'Product List', 'Product master with stock overview', ['Product', 'Company', 'Generic Name', 'MRP', 'Alert Qty', 'Stock Qty'], $rows);
     }
 
     public function inventoryProducts()
@@ -215,7 +215,7 @@ class ExportController extends Controller
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->display_name,
-                'Category' => $product->category?->name,
+                'Company' => $product->category?->name,
                 'Formulation' => $product->formulation,
                 'Unit' => $product->unit,
                 'Reorder Level' => $product->effective_reorder_level,
@@ -236,7 +236,7 @@ class ExportController extends Controller
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->display_name,
-                'Category' => $product->category?->name ?: '-',
+                'Company' => $product->category?->name ?: '-',
                 'Formulation' => $product->formulation ?: '-',
                 'Unit' => $product->unit ?: '-',
                 'Reorder Level' => $product->effective_reorder_level,
@@ -244,7 +244,7 @@ class ExportController extends Controller
                 'Status' => $product->is_active ? 'Active' : 'Inactive',
             ]);
 
-        return $this->downloadTablePdf('inventory-products.pdf', 'Inventory Product List', 'Live stock overview by product', ['Product', 'Category', 'Formulation', 'Unit', 'Reorder Level', 'Current Stock', 'Status'], $rows);
+        return $this->downloadTablePdf('inventory-products.pdf', 'Inventory Product List', 'Live stock overview by product', ['Product', 'Company', 'Formulation', 'Unit', 'Reorder Level', 'Current Stock', 'Status'], $rows);
     }
 
     public function inventoryBatches(Request $request)
@@ -536,7 +536,7 @@ class ExportController extends Controller
             ->get()
             ->map(fn ($item) => [
                 'Product' => $item->product_name,
-                'Category' => $item->category_name,
+                'Company' => $item->category_name,
                 'Reorder Level' => $item->reorder_level,
                 'Current Stock' => $item->current_stock,
                 'Deficit' => max(0, (int) $item->reorder_level - (int) $item->current_stock),
@@ -562,13 +562,13 @@ class ExportController extends Controller
             ->get()
             ->map(fn ($item) => [
                 'Product' => $item->product_name,
-                'Category' => $item->category_name ?: '-',
+                'Company' => $item->category_name ?: '-',
                 'Reorder Level' => $item->reorder_level,
                 'Current Stock' => $item->current_stock,
                 'Deficit' => max(0, (int) $item->reorder_level - (int) $item->current_stock),
             ]);
 
-        return $this->downloadTablePdf('low-stock-report.pdf', 'Low Stock Report', 'Products below or equal to reorder level', ['Product', 'Category', 'Reorder Level', 'Current Stock', 'Deficit'], $rows);
+        return $this->downloadTablePdf('low-stock-report.pdf', 'Low Stock Report', 'Products below or equal to reorder level', ['Product', 'Company', 'Reorder Level', 'Current Stock', 'Deficit'], $rows);
     }
 
     public function expiryAlert(Request $request)

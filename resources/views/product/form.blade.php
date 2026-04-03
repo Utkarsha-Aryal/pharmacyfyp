@@ -78,9 +78,9 @@
         <h6 class="border-bottom pb-2 mb-3">Basic Information</h6>
         <div class="row g-3">
             <div class="col-md-4">
-                <label class="form-label">Category <span class="text-danger">*</span></label>
-                <select class="form-select js-select2" name="category_id" data-placeholder="Select Category" required>
-                    <option disabled selected>Select Category</option>
+                <label class="form-label">Company <span class="text-danger">*</span></label>
+                <select class="form-select js-select2" name="category_id" data-placeholder="Select Company" required>
+                    <option disabled selected>Select Company</option>
                     @foreach ($category as $categoryProduct)
                         <option value="{{ $categoryProduct->id }}" 
                             {{ @$prevPost->category_id == $categoryProduct->id ? 'selected' : '' }}>
@@ -394,7 +394,7 @@
             },
             messages: {
                 category_id: {
-                    required: "Category is required."
+                    required: "Company is required."
                 },
                 unit_sale_id: {
                     required: "Sale unit is required."
