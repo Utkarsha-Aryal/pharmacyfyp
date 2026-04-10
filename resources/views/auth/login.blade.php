@@ -93,10 +93,10 @@
             <strong>Demo Accounts</strong>
           </div>
 
-          <button type="button" class="demo-fill-btn" data-fill-email="admin@pharmacy.com" data-fill-password="admin12345">
+          <button type="button" class="demo-fill-btn" data-fill-email="admin@email.com" data-fill-password="password">
             <span>
               <strong>Admin Login</strong>
-              <small>admin@pharmacy.com / admin12345</small>
+              <small>admin@email.com / password</small>
             </span>
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
           </button>

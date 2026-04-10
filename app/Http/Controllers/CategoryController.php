@@ -33,6 +33,9 @@ class CategoryController extends Controller
             if (!$result) {
                 throw new Exception('Could not save record', 1);
             }
+            $savedCategory = !empty($post['id'])
+                ? Category::query()->find($post['id'])
+                : Category::query()->where('name', $post['name'])->latest('id')->first();
             DB::commit();
         } catch (ValidationException $e) {
             $type = 'error';
@@ -46,7 +49,16 @@ class CategoryController extends Controller
             $type = 'error';
             $message = $e->getMessage();
         }
-        return response()->json(['type' => $type, 'message' => $message]);
+        return response()->json([
+            'type' => $type,
+            'message' => $message,
+            'data' => isset($savedCategory) && $type === 'success'
+                ? [
+                    'id' => $savedCategory->id,
+                    'text' => $savedCategory->name,
+                ]
+                : null,
+        ]);
     }
 
     // Return category rows for DataTable.
