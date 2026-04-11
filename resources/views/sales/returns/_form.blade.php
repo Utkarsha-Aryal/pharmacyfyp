@@ -1,6 +1,8 @@
 @php
     $selectedInvoiceId = old('sales_invoice_id', $salesReturn?->sales_invoice_id ?? $selectedInvoiceOption['id'] ?? '');
     $selectedItemId = old('sales_invoice_item_id', $salesReturn?->sales_invoice_item_id ?? $selectedItemOption['id'] ?? '');
+    $selectedRefundStatus = old('refund_status', $salesReturn?->refund_status ?? 'paid');
+    $selectedPaymentModeId = old('payment_mode_id', $salesReturn?->payment_mode_id ?? $selectedInvoice?->payment_mode_id ?? '');
 @endphp
 
 <form action="{{ $formAction }}" method="POST" class="card custom-card" id="salesReturnForm">
@@ -23,6 +25,8 @@
                             data-reference="{{ $selectedInvoiceOption['reference'] }}"
                             data-customer-name="{{ $selectedInvoiceOption['customer_name'] }}"
                             data-invoice-date="{{ $selectedInvoiceOption['invoice_date'] }}"
+                            data-payment-mode-id="{{ $selectedInvoiceOption['payment_mode_id'] }}"
+                            data-payment-mode-name="{{ $selectedInvoiceOption['payment_mode_name'] }}"
                             selected
                         >
                             {{ $selectedInvoiceOption['text'] }}
@@ -73,12 +77,33 @@
                 <input type="number" min="0" step="0.01" name="refund_amount" id="salesReturnRefundInput" class="form-control" value="{{ old('refund_amount', $salesReturn?->refund_amount ?? '') }}">
             </div>
             <div class="col-md-3">
+                <label class="form-label">Refund Status</label>
+                <select name="refund_status" id="salesReturnStatusSelect" class="form-select js-select2" data-placeholder="Select refund status" required>
+                    <option value="paid" @selected($selectedRefundStatus === 'paid')>Paid</option>
+                    <option value="pending" @selected($selectedRefundStatus === 'pending')>Pending Credit</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Payment Mode</label>
+                <select name="payment_mode_id" id="salesReturnPaymentModeSelect" class="form-select js-select2" data-placeholder="Select payment mode" @disabled($selectedRefundStatus !== 'paid')>
+                    <option value="">Select payment mode</option>
+                    @foreach ($paymentModes as $mode)
+                        <option value="{{ $mode->id }}" @selected((int) $selectedPaymentModeId === (int) $mode->id)>{{ $mode->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-3">
                 <label class="form-label">Reason</label>
                 <input type="text" name="reason" class="form-control" value="{{ old('reason', $salesReturn?->reason ?? '') }}" placeholder="Customer return / damage / expiry">
             </div>
             <div class="col-12">
                 <label class="form-label">Notes</label>
                 <textarea name="notes" class="form-control" rows="2" placeholder="Optional note for staff or audit">{{ old('notes', $salesReturn?->notes ?? '') }}</textarea>
+            </div>
+            <div class="col-12">
+                <div class="alert alert-light border mb-0 small text-muted" id="salesReturnSettlementHelp">
+                    Stock is restored to inventory as soon as the return is saved. Refund status controls only the money side: paid sends cash or bank out now, pending keeps the remaining refund as customer credit.
+                </div>
             </div>
         </div>
     </div>
@@ -168,6 +193,9 @@
             var $qtyInput = $('#salesReturnQtyInput');
             var $refundInput = $('#salesReturnRefundInput');
             var $itemHint = $('#salesReturnItemHint');
+            var $statusSelect = $('#salesReturnStatusSelect');
+            var $paymentModeSelect = $('#salesReturnPaymentModeSelect');
+            var $settlementHelp = $('#salesReturnSettlementHelp');
             var editingReturnId = '{{ $salesReturn?->id ?? '' }}';
 
             function currentInvoiceData() {
@@ -183,7 +211,9 @@
                     text: $selected.text(),
                     reference: $selected.data('reference'),
                     customer_name: $selected.data('customerName'),
-                    invoice_date: $selected.data('invoiceDate')
+                    invoice_date: $selected.data('invoiceDate'),
+                    payment_mode_id: $selected.data('paymentModeId'),
+                    payment_mode_name: $selected.data('paymentModeName')
                 };
 
                 if (select2Data && select2Data.length && select2Data[0].id) {
@@ -259,6 +289,26 @@
                 $itemSelect.prop('disabled', !hasInvoice);
             }
 
+            function syncRefundStatusState(prefillFromInvoice) {
+                var isPaid = ($statusSelect.val() || 'paid') === 'paid';
+
+                $paymentModeSelect.prop('disabled', !isPaid).trigger('change.select2');
+
+                if (!isPaid) {
+                    $settlementHelp.text('Stock is restored to inventory as soon as the return is saved. Pending credit keeps any remaining refund against the customer account without sending cash or bank money out now.');
+                    return;
+                }
+
+                if (prefillFromInvoice) {
+                    var invoiceData = currentInvoiceData();
+                    if (invoiceData && invoiceData.payment_mode_id && !$paymentModeSelect.val()) {
+                        $paymentModeSelect.val(String(invoiceData.payment_mode_id)).trigger('change');
+                    }
+                }
+
+                $settlementHelp.text('Stock is restored to inventory as soon as the return is saved. Paid refund uses the selected payment mode only for the part that must actually go out as cash or bank.');
+            }
+
             function syncRefund(preserveExistingQty) {
                 var data = currentItemData();
 
@@ -325,6 +375,7 @@
             $invoiceSelect.on('select2:select', function (event) {
                 updateInvoiceSummary(event.params.data || null);
                 syncItemSelectState();
+                syncRefundStatusState(true);
                 resetItemSelect();
             });
 
@@ -335,6 +386,7 @@
                 }
 
                 syncItemSelectState();
+                syncRefundStatusState(true);
             });
 
             $itemSelect.on('select2:select', function () {
@@ -353,8 +405,13 @@
                 syncRefund(true);
             });
 
+            $statusSelect.on('change', function () {
+                syncRefundStatusState(true);
+            });
+
             updateInvoiceSummary(currentInvoiceData());
             syncItemSelectState();
+            syncRefundStatusState(false);
             syncRefund(true);
         });
     </script>

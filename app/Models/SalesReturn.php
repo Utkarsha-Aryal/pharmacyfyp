@@ -33,6 +33,12 @@ class SalesReturn extends Model
         return $this->belongsTo(Batch::class, 'batch_id');
     }
 
+    // Keep refund payment mode available for cashier/bank tracing.
+    public function paymentMode()
+    {
+        return $this->belongsTo(DropdownOption::class, 'payment_mode_id');
+    }
+
     // The staff member who created the return record.
     public function creator()
     {
@@ -92,5 +98,39 @@ class SalesReturn extends Model
         }
 
         return (float) $this->effective_unit_price;
+    }
+
+    // Keep refund state readable in tables and forms.
+    public function getRefundStatusLabelAttribute(): string
+    {
+        if ((float) ($this->pending_credit_amount ?? 0) > 0) {
+            return 'Pending Credit';
+        }
+
+        if ((float) ($this->cash_refund_amount ?? 0) > 0) {
+            return 'Paid';
+        }
+
+        return 'Adjusted';
+    }
+
+    // Use Bootstrap badge classes instead of custom labels.
+    public function getRefundStatusBadgeClassAttribute(): string
+    {
+        if ((float) ($this->pending_credit_amount ?? 0) > 0) {
+            return 'bg-warning text-dark';
+        }
+
+        if ((float) ($this->cash_refund_amount ?? 0) > 0) {
+            return 'bg-success';
+        }
+
+        return 'bg-info text-dark';
+    }
+
+    // Show payment mode when an actual payout method was chosen.
+    public function getPaymentModeLabelAttribute(): string
+    {
+        return $this->paymentMode?->name ?: '-';
     }
 }

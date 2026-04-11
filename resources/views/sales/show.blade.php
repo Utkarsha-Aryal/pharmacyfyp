@@ -169,6 +169,7 @@
                                 <th>Discount Amt</th>
                                 <th>Net Rate</th>
                                 <th>Refund</th>
+                                <th>Settlement</th>
                                 <th>Reason</th>
                                 <th style="width: 130px;">Action</th>
                             </tr>
@@ -184,7 +185,17 @@
                                     <td>{{ number_format((float) $returnItem->effective_discount_percent, 2) }}%</td>
                                     <td>{{ money_value($returnItem->effective_discount_amount) }}</td>
                                     <td>{{ money_value($returnItem->effective_net_unit_price) }}</td>
-                                    <td>{{ money_value($returnItem->refund_amount) }}</td>
+                                    <td>
+                                        <div>{{ money_value($returnItem->refund_amount) }}</div>
+                                        <small class="text-muted d-block">Adj {{ money_value($returnItem->receivable_adjusted_amount) }}</small>
+                                        <small class="text-muted d-block">Cash {{ money_value($returnItem->cash_refund_amount) }} | Credit {{ money_value($returnItem->pending_credit_amount) }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ $returnItem->refund_status_badge_class }}">{{ $returnItem->refund_status_label }}</span>
+                                        <small class="text-muted d-block mt-1">
+                                            {{ $returnItem->cash_refund_amount > 0 ? ($returnItem->payment_mode_label ?: 'Paid out') : ($returnItem->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance') }}
+                                        </small>
+                                    </td>
                                     <td>{{ $returnItem->reason ?: '-' }}</td>
                                     <td>
                                         <div class="table-action-group">
@@ -202,7 +213,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="11" class="text-center text-muted py-4">No return history yet.</td>
+                                    <td colspan="12" class="text-center text-muted py-4">No return history yet.</td>
                                 </tr>
                             @endforelse
                         </tbody>

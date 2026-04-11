@@ -589,11 +589,20 @@ class DemoDataSeeder extends Seeder
                     : 0;
                 $discountAmount = round($returnQuantity * $perUnitDiscount, 2);
                 $refundAmount = round($returnQuantity * $discountedUnitRate, 2);
+                $refundStatus = 'paid';
+                $paymentModeId = $firstInvoice->payment_mode_id ?: $paymentModeIdFromLegacy('cash');
 
                 if ($firstItem->batch) {
                     $firstItem->batch->quantity_available = round((float) $firstItem->batch->quantity_available + $returnQuantity, 2);
                     $firstItem->batch->save();
                 }
+
+                $customer = Customer::query()->find($firstInvoice->customer_id);
+                $customerBalance = round((float) ($customer?->current_balance ?? 0), 2);
+                $receivableAdjustedAmount = round(max(0, min($customerBalance, $refundAmount)), 2);
+                $remainingRefund = round(max(0, $refundAmount - $receivableAdjustedAmount), 2);
+                $cashRefundAmount = $refundStatus === 'paid' ? $remainingRefund : 0.0;
+                $pendingCreditAmount = $refundStatus === 'pending' ? $remainingRefund : 0.0;
 
                 $salesReturn = SalesReturn::create([
                     'sales_invoice_id' => $firstInvoice->id,
@@ -608,13 +617,17 @@ class DemoDataSeeder extends Seeder
                     'discount_amount' => $discountAmount,
                     'net_unit_price' => $discountedUnitRate,
                     'refund_amount' => $refundAmount,
+                    'refund_status' => $refundStatus,
+                    'payment_mode_id' => $paymentModeId,
+                    'receivable_adjusted_amount' => $receivableAdjustedAmount,
+                    'cash_refund_amount' => $cashRefundAmount,
+                    'pending_credit_amount' => $pendingCreditAmount,
                     'reason' => 'Demo return',
                     'notes' => 'Customer returned one pack',
                 ]);
 
-                $customer = Customer::query()->find($firstInvoice->customer_id);
                 if ($customer) {
-                    $customer->current_balance = round((float) $customer->current_balance - $refundAmount, 2);
+                    $customer->current_balance = round((float) $customer->current_balance - ($receivableAdjustedAmount + $pendingCreditAmount), 2);
                     $customer->save();
                 }
 
@@ -646,18 +659,52 @@ class DemoDataSeeder extends Seeder
                     'created_by' => $adminId,
                 ]);
 
-                record_account_transaction([
-                    'transaction_date' => now()->subDay()->toDateString(),
-                    'reference_type' => 'SalesReturn',
-                    'reference_id' => $salesReturn->id,
-                    'party_type' => 'customer',
-                    'party_id' => $firstInvoice->customer_id,
-                    'entry_type' => 'credit',
-                    'account_type' => 'cash',
-                    'amount' => $refundAmount,
-                    'notes' => 'Demo refund for ' . $firstInvoice->reference,
-                    'created_by' => $adminId,
-                ]);
+                if ($receivableAdjustedAmount > 0) {
+                    record_account_transaction([
+                        'transaction_date' => now()->subDay()->toDateString(),
+                        'reference_type' => 'SalesReturn',
+                        'reference_id' => $salesReturn->id,
+                        'party_type' => 'customer',
+                        'party_id' => $firstInvoice->customer_id,
+                        'entry_type' => 'credit',
+                        'account_type' => 'receivable',
+                        'amount' => $receivableAdjustedAmount,
+                        'notes' => 'Demo sales return adjusted against receivable for ' . $firstInvoice->reference,
+                        'created_by' => $adminId,
+                    ]);
+                }
+
+                if ($pendingCreditAmount > 0) {
+                    record_account_transaction([
+                        'transaction_date' => now()->subDay()->toDateString(),
+                        'reference_type' => 'SalesReturn',
+                        'reference_id' => $salesReturn->id,
+                        'party_type' => 'customer',
+                        'party_id' => $firstInvoice->customer_id,
+                        'entry_type' => 'credit',
+                        'account_type' => 'payable',
+                        'amount' => $pendingCreditAmount,
+                        'notes' => 'Demo pending refund credit for ' . $firstInvoice->reference,
+                        'created_by' => $adminId,
+                    ]);
+                }
+
+                if ($cashRefundAmount > 0) {
+                    $paymentAccount = DropdownOption::query()->find($paymentModeId)?->data === 'bank' ? 'bank' : 'cash';
+
+                    record_account_transaction([
+                        'transaction_date' => now()->subDay()->toDateString(),
+                        'reference_type' => 'SalesReturn',
+                        'reference_id' => $salesReturn->id,
+                        'party_type' => 'customer',
+                        'party_id' => $firstInvoice->customer_id,
+                        'entry_type' => 'credit',
+                        'account_type' => $paymentAccount,
+                        'amount' => $cashRefundAmount,
+                        'notes' => 'Demo refund for ' . $firstInvoice->reference,
+                        'created_by' => $adminId,
+                    ]);
+                }
             }
         }
 

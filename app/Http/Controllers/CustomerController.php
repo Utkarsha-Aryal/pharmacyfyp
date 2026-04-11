@@ -197,10 +197,10 @@ class CustomerController extends Controller
     // Show the customer ledger and history.
     public function ledger(Customer $customer)
     {
-        $customer->load(['salesInvoices.items.product', 'salesReturns.product']);
+        $customer->load(['salesInvoices.items.product', 'salesReturns.product', 'salesReturns.paymentMode']);
 
         $invoices = $customer->salesInvoices()->with('items.product')->latest('invoice_date')->get();
-        $returns = $customer->salesReturns()->with('product')->latest('return_date')->take(20)->get();
+        $returns = $customer->salesReturns()->with(['product', 'paymentMode'])->latest('return_date')->take(20)->get();
 
         return view('customer.ledger', [
             'customer' => $customer,
@@ -217,10 +217,10 @@ class CustomerController extends Controller
     // Stream the party ledger as PDF so ledger print follows the same pdf-only flow.
     public function ledgerPdf(Customer $customer)
     {
-        $customer->load(['salesInvoices.items.product', 'salesReturns.product']);
+        $customer->load(['salesInvoices.items.product', 'salesReturns.product', 'salesReturns.paymentMode']);
 
         $invoices = $customer->salesInvoices()->with('items.product')->latest('invoice_date')->get();
-        $returns = $customer->salesReturns()->with('product')->latest('return_date')->take(20)->get();
+        $returns = $customer->salesReturns()->with(['product', 'paymentMode'])->latest('return_date')->take(20)->get();
 
         return Pdf::loadView('pdf.customer-ledger', [
             'customer' => $customer,

@@ -40,18 +40,18 @@
             <div class="col-xl-3 col-md-6">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
-                        <p class="text-muted text-uppercase small mb-2">This Month</p>
-                        <h3 class="mb-1">{{ money_value($summary['this_month']) }}</h3>
-                        <span class="text-muted small">Refund amount for this month.</span>
+                        <p class="text-muted text-uppercase small mb-2">Paid Out</p>
+                        <h3 class="mb-1">{{ money_value($summary['paid_out_total']) }}</h3>
+                        <span class="text-muted small">Cash or bank refund already settled.</span>
                     </div>
                 </div>
             </div>
             <div class="col-xl-3 col-md-6">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
-                        <p class="text-muted text-uppercase small mb-2">Today</p>
-                        <h3 class="mb-1">{{ $summary['today'] }}</h3>
-                        <span class="text-muted small">Returns recorded today.</span>
+                        <p class="text-muted text-uppercase small mb-2">Pending Credit</p>
+                        <h3 class="mb-1">{{ money_value($summary['pending_credit_total']) }}</h3>
+                        <span class="text-muted small">Refund still owed back to the customer.</span>
                     </div>
                 </div>
             </div>
@@ -76,6 +76,14 @@
                             @foreach ($products as $product)
                                 <option value="{{ $product->id }}" @selected(($filters['product_id'] ?? '') == $product->id)>{{ $product->display_name }}</option>
                             @endforeach
+                        </select>
+                    </div>
+                    <div class="col-xl-2 col-md-6">
+                        <label class="form-label">Refund Status</label>
+                        <select name="refund_status" class="form-select js-select2" data-placeholder="All status" data-allow-clear="1">
+                            <option value="">All Status</option>
+                            <option value="paid" @selected(($filters['refund_status'] ?? '') === 'paid')>Paid</option>
+                            <option value="pending" @selected(($filters['refund_status'] ?? '') === 'pending')>Pending Credit</option>
                         </select>
                     </div>
                     <div class="col-xl-2 col-md-6">
@@ -114,6 +122,7 @@
                                 <th>Discount</th>
                                 <th>Net Rate</th>
                                 <th>Refund</th>
+                                <th>Settlement</th>
                                 <th>Reason</th>
                                 <th style="width: 150px;">Action</th>
                             </tr>
@@ -144,6 +153,7 @@
                     { data: 'discount' },
                     { data: 'net_rate' },
                     { data: 'refund' },
+                    { data: 'settlement' },
                     { data: 'reason' },
                     { data: 'action' },
                 ],
@@ -151,6 +161,7 @@
                 ajaxData: function (request) {
                     request.customer_id = $('[name="customer_id"]').val() || '';
                     request.product_id = $('[name="product_id"]').val() || '';
+                    request.refund_status = $('[name="refund_status"]').val() || '';
                     request.date_from = $('[name="date_from"]').val() || '';
                     request.date_to = $('[name="date_to"]').val() || '';
                 }

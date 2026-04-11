@@ -103,6 +103,7 @@
                     <th class="text-end">Discount</th>
                     <th class="text-end">Net Rate</th>
                     <th class="text-end">Refund</th>
+                    <th>Settlement</th>
                     <th>Reason</th>
                 </tr>
             </thead>
@@ -115,7 +116,8 @@
                         <td class="text-end">{{ $returnItem->quantity }}</td>
                         <td class="text-end">{{ number_format((float) $returnItem->effective_discount_percent, 2) }}% / {{ money_value($returnItem->effective_discount_amount) }}</td>
                         <td class="text-end">{{ money_value($returnItem->effective_net_unit_price) }}</td>
-                        <td class="text-end">{{ money_value($returnItem->refund_amount) }}</td>
+                        <td class="text-end">{{ money_value($returnItem->refund_amount) }} / Adj {{ money_value($returnItem->receivable_adjusted_amount) }} / Cash {{ money_value($returnItem->cash_refund_amount) }}</td>
+                        <td>{{ $returnItem->refund_status_label }}{{ $returnItem->cash_refund_amount > 0 ? ' - ' . ($returnItem->payment_mode_label ?: 'Paid out') : ($returnItem->pending_credit_amount > 0 ? ' - Pending customer credit' : ' - Adjusted against balance') }}</td>
                         <td>{{ $returnItem->reason ?: '-' }}</td>
                     </tr>
                 @endforeach

@@ -22,9 +22,16 @@ return new class extends Migration
             $table->decimal('discount_amount', 10, 2)->default(0);
             $table->decimal('net_unit_price', 10, 2)->default(0);
             $table->decimal('refund_amount', 10, 2)->default(0);
+            $table->enum('refund_status', ['pending', 'paid'])->default('paid');
+            $table->unsignedBigInteger('payment_mode_id')->nullable();
+            $table->decimal('receivable_adjusted_amount', 10, 2)->default(0);
+            $table->decimal('cash_refund_amount', 10, 2)->default(0);
+            $table->decimal('pending_credit_amount', 10, 2)->default(0);
             $table->string('reason')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
+
+            $table->index('payment_mode_id', 'sales_returns_payment_mode_idx');
         });
     }
 
