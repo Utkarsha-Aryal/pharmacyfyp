@@ -9,7 +9,12 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Manage Sales Return</h5>
-                <p class="mb-0 text-muted">Review sales return records and refund amounts.</p>
+                <p class="mb-0 text-muted">Review, create, edit, and remove sales return entries from one place.</p>
+            </div>
+            <div class="d-flex gap-2 mt-3 mt-md-0">
+                <a href="{{ route('admin.sales.returns.create') }}" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i> Create Sales Return
+                </a>
             </div>
         </div>
 
@@ -106,9 +111,11 @@
                                 <th>Party</th>
                                 <th>Product</th>
                                 <th>Qty</th>
+                                <th>Discount</th>
+                                <th>Net Rate</th>
                                 <th>Refund</th>
                                 <th>Reason</th>
-                                <th style="width: 110px;">Action</th>
+                                <th style="width: 150px;">Action</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -134,6 +141,8 @@
                     { data: 'customer' },
                     { data: 'product' },
                     { data: 'qty' },
+                    { data: 'discount' },
+                    { data: 'net_rate' },
                     { data: 'refund' },
                     { data: 'reason' },
                     { data: 'action' },

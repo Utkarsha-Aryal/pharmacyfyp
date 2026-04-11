@@ -17,6 +17,10 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->date('return_date');
             $table->decimal('quantity', 10, 2);
+            $table->decimal('unit_price', 10, 2)->default(0);
+            $table->decimal('discount_percent', 10, 2)->default(0);
+            $table->decimal('discount_amount', 10, 2)->default(0);
+            $table->decimal('net_unit_price', 10, 2)->default(0);
             $table->decimal('refund_amount', 10, 2)->default(0);
             $table->string('reason')->nullable();
             $table->text('notes')->nullable();

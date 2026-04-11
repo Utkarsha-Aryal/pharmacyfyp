@@ -9,11 +9,14 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">{{ $invoice->reference }}</h5>
-                <p class="mb-0 text-muted">One invoice screen for payment, returns and stock trace.</p>
+                <p class="mb-0 text-muted">Review invoice details, payment status, and return history.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.sales.index') }}" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-arrow-left"></i> Back
+                </a>
+                <a href="{{ route('admin.sales.returns.index') }}" class="btn btn-outline-dark">
+                    <i class="fa-solid fa-rotate-left"></i> Sales Returns
                 </a>
                 <a href="{{ route('admin.sales-invoices.print', $invoice) }}" target="_blank" class="btn btn-primary">
                     <i class="fa-solid fa-print"></i> Print / PDF
@@ -21,9 +24,9 @@
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#paymentModal">
                     <i class="fa-solid fa-wallet"></i> Payment
                 </button>
-                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#returnModal">
-                    <i class="fa-solid fa-rotate-left"></i> Return
-                </button>
+                <a href="{{ route('admin.sales.returns.create', ['sales_invoice_id' => $invoice->id]) }}" class="btn btn-outline-danger">
+                    <i class="fa-solid fa-rotate-left"></i> Create Return
+                </a>
             </div>
         </div>
 
@@ -146,8 +149,11 @@
         </div>
 
         <div class="card custom-card">
-            <div class="card-header">
+            <div class="card-header justify-content-between">
                 <div class="card-title">Return History</div>
+                <a href="{{ route('admin.sales.returns.create', ['sales_invoice_id' => $invoice->id]) }}" class="btn btn-sm btn-outline-danger">
+                    <i class="fa-solid fa-plus"></i> Create Return
+                </a>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -160,9 +166,11 @@
                                 <th>Batch</th>
                                 <th>Qty</th>
                                 <th>Discount %</th>
+                                <th>Discount Amt</th>
                                 <th>Net Rate</th>
                                 <th>Refund</th>
                                 <th>Reason</th>
+                                <th style="width: 130px;">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -173,20 +181,28 @@
                                     <td>{{ $returnItem->product?->display_name ?? '-' }}</td>
                                     <td>{{ $returnItem->batch?->batch_number ?? '-' }}</td>
                                     <td>{{ $returnItem->quantity }}</td>
-                                    <td>{{ number_format((float) ($returnItem->invoiceItem?->discount_percent ?? 0), 2) }}%</td>
-                                    <td>
-                                        {{ money_value(
-                                            ($returnItem->invoiceItem && (float) $returnItem->invoiceItem->quantity > 0)
-                                                ? ((float) $returnItem->invoiceItem->subtotal / (float) $returnItem->invoiceItem->quantity)
-                                                : (float) ($returnItem->invoiceItem?->unit_price ?? 0)
-                                        ) }}
-                                    </td>
+                                    <td>{{ number_format((float) $returnItem->effective_discount_percent, 2) }}%</td>
+                                    <td>{{ money_value($returnItem->effective_discount_amount) }}</td>
+                                    <td>{{ money_value($returnItem->effective_net_unit_price) }}</td>
                                     <td>{{ money_value($returnItem->refund_amount) }}</td>
                                     <td>{{ $returnItem->reason ?: '-' }}</td>
+                                    <td>
+                                        <div class="table-action-group">
+                                            <a href="{{ route('admin.sales.returns.edit', $returnItem) }}" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Return">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </a>
+                                            <form action="{{ route('admin.sales.returns.delete', $returnItem) }}" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete sales return?" data-confirm-text="This will remove the return and take the stock back out of inventory." data-confirm-button="Yes, delete it">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Return">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">No return history yet.</td>
+                                    <td colspan="11" class="text-center text-muted py-4">No return history yet.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -240,68 +256,6 @@
             </div>
         </div>
 
-        <div class="modal fade" id="returnModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content">
-                    <form action="{{ route('admin.sales.return.store', $invoice) }}" method="POST">
-                        @csrf
-                        <div class="modal-header">
-                            <h5 class="modal-title">Create Sales Return</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Invoice Item</label>
-                                    <select name="sales_invoice_item_id" id="salesReturnItemSelect" class="form-select" required>
-                                        <option value="">Select item</option>
-                                        @foreach ($invoice->items as $item)
-                                            @php
-                                                $alreadyReturnedQty = (float) $invoice->returns->where('sales_invoice_item_id', $item->id)->sum('quantity');
-                                                $remainingQty = max(0, (float) $item->quantity - $alreadyReturnedQty);
-                                                $netRate = (float) $item->quantity > 0
-                                                    ? round((float) $item->subtotal / (float) $item->quantity, 2)
-                                                    : round((float) $item->unit_price, 2);
-                                            @endphp
-                                            <option value="{{ $item->id }}"
-                                                data-remaining-qty="{{ $remainingQty }}"
-                                                data-net-rate="{{ $netRate }}"
-                                                data-discount-percent="{{ (float) $item->discount_percent }}"
-                                                @disabled($remainingQty <= 0)>
-                                                {{ $item->product?->display_name ?? '-' }} | Batch {{ $item->batch?->batch_number ?? '-' }} | Remaining {{ $remainingQty }} | Disc {{ number_format((float) $item->discount_percent, 2) }}%
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <small class="text-muted d-block mt-1" id="salesReturnItemHint">Select an item to auto-fill remaining qty and discounted refund rate.</small>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Quantity</label>
-                                    <input type="number" min="1" step="1" name="quantity" id="salesReturnQtyInput" class="form-control" required>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Refund Amount</label>
-                                    <input type="number" min="0" step="0.01" name="refund_amount" id="salesReturnRefundInput" class="form-control">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Reason</label>
-                                    <input type="text" name="reason" class="form-control" placeholder="Damaged / wrong item / customer return">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Notes</label>
-                                    <input type="text" name="notes" class="form-control" placeholder="Short note for return">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="submit" class="btn btn-danger">
-                                <i class="fa fa-rotate-left"></i> Save Return
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
     </div>
 @endsection
 
@@ -316,44 +270,6 @@
                     bootstrap.Modal.getOrCreateInstance(paymentModalEl).show();
                 }
             }
-
-            if (hash === '#returnModal') {
-                var returnModalEl = document.getElementById('returnModal');
-                if (returnModalEl) {
-                    bootstrap.Modal.getOrCreateInstance(returnModalEl).show();
-                }
-            }
-
-            var $itemSelect = $('#salesReturnItemSelect');
-            var $qtyInput = $('#salesReturnQtyInput');
-            var $refundInput = $('#salesReturnRefundInput');
-            var $hint = $('#salesReturnItemHint');
-
-            function syncSalesReturnFields() {
-                var $selected = $itemSelect.find('option:selected');
-                var remainingQty = parseFloat($selected.data('remainingQty') || 0);
-                var netRate = parseFloat($selected.data('netRate') || 0);
-                var discountPercent = parseFloat($selected.data('discountPercent') || 0);
-                var qty = parseFloat($qtyInput.val() || 0);
-
-                if (remainingQty > 0) {
-                    $qtyInput.attr('max', remainingQty);
-                    if (!qty || qty > remainingQty) {
-                        qty = remainingQty;
-                        $qtyInput.val(remainingQty);
-                    }
-
-                    $refundInput.val((qty * netRate).toFixed(2));
-                    $hint.text('Remaining qty: ' + remainingQty + ', discount: ' + discountPercent.toFixed(2) + '%, net rate: ' + netRate.toFixed(2));
-                } else {
-                    $qtyInput.attr('max', 0);
-                    $refundInput.val('');
-                    $hint.text('Select an item to auto-fill remaining qty and discounted refund rate.');
-                }
-            }
-
-            $itemSelect.on('change', syncSalesReturnFields);
-            $qtyInput.on('input', syncSalesReturnFields);
         });
     </script>
 @endsection

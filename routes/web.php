@@ -165,6 +165,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::middleware('permission:sales.return')->group(function () {
             Route::get('/returns', [SalesInvoiceController::class, 'returnsIndex'])->name('returns.index');
             Route::post('/returns/list', [SalesInvoiceController::class, 'returnsList'])->name('returns.list');
+            Route::get('/returns/create', [SalesInvoiceController::class, 'returnsCreate'])->name('returns.create');
+            Route::post('/returns/store', [SalesInvoiceController::class, 'returnsStore'])->name('returns.store');
+            Route::get('/returns/invoice-options', [SalesInvoiceController::class, 'returnInvoiceOptions'])->name('returns.invoice-options');
+            Route::get('/returns/item-options', [SalesInvoiceController::class, 'returnItemOptions'])->name('returns.item-options');
+            Route::get('/returns/{salesReturn}/edit', [SalesInvoiceController::class, 'returnsEdit'])->name('returns.edit');
+            Route::post('/returns/{salesReturn}/update', [SalesInvoiceController::class, 'returnsUpdate'])->name('returns.update');
+            Route::post('/returns/{salesReturn}/delete', [SalesInvoiceController::class, 'returnsDestroy'])->name('returns.delete');
         });
 
         Route::middleware('permission:sales.invoice')->group(function () {

@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
 use App\Models\SalesReturn;
+use App\Models\StockMovement;
 use App\Models\Unit;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -125,9 +126,17 @@ class SalesInvoiceController extends Controller
             $customerName = $return->invoice?->customer?->name ?: 'Walk-in Customer';
             $productLabel = $return->product?->display_name ?? '-';
             $batchLabel = $return->batch?->batch_number ?: '-';
-            $action = auth()->user()->can('sales.invoice')
-                ? '<div class="table-action-group"><a href="' . route('admin.sales.show', $return->sales_invoice_id) . '#returnModal" class="btn btn-sm btn-outline-primary table-action-btn" title="Open Invoice" aria-label="Open Invoice"><i class="fa-solid fa-eye"></i></a></div>'
-                : '<span class="text-muted">-</span>';
+            $action = '<div class="table-action-group">';
+
+            if (auth()->user()->can('sales.invoice')) {
+                $action .= '<a href="' . route('admin.sales.show', $return->sales_invoice_id) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="Open Invoice" aria-label="Open Invoice"><i class="fa-solid fa-eye"></i></a>';
+            }
+
+            $action .= '<a href="' . route('admin.sales.returns.edit', $return) . '" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Return" aria-label="Edit Return"><i class="fa-solid fa-pen-to-square"></i></a>';
+            $action .= '<form action="' . route('admin.sales.returns.delete', $return) . '" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete sales return?" data-confirm-text="This will remove the return and take the stock back out of inventory." data-confirm-button="Yes, delete it">';
+            $action .= '<input type="hidden" name="_token" value="' . csrf_token() . '">';
+            $action .= '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Return" aria-label="Delete Return"><i class="fa-solid fa-trash"></i></button>';
+            $action .= '</form></div>';
 
             $data[] = [
                 'sno' => $start + $index + 1,
@@ -136,6 +145,8 @@ class SalesInvoiceController extends Controller
                 'customer' => '<div class="text-wrap">' . e($customerName) . '</div>',
                 'product' => '<div class="fw-semibold text-wrap">' . e($productLabel) . '</div><div class="small text-muted">Batch: ' . e($batchLabel) . '</div>',
                 'qty' => '<span class="badge bg-info text-dark">' . e(number_format((float) $return->quantity, 0)) . '</span>',
+                'discount' => '<div class="text-wrap"><span class="badge bg-warning text-dark">' . e(number_format((float) $return->effective_discount_percent, 2)) . '%</span><div class="small text-muted mt-1">' . e(money_value($return->effective_discount_amount)) . '</div></div>',
+                'net_rate' => money_value($return->effective_net_unit_price),
                 'refund' => money_value($return->refund_amount),
                 'reason' => '<div class="text-wrap small">' . e(Str::limit((string) ($return->reason ?: $return->notes ?: '-'), 90)) . '</div>',
                 'action' => $action,
@@ -148,6 +159,124 @@ class SalesInvoiceController extends Controller
             'recordsFiltered' => $recordsFiltered,
             'data' => $data,
         ]);
+    }
+
+    // Open the dedicated sales return form so staff can work from one clear screen.
+    public function returnsCreate(Request $request)
+    {
+        $invoice = null;
+
+        if ($request->filled('sales_invoice_id')) {
+            $invoice = SalesInvoice::query()->findOrFail($request->integer('sales_invoice_id'));
+        }
+
+        return view('sales.returns.create', $this->salesReturnFormData(null, $invoice, $request));
+    }
+
+    // Save one sales return from the dedicated manager flow.
+    public function returnsStore(Request $request)
+    {
+        $salesReturn = $this->persistSalesReturn($request);
+
+        return redirect()->route('admin.sales.returns.index')->with('success', 'Sales return saved successfully.');
+    }
+
+    // Open the edit screen with the current return already selected.
+    public function returnsEdit(SalesReturn $salesReturn)
+    {
+        $salesReturn->load(['invoice.customer', 'invoiceItem.product', 'invoiceItem.batch', 'product', 'batch']);
+
+        return view('sales.returns.edit', $this->salesReturnFormData($salesReturn, $salesReturn->invoice));
+    }
+
+    // Update an existing sales return and rebuild stock/accounting safely.
+    public function returnsUpdate(Request $request, SalesReturn $salesReturn)
+    {
+        $this->persistSalesReturn($request, $salesReturn);
+
+        return redirect()->route('admin.sales.returns.index')->with('success', 'Sales return updated successfully.');
+    }
+
+    // Delete a sales return only when the returned stock is still available to remove again.
+    public function returnsDestroy(SalesReturn $salesReturn)
+    {
+        try {
+            DB::transaction(function () use ($salesReturn) {
+                $salesReturn->load(['invoice.customer', 'invoiceItem.batch']);
+                $this->rollbackSalesReturnEffects($salesReturn);
+                $this->deleteSalesReturnRecords($salesReturn);
+                $salesReturn->delete();
+            });
+
+            return back()->with('success', 'Sales return deleted successfully.');
+        } catch (ValidationException $exception) {
+            return back()->with('error', collect($exception->errors())->flatten()->first() ?: 'Could not delete sales return.');
+        } catch (\Throwable $throwable) {
+            return back()->with('error', $throwable->getMessage() ?: 'Could not delete sales return.');
+        }
+    }
+
+    // Search invoices for the sales return form.
+    public function returnInvoiceOptions(Request $request)
+    {
+        $keyword = trim((string) $request->input('q'));
+
+        $invoices = SalesInvoice::query()
+            ->with('customer')
+            ->when($keyword !== '', function (Builder $query) use ($keyword) {
+                $query->where(function (Builder $builder) use ($keyword) {
+                    $builder->where('reference', 'like', '%' . $keyword . '%')
+                        ->orWhereHas('customer', function (Builder $customerQuery) use ($keyword) {
+                            $customerQuery->where('name', 'like', '%' . $keyword . '%')
+                                ->orWhere('contact_person', 'like', '%' . $keyword . '%')
+                                ->orWhere('phone', 'like', '%' . $keyword . '%');
+                        });
+                });
+            })
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get()
+            ->map(fn (SalesInvoice $invoice) => $this->formatSalesReturnInvoiceOption($invoice))
+            ->values();
+
+        return response()->json(['results' => $invoices]);
+    }
+
+    // Search only the returnable items for one selected invoice.
+    public function returnItemOptions(Request $request)
+    {
+        $validated = $request->validate([
+            'sales_invoice_id' => ['required', 'exists:sales_invoices,id'],
+            'sales_return_id' => ['nullable', 'exists:sales_returns,id'],
+        ]);
+
+        $invoice = SalesInvoice::query()->findOrFail($validated['sales_invoice_id']);
+        $editingReturn = !empty($validated['sales_return_id'])
+            ? SalesReturn::query()->findOrFail($validated['sales_return_id'])
+            : null;
+
+        if ($editingReturn && (int) $editingReturn->sales_invoice_id !== (int) $invoice->id) {
+            $editingReturn = null;
+        }
+
+        $keyword = trim((string) $request->input('q'));
+
+        $items = collect($this->buildSalesReturnItemOptions($invoice, $editingReturn))
+            ->when($keyword !== '', function ($collection) use ($keyword) {
+                return $collection->filter(function (array $row) use ($keyword) {
+                    $haystack = implode(' ', [
+                        $row['text'] ?? '',
+                        $row['product_name'] ?? '',
+                        $row['batch_number'] ?? '',
+                    ]);
+
+                    return Str::contains(Str::lower($haystack), Str::lower($keyword));
+                })->values();
+            })
+            ->values();
+
+        return response()->json(['results' => $items]);
     }
 
     // Return invoice rows for the server-side table.
@@ -218,7 +347,7 @@ class SalesInvoiceController extends Controller
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Invoice" aria-label="View Invoice"><i class="fa-solid fa-eye"></i></a>';
             $action .= '<a href="' . route('admin.sales-invoices.print', $invoice) . '" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF" aria-label="Print / PDF"><i class="fa-solid fa-print"></i></a>';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '#paymentModal" class="btn btn-sm btn-outline-success table-action-btn" title="Payment" aria-label="Payment"><i class="fa-solid fa-wallet"></i></a>';
-            $action .= '<a href="' . route('admin.sales.show', $invoice) . '#returnModal" class="btn btn-sm btn-outline-danger table-action-btn" title="Return" aria-label="Return"><i class="fa-solid fa-rotate-left"></i></a>';
+            $action .= '<a href="' . route('admin.sales.returns.create', ['sales_invoice_id' => $invoice->id]) . '" class="btn btn-sm btn-outline-danger table-action-btn" title="Return" aria-label="Return"><i class="fa-solid fa-rotate-left"></i></a>';
             $action .= '</div>';
 
             $data[] = [
@@ -635,104 +764,12 @@ class SalesInvoiceController extends Controller
     // Save one return row and give the stock back to the batch.
     public function returnStore(Request $request, SalesInvoice $salesInvoice)
     {
-        $validated = $request->validate([
-            'sales_invoice_item_id' => ['required', 'exists:sales_invoice_items,id'],
-            'quantity' => ['required', 'numeric', 'min:1'],
-            'reason' => ['nullable', 'string', 'max:255'],
-            'notes' => ['nullable', 'string'],
-            'refund_amount' => ['nullable', 'numeric', 'min:0'],
+        $request->merge([
+            'sales_invoice_id' => $salesInvoice->id,
+            'return_date' => $request->input('return_date', now()->toDateString()),
         ]);
 
-        DB::transaction(function () use ($salesInvoice, $validated, $request) {
-            $invoiceItem = SalesInvoiceItem::query()
-                ->with(['product', 'batch'])
-                ->where('sales_invoice_id', $salesInvoice->id)
-                ->findOrFail($validated['sales_invoice_item_id']);
-
-            $returnQty = (float) $validated['quantity'];
-            $alreadyReturnedQty = (float) SalesReturn::query()
-                ->where('sales_invoice_item_id', $invoiceItem->id)
-                ->sum('quantity');
-            $maxReturnableQty = max(0, (float) $invoiceItem->quantity - $alreadyReturnedQty);
-
-            if ($returnQty > $maxReturnableQty) {
-                throw ValidationException::withMessages([
-                    'quantity' => 'Return quantity cannot be more than remaining returnable quantity.',
-                ]);
-            }
-
-            $discountedUnitRate = (float) $invoiceItem->quantity > 0
-                ? round((float) $invoiceItem->subtotal / (float) $invoiceItem->quantity, 2)
-                : round((float) $invoiceItem->unit_price, 2);
-            $refundAmount = isset($validated['refund_amount'])
-                ? round((float) $validated['refund_amount'], 2)
-                : round($returnQty * $discountedUnitRate, 2);
-
-            if ($invoiceItem->batch) {
-                $invoiceItem->batch->quantity_available = round((float) $invoiceItem->batch->quantity_available + $returnQty, 2);
-                $invoiceItem->batch->save();
-            }
-
-            $salesReturn = SalesReturn::create([
-                'sales_invoice_id' => $salesInvoice->id,
-                'sales_invoice_item_id' => $invoiceItem->id,
-                'product_id' => $invoiceItem->product_id,
-                'batch_id' => $invoiceItem->batch_id,
-                'created_by' => $request->user()->id,
-                'return_date' => now()->toDateString(),
-                'quantity' => $returnQty,
-                'refund_amount' => $refundAmount,
-                'reason' => $validated['reason'] ?? null,
-                'notes' => $validated['notes'] ?? null,
-            ]);
-
-            record_stock_movement([
-                'movement_date' => now()->toDateString(),
-                'product_id' => $invoiceItem->product_id,
-                'batch_id' => $invoiceItem->batch_id,
-                'movement_type' => 'sales_return_in',
-                'quantity_in' => (int) $returnQty,
-                'source_type' => 'Customer',
-                'source_id' => $salesInvoice->customer_id,
-                'destination_type' => 'Inventory',
-                'reference_type' => 'SalesReturn',
-                'reference_id' => $salesReturn->id,
-                'notes' => 'Stock returned from sales invoice.',
-                'created_by' => $request->user()->id,
-            ]);
-
-            if ($salesInvoice->customer_id) {
-                $customer = Customer::query()->lockForUpdate()->findOrFail($salesInvoice->customer_id);
-                $customer->current_balance = max(0, round((float) $customer->current_balance - $refundAmount, 2));
-                $customer->save();
-            }
-
-            record_account_transaction([
-                'transaction_date' => now()->toDateString(),
-                'reference_type' => 'SalesReturn',
-                'reference_id' => $salesReturn->id,
-                'party_type' => $salesInvoice->customer_id ? 'customer' : null,
-                'party_id' => $salesInvoice->customer_id,
-                'entry_type' => 'debit',
-                'account_type' => 'income',
-                'amount' => $refundAmount,
-                'notes' => 'Sales return on ' . $salesInvoice->reference,
-                'created_by' => $request->user()->id,
-            ]);
-
-            record_account_transaction([
-                'transaction_date' => now()->toDateString(),
-                'reference_type' => 'SalesReturn',
-                'reference_id' => $salesReturn->id,
-                'party_type' => $salesInvoice->customer_id ? 'customer' : null,
-                'party_id' => $salesInvoice->customer_id,
-                'entry_type' => 'credit',
-                'account_type' => 'cash',
-                'amount' => $refundAmount,
-                'notes' => 'Refund paid for ' . $salesInvoice->reference,
-                'created_by' => $request->user()->id,
-            ]);
-        });
+        $this->persistSalesReturn($request);
 
         return back()->with('success', 'Sales return saved successfully.');
     }
@@ -801,6 +838,187 @@ class SalesInvoiceController extends Controller
         return 0.00;
     }
 
+    // Save or update a sales return and keep stock plus accounting in sync.
+    private function persistSalesReturn(Request $request, ?SalesReturn $existingReturn = null): SalesReturn
+    {
+        $validated = $request->validate([
+            'sales_invoice_id' => ['required', 'exists:sales_invoices,id'],
+            'sales_invoice_item_id' => ['required', 'exists:sales_invoice_items,id'],
+            'return_date' => ['required', 'date'],
+            'quantity' => ['required', 'numeric', 'min:1'],
+            'reason' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+            'refund_amount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        return DB::transaction(function () use ($validated, $request, $existingReturn) {
+            $salesInvoice = SalesInvoice::query()
+                ->with('customer')
+                ->findOrFail($validated['sales_invoice_id']);
+
+            if ($existingReturn) {
+                $existingReturn->load(['invoice.customer', 'invoiceItem.batch']);
+                $this->rollbackSalesReturnEffects($existingReturn);
+                $this->deleteSalesReturnRecords($existingReturn);
+            }
+
+            $invoiceItem = SalesInvoiceItem::query()
+                ->with(['product', 'batch'])
+                ->where('sales_invoice_id', $salesInvoice->id)
+                ->findOrFail($validated['sales_invoice_item_id']);
+
+            $returnQty = round((float) $validated['quantity'], 2);
+            $alreadyReturnedQty = (float) SalesReturn::query()
+                ->where('sales_invoice_item_id', $invoiceItem->id)
+                ->when($existingReturn, function (Builder $query) use ($existingReturn) {
+                    $query->where('id', '!=', $existingReturn->id);
+                })
+                ->sum('quantity');
+            $maxReturnableQty = max(0, round((float) $invoiceItem->quantity - $alreadyReturnedQty, 2));
+
+            if ($returnQty > $maxReturnableQty) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'Return quantity cannot be more than the remaining returnable quantity.',
+                ]);
+            }
+
+            $discountedUnitRate = (float) $invoiceItem->quantity > 0
+                ? round((float) $invoiceItem->subtotal / (float) $invoiceItem->quantity, 2)
+                : round((float) $invoiceItem->unit_price, 2);
+            $perUnitDiscount = (float) $invoiceItem->quantity > 0
+                ? round((float) $invoiceItem->discount_amount / (float) $invoiceItem->quantity, 4)
+                : 0;
+            $discountAmount = round($returnQty * $perUnitDiscount, 2);
+            $refundAmount = isset($validated['refund_amount']) && $validated['refund_amount'] !== null && $validated['refund_amount'] !== ''
+                ? round((float) $validated['refund_amount'], 2)
+                : round($returnQty * $discountedUnitRate, 2);
+
+            if ($invoiceItem->batch) {
+                $lockedBatch = Batch::query()->lockForUpdate()->findOrFail($invoiceItem->batch_id);
+                $lockedBatch->quantity_available = round((float) $lockedBatch->quantity_available + $returnQty, 2);
+                $lockedBatch->save();
+            }
+
+            $payload = [
+                'sales_invoice_id' => $salesInvoice->id,
+                'sales_invoice_item_id' => $invoiceItem->id,
+                'product_id' => $invoiceItem->product_id,
+                'batch_id' => $invoiceItem->batch_id,
+                'created_by' => $existingReturn?->created_by ?: $request->user()->id,
+                'return_date' => $validated['return_date'],
+                'quantity' => $returnQty,
+                'unit_price' => round((float) $invoiceItem->unit_price, 2),
+                'discount_percent' => round((float) $invoiceItem->discount_percent, 2),
+                'discount_amount' => $discountAmount,
+                'net_unit_price' => $discountedUnitRate,
+                'refund_amount' => $refundAmount,
+                'reason' => $validated['reason'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+            ];
+
+            if ($existingReturn) {
+                $existingReturn->update($payload);
+                $salesReturn = $existingReturn->fresh();
+            } else {
+                $salesReturn = SalesReturn::query()->create($payload);
+            }
+
+            record_stock_movement([
+                'movement_date' => $validated['return_date'],
+                'product_id' => $invoiceItem->product_id,
+                'batch_id' => $invoiceItem->batch_id,
+                'movement_type' => 'sales_return_in',
+                'quantity_in' => (int) $returnQty,
+                'source_type' => 'Customer',
+                'source_id' => $salesInvoice->customer_id,
+                'destination_type' => 'Inventory',
+                'reference_type' => 'SalesReturn',
+                'reference_id' => $salesReturn->id,
+                'notes' => 'Stock returned from sales invoice.',
+                'created_by' => $request->user()->id,
+            ]);
+
+            if ($salesInvoice->customer_id) {
+                $customer = Customer::query()->lockForUpdate()->findOrFail($salesInvoice->customer_id);
+                $customer->current_balance = round((float) $customer->current_balance - $refundAmount, 2);
+                $customer->save();
+            }
+
+            record_account_transaction([
+                'transaction_date' => $validated['return_date'],
+                'reference_type' => 'SalesReturn',
+                'reference_id' => $salesReturn->id,
+                'party_type' => $salesInvoice->customer_id ? 'customer' : null,
+                'party_id' => $salesInvoice->customer_id,
+                'entry_type' => 'debit',
+                'account_type' => 'income',
+                'amount' => $refundAmount,
+                'notes' => 'Sales return on ' . $salesInvoice->reference,
+                'created_by' => $request->user()->id,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $validated['return_date'],
+                'reference_type' => 'SalesReturn',
+                'reference_id' => $salesReturn->id,
+                'party_type' => $salesInvoice->customer_id ? 'customer' : null,
+                'party_id' => $salesInvoice->customer_id,
+                'entry_type' => 'credit',
+                'account_type' => 'cash',
+                'amount' => $refundAmount,
+                'notes' => 'Refund paid for ' . $salesInvoice->reference,
+                'created_by' => $request->user()->id,
+            ]);
+
+            return $salesReturn->load(['invoice.customer', 'invoiceItem.product', 'invoiceItem.batch', 'product', 'batch']);
+        });
+    }
+
+    // Reverse stock and balance impact before an edit or delete.
+    private function rollbackSalesReturnEffects(SalesReturn $salesReturn): void
+    {
+        $salesReturn->loadMissing(['invoice.customer', 'invoiceItem.batch']);
+
+        if ($salesReturn->batch_id) {
+            $batch = Batch::query()->lockForUpdate()->find($salesReturn->batch_id);
+
+            if (!$batch) {
+                throw ValidationException::withMessages([
+                    'sales_return' => 'The batch linked to this sales return no longer exists.',
+                ]);
+            }
+
+            if ((float) $batch->quantity_available < (float) $salesReturn->quantity) {
+                throw ValidationException::withMessages([
+                    'sales_return' => 'This sales return cannot be changed because the returned stock has already been used from inventory.',
+                ]);
+            }
+
+            $batch->quantity_available = round((float) $batch->quantity_available - (float) $salesReturn->quantity, 2);
+            $batch->save();
+        }
+
+        if ($salesReturn->invoice?->customer_id) {
+            $customer = Customer::query()->lockForUpdate()->findOrFail($salesReturn->invoice->customer_id);
+            $customer->current_balance = round((float) $customer->current_balance + (float) $salesReturn->refund_amount, 2);
+            $customer->save();
+        }
+    }
+
+    // Remove old movement and accounting rows so edited returns do not duplicate history.
+    private function deleteSalesReturnRecords(SalesReturn $salesReturn): void
+    {
+        StockMovement::query()
+            ->where('reference_type', 'SalesReturn')
+            ->where('reference_id', $salesReturn->id)
+            ->delete();
+
+        AccountTransaction::query()
+            ->where('reference_type', 'SalesReturn')
+            ->where('reference_id', $salesReturn->id)
+            ->delete();
+    }
+
     private function applySalesReturnFilters(Builder $query, array $filters): Builder
     {
         return $query
@@ -845,6 +1063,100 @@ class SalesInvoiceController extends Controller
             'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
             'saleTypes' => DropdownOption::query()->forAlias('sales_type')->active()->orderBy('name')->pluck('name', 'id'),
         ];
+    }
+
+    // Prepare the dedicated sales return form with optional preselected invoice and item.
+    private function salesReturnFormData(?SalesReturn $salesReturn = null, ?SalesInvoice $prefillInvoice = null, ?Request $request = null): array
+    {
+        $request = $request ?: request();
+        $selectedInvoiceId = old('sales_invoice_id', $prefillInvoice?->id ?: $request->input('sales_invoice_id'));
+        $selectedInvoice = null;
+
+        if ($selectedInvoiceId) {
+            $selectedInvoice = $this->loadInvoiceRelations(
+                SalesInvoice::query()->findOrFail($selectedInvoiceId)
+            );
+        }
+
+        $selectedInvoiceOption = $selectedInvoice ? $this->formatSalesReturnInvoiceOption($selectedInvoice) : null;
+        $selectedItemId = old('sales_invoice_item_id', $salesReturn?->sales_invoice_item_id ?: $request->input('sales_invoice_item_id'));
+        $selectedItemOption = null;
+
+        if ($selectedInvoice && $selectedItemId) {
+            $selectedItemOption = collect($this->buildSalesReturnItemOptions($selectedInvoice, $salesReturn))
+                ->firstWhere('id', (int) $selectedItemId);
+        }
+
+        return [
+            'salesReturn' => $salesReturn,
+            'selectedInvoice' => $selectedInvoice,
+            'selectedInvoiceOption' => $selectedInvoiceOption,
+            'selectedItemOption' => $selectedItemOption,
+        ];
+    }
+
+    // Format one invoice for the select2 invoice picker.
+    private function formatSalesReturnInvoiceOption(SalesInvoice $invoice): array
+    {
+        $customerName = $invoice->customer?->name ?: 'Walk-in Customer';
+
+        return [
+            'id' => $invoice->id,
+            'text' => $invoice->reference . ' | ' . $customerName . ' | ' . $invoice->invoice_date_show,
+            'reference' => $invoice->reference,
+            'customer_name' => $customerName,
+            'invoice_date' => $invoice->invoice_date_show,
+            'total_amount' => round((float) $invoice->total_amount, 2),
+        ];
+    }
+
+    // Build the invoice item options with remaining quantity and saved discount context.
+    private function buildSalesReturnItemOptions(SalesInvoice $invoice, ?SalesReturn $editingReturn = null): array
+    {
+        $invoice->loadMissing(['customer', 'items.product', 'items.batch']);
+
+        return $invoice->items
+            ->map(function (SalesInvoiceItem $item) use ($invoice, $editingReturn) {
+                $alreadyReturnedQty = (float) SalesReturn::query()
+                    ->where('sales_invoice_item_id', $item->id)
+                    ->when($editingReturn, function (Builder $query) use ($editingReturn) {
+                        $query->where('id', '!=', $editingReturn->id);
+                    })
+                    ->sum('quantity');
+                $remainingQty = max(0, round((float) $item->quantity - $alreadyReturnedQty, 2));
+                $netRate = (float) $item->quantity > 0
+                    ? round((float) $item->subtotal / (float) $item->quantity, 2)
+                    : round((float) $item->unit_price, 2);
+                $perUnitDiscount = (float) $item->quantity > 0
+                    ? round((float) $item->discount_amount / (float) $item->quantity, 4)
+                    : 0;
+                $isSelectedItem = $editingReturn && (int) $editingReturn->sales_invoice_item_id === (int) $item->id;
+
+                if ($isSelectedItem) {
+                    $remainingQty = round($remainingQty + (float) $editingReturn->quantity, 2);
+                }
+
+                return [
+                    'id' => $item->id,
+                    'text' => ($item->product?->display_name ?? '-') . ' | Batch ' . ($item->batch?->batch_number ?: '-') . ' | Remaining ' . number_format($remainingQty, 0),
+                    'product_name' => $item->product?->display_name ?? '-',
+                    'batch_number' => $item->batch?->batch_number ?: '-',
+                    'remaining_qty' => $remainingQty,
+                    'discount_percent' => round((float) $item->discount_percent, 2),
+                    'unit_price' => round((float) $item->unit_price, 2),
+                    'net_rate' => $netRate,
+                    'per_unit_discount' => round($perUnitDiscount, 2),
+                    'invoice_reference' => $invoice->reference,
+                    'customer_name' => $invoice->customer?->name ?: 'Walk-in Customer',
+                    'invoice_date' => $invoice->invoice_date_show,
+                ];
+            })
+            ->filter(function (array $row) use ($editingReturn) {
+                return $row['remaining_qty'] > 0
+                    || ($editingReturn && (int) $editingReturn->sales_invoice_item_id === (int) $row['id']);
+            })
+            ->values()
+            ->all();
     }
 
     // Read basic company details from settings so invoice copy still looks proper with fallback values.

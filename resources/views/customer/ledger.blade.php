@@ -141,6 +141,8 @@
                                         <th>Date</th>
                                         <th>Product</th>
                                         <th>Quantity</th>
+                                        <th>Discount</th>
+                                        <th>Net Rate</th>
                                         <th>Refund</th>
                                         <th>Reason</th>
                                     </tr>
@@ -152,12 +154,14 @@
                                             <td>{{ $returnItem->return_date_show }}</td>
                                             <td>{{ $returnItem->product?->display_name ?? '-' }}</td>
                                             <td>{{ $returnItem->quantity }}</td>
+                                            <td>{{ number_format((float) $returnItem->effective_discount_percent, 2) }}% / {{ money_value($returnItem->effective_discount_amount) }}</td>
+                                            <td>{{ money_value($returnItem->effective_net_unit_price) }}</td>
                                             <td>{{ money_value($returnItem->refund_amount) }}</td>
                                             <td>{{ $returnItem->reason ?: '-' }}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="text-center text-muted py-4">No return record found.</td>
+                                            <td colspan="8" class="text-center text-muted py-4">No return record found.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>

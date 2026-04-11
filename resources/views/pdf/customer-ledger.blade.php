@@ -100,6 +100,8 @@
                     <th>Return Date</th>
                     <th>Product</th>
                     <th class="text-end">Quantity</th>
+                    <th class="text-end">Discount</th>
+                    <th class="text-end">Net Rate</th>
                     <th class="text-end">Refund</th>
                     <th>Reason</th>
                 </tr>
@@ -111,6 +113,8 @@
                         <td>{{ $returnItem->return_date_show }}</td>
                         <td>{{ $returnItem->product?->display_name ?? '-' }}</td>
                         <td class="text-end">{{ $returnItem->quantity }}</td>
+                        <td class="text-end">{{ number_format((float) $returnItem->effective_discount_percent, 2) }}% / {{ money_value($returnItem->effective_discount_amount) }}</td>
+                        <td class="text-end">{{ money_value($returnItem->effective_net_unit_price) }}</td>
                         <td class="text-end">{{ money_value($returnItem->refund_amount) }}</td>
                         <td>{{ $returnItem->reason ?: '-' }}</td>
                     </tr>

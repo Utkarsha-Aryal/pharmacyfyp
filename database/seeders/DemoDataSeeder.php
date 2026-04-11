@@ -476,6 +476,7 @@ class DemoDataSeeder extends Seeder
                 'payment_mode_id' => $paymentModeId,
                 'subtotal' => 0,
                 'discount_amount' => 0,
+                'total_discount' => 0,
                 'total_amount' => 0,
                 'paid_amount' => $row['paid_amount'],
                 'notes' => $row['notes'],
@@ -501,6 +502,7 @@ class DemoDataSeeder extends Seeder
                     'mrp' => $product->mrp ?? 0,
                     'cc_rate' => $product->cc_rate ?? 0,
                     'discount_percent' => $item['discount_percent'],
+                    'discount_amount' => $lineDiscount,
                     'free_goods_value' => $freeGoodsValue,
                     'subtotal' => $lineTotal,
                 ]);
@@ -516,6 +518,7 @@ class DemoDataSeeder extends Seeder
             $invoice->update([
                 'subtotal' => round($subtotal, 2),
                 'discount_amount' => round($discountAmount, 2),
+                'total_discount' => round($discountAmount, 2),
                 'total_amount' => round($totalAmount, 2),
                 'payment_status' => SalesInvoice::resolvePaymentStatus($totalAmount, (float) $row['paid_amount']),
             ]);
@@ -578,14 +581,21 @@ class DemoDataSeeder extends Seeder
 
             if ($firstItem) {
                 $returnQuantity = 1;
-                $refundAmount = round($returnQuantity * (float) $firstItem->unit_price, 2);
+                $discountedUnitRate = (float) $firstItem->quantity > 0
+                    ? round((float) $firstItem->subtotal / (float) $firstItem->quantity, 2)
+                    : round((float) $firstItem->unit_price, 2);
+                $perUnitDiscount = (float) $firstItem->quantity > 0
+                    ? round((float) $firstItem->discount_amount / (float) $firstItem->quantity, 4)
+                    : 0;
+                $discountAmount = round($returnQuantity * $perUnitDiscount, 2);
+                $refundAmount = round($returnQuantity * $discountedUnitRate, 2);
 
                 if ($firstItem->batch) {
                     $firstItem->batch->quantity_available = round((float) $firstItem->batch->quantity_available + $returnQuantity, 2);
                     $firstItem->batch->save();
                 }
 
-                SalesReturn::create([
+                $salesReturn = SalesReturn::create([
                     'sales_invoice_id' => $firstInvoice->id,
                     'sales_invoice_item_id' => $firstItem->id,
                     'product_id' => $firstItem->product_id,
@@ -593,6 +603,10 @@ class DemoDataSeeder extends Seeder
                     'created_by' => $adminId,
                     'return_date' => now()->subDay()->toDateString(),
                     'quantity' => $returnQuantity,
+                    'unit_price' => round((float) $firstItem->unit_price, 2),
+                    'discount_percent' => round((float) $firstItem->discount_percent, 2),
+                    'discount_amount' => $discountAmount,
+                    'net_unit_price' => $discountedUnitRate,
                     'refund_amount' => $refundAmount,
                     'reason' => 'Demo return',
                     'notes' => 'Customer returned one pack',
@@ -600,14 +614,29 @@ class DemoDataSeeder extends Seeder
 
                 $customer = Customer::query()->find($firstInvoice->customer_id);
                 if ($customer) {
-                    $customer->current_balance = max(0, round((float) $customer->current_balance - $refundAmount, 2));
+                    $customer->current_balance = round((float) $customer->current_balance - $refundAmount, 2);
                     $customer->save();
                 }
+
+                record_stock_movement([
+                    'movement_date' => now()->subDay()->toDateString(),
+                    'product_id' => $firstItem->product_id,
+                    'batch_id' => $firstItem->batch_id,
+                    'movement_type' => 'sales_return_in',
+                    'quantity_in' => (int) $returnQuantity,
+                    'source_type' => 'Customer',
+                    'source_id' => $firstInvoice->customer_id,
+                    'destination_type' => 'Inventory',
+                    'reference_type' => 'SalesReturn',
+                    'reference_id' => $salesReturn->id,
+                    'notes' => 'Demo sales return stock for ' . $firstInvoice->reference,
+                    'created_by' => $adminId,
+                ]);
 
                 record_account_transaction([
                     'transaction_date' => now()->subDay()->toDateString(),
                     'reference_type' => 'SalesReturn',
-                    'reference_id' => $firstInvoice->id,
+                    'reference_id' => $salesReturn->id,
                     'party_type' => 'customer',
                     'party_id' => $firstInvoice->customer_id,
                     'entry_type' => 'debit',
@@ -620,7 +649,7 @@ class DemoDataSeeder extends Seeder
                 record_account_transaction([
                     'transaction_date' => now()->subDay()->toDateString(),
                     'reference_type' => 'SalesReturn',
-                    'reference_id' => $firstInvoice->id,
+                    'reference_id' => $salesReturn->id,
                     'party_type' => 'customer',
                     'party_id' => $firstInvoice->customer_id,
                     'entry_type' => 'credit',
