@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
-use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DropdownOptionController;
 use App\Http\Controllers\CustomerController;
@@ -9,6 +9,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InventoryBatchController;
+use App\Http\Controllers\InventoryMovementController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\OcrController;
 use App\Http\Controllers\PaymentController;
@@ -53,12 +54,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/update', [ProfileController::class, 'update'])->name('update');
     });
 
-    Route::group(['prefix' => 'category', 'middleware' => 'permission:inventory.category'], function () {
-        Route::get('/', [CategoryController::class, 'index'])->name('category');
-        Route::post('/save', [CategoryController::class, 'save'])->name('category.save');
-        Route::post('/list', [CategoryController::class, 'list'])->name('category.list');
-        Route::post('/delete', [CategoryController::class, 'delete'])->name('category.delete');
-        Route::post('/restore', [CategoryController::class, 'restore'])->name('category.restore');
+    Route::group(['prefix' => 'company', 'middleware' => 'permission:inventory.company'], function () {
+        Route::get('/', [CompanyController::class, 'index'])->name('company');
+        Route::post('/save', [CompanyController::class, 'save'])->name('company.save');
+        Route::post('/list', [CompanyController::class, 'list'])->name('company.list');
+        Route::post('/delete', [CompanyController::class, 'delete'])->name('company.delete');
+        Route::post('/restore', [CompanyController::class, 'restore'])->name('company.restore');
     });
 
     Route::group(['prefix' => 'product', 'middleware' => 'permission:inventory.product'], function () {
@@ -84,6 +85,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('/adjustments', [StockAdjustmentController::class, 'index'])->middleware('permission:inventory.adjustment')->name('adjustments.index');
         Route::post('/adjustments', [StockAdjustmentController::class, 'store'])->middleware('permission:inventory.adjustment')->name('adjustments.store');
         Route::post('/adjustments/{stockAdjustment}/delete', [StockAdjustmentController::class, 'delete'])->middleware('permission:inventory.adjustment')->name('adjustments.delete');
+
+        Route::get('/movements', [InventoryMovementController::class, 'index'])->middleware('permission:inventory.view')->name('movements.index');
+        Route::post('/movements/list', [InventoryMovementController::class, 'list'])->middleware('permission:inventory.view')->name('movements.list');
     });
 
     Route::group(['prefix' => 'batch', 'middleware' => 'permission:inventory.batch'], function () {
@@ -120,6 +124,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     Route::prefix('purchase/returns')->name('purchase-returns.')->group(function () {
         Route::get('/', [PurchaseReturnController::class, 'index'])->name('index');
+        Route::post('/list', [PurchaseReturnController::class, 'list'])->name('list');
         Route::get('/create', [PurchaseReturnController::class, 'create'])->name('create');
         Route::post('/store', [PurchaseReturnController::class, 'store'])->name('store');
         Route::get('/{purchaseReturn}/edit', [PurchaseReturnController::class, 'edit'])->name('edit');
@@ -127,6 +132,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/{purchaseReturn}/delete', [PurchaseReturnController::class, 'destroy'])->name('delete');
         Route::get('/get-purchases', [PurchaseReturnController::class, 'getPurchases'])->name('get-purchases');
         Route::get('/get-items', [PurchaseReturnController::class, 'getItems'])->name('get-items');
+        Route::get('/get-batches', [PurchaseReturnController::class, 'getSupplierBatches'])->name('get-batches');
         Route::get('/{purchaseReturn}', [PurchaseReturnController::class, 'show'])->name('show');
         Route::get('/{purchaseReturn}/print', [PurchaseReturnController::class, 'print'])->name('print');
     });
@@ -155,19 +161,26 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/{customer}/delete', [CustomerController::class, 'delete'])->name('delete');
     });
 
-    Route::prefix('sales')->name('sales.')->middleware('permission:sales.invoice')->group(function () {
-        Route::get('/invoices', [SalesInvoiceController::class, 'index'])->name('index');
-        Route::post('/invoices/list', [SalesInvoiceController::class, 'list'])->name('list');
-        Route::get('/invoices/create', [SalesInvoiceController::class, 'create'])->name('create');
-        Route::post('/invoices/store', [SalesInvoiceController::class, 'store'])->name('store');
-        Route::get('/invoices/{salesInvoice}', [SalesInvoiceController::class, 'show'])->name('show');
-        Route::get('/invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'printView'])->name('print');
-        Route::get('/invoices/{salesInvoice}/pdf', [SalesInvoiceController::class, 'pdf'])->name('pdf');
-        Route::post('/invoices/{salesInvoice}/payment', [SalesInvoiceController::class, 'updatePayment'])->name('payment');
-        Route::post('/invoices/{salesInvoice}/returns', [SalesInvoiceController::class, 'returnStore'])->name('return.store');
-        Route::get('/customer-options', [SalesInvoiceController::class, 'customerOptions'])->name('customer-options');
-        Route::get('/product-options', [SalesInvoiceController::class, 'productOptions'])->name('product-options');
-        Route::get('/product-info', [SalesInvoiceController::class, 'productInfo'])->name('product-info');
+    Route::prefix('sales')->name('sales.')->group(function () {
+        Route::middleware('permission:sales.return')->group(function () {
+            Route::get('/returns', [SalesInvoiceController::class, 'returnsIndex'])->name('returns.index');
+            Route::post('/returns/list', [SalesInvoiceController::class, 'returnsList'])->name('returns.list');
+        });
+
+        Route::middleware('permission:sales.invoice')->group(function () {
+            Route::get('/invoices', [SalesInvoiceController::class, 'index'])->name('index');
+            Route::post('/invoices/list', [SalesInvoiceController::class, 'list'])->name('list');
+            Route::get('/invoices/create', [SalesInvoiceController::class, 'create'])->name('create');
+            Route::post('/invoices/store', [SalesInvoiceController::class, 'store'])->name('store');
+            Route::get('/invoices/{salesInvoice}', [SalesInvoiceController::class, 'show'])->name('show');
+            Route::get('/invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'printView'])->name('print');
+            Route::get('/invoices/{salesInvoice}/pdf', [SalesInvoiceController::class, 'pdf'])->name('pdf');
+            Route::post('/invoices/{salesInvoice}/payment', [SalesInvoiceController::class, 'updatePayment'])->name('payment');
+            Route::post('/invoices/{salesInvoice}/returns', [SalesInvoiceController::class, 'returnStore'])->name('return.store');
+            Route::get('/customer-options', [SalesInvoiceController::class, 'customerOptions'])->name('customer-options');
+            Route::get('/product-options', [SalesInvoiceController::class, 'productOptions'])->name('product-options');
+            Route::get('/product-info', [SalesInvoiceController::class, 'productInfo'])->name('product-info');
+        });
     });
 
     Route::prefix('expenses')->name('expenses.')->middleware('permission:expense.manage')->group(function () {
@@ -192,6 +205,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     Route::prefix('finance')->name('finance.')->group(function () {
         Route::get('/ledger', [FinanceController::class, 'ledger'])->middleware('permission:accounting.ledger')->name('ledger');
+        Route::get('/day-book', [FinanceController::class, 'dayBook'])->middleware('permission:accounting.ledger')->name('day-book');
+        Route::post('/day-book/list', [FinanceController::class, 'dayBookList'])->middleware('permission:accounting.ledger')->name('day-book.list');
         Route::get('/account-tree', [FinanceController::class, 'accountTree'])->middleware('permission:accounting.ledger')->name('account-tree');
         Route::get('/trial-balance', [FinanceController::class, 'trialBalance'])->middleware('permission:accounting.trial_balance')->name('trial-balance');
         Route::get('/cash-book', [FinanceController::class, 'cashBook'])->middleware('permission:accounting.cash_book')->name('cash-book');
@@ -261,12 +276,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         });
 
         Route::prefix('imports')->name('imports.')->group(function () {
-            Route::get('/sample/categories', [ImportController::class, 'sampleCategories'])->name('sample.categories');
+            Route::get('/sample/companies', [ImportController::class, 'sampleCompanies'])->name('sample.companies');
             Route::get('/sample/units', [ImportController::class, 'sampleUnits'])->name('sample.units');
             Route::get('/sample/products', [ImportController::class, 'sampleProducts'])->name('sample.products');
             Route::get('/sample/customers', [ImportController::class, 'sampleCustomers'])->name('sample.customers');
             Route::get('/sample/suppliers', [ImportController::class, 'sampleSuppliers'])->name('sample.suppliers');
-            Route::post('/categories', [ImportController::class, 'importCategories'])->name('categories');
+            Route::post('/companies', [ImportController::class, 'importCompanies'])->name('companies');
             Route::post('/units', [ImportController::class, 'importUnits'])->name('units');
             Route::post('/products', [ImportController::class, 'importProducts'])->name('products');
             Route::post('/customers', [ImportController::class, 'importCustomers'])->name('customers');
@@ -280,8 +295,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         });
 
         Route::prefix('export')->name('export.')->group(function () {
-            Route::get('/category', [ExportController::class, 'categories'])->name('category');
-            Route::get('/category/pdf', [ExportController::class, 'categoriesPdf'])->name('category-pdf');
+            Route::get('/company', [ExportController::class, 'companies'])->name('company');
+            Route::get('/company/pdf', [ExportController::class, 'companiesPdf'])->name('company-pdf');
             Route::get('/unit', [ExportController::class, 'units'])->name('unit');
             Route::get('/unit/pdf', [ExportController::class, 'unitsPdf'])->name('unit-pdf');
             Route::get('/supplier', [ExportController::class, 'suppliers'])->name('supplier');

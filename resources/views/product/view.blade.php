@@ -22,7 +22,7 @@
     <div class="row g-3">
         <div class="col-md-4">
             <strong>Company:</strong>
-            <p>{{ $category->name ?? 'N/A' }}</p>
+            <p>{{ $company->name ?? 'N/A' }}</p>
         </div>
 
         <div class="col-md-4">
@@ -58,11 +58,6 @@
         <div class="col-md-4">
             <strong>Formulation:</strong>
             <p>{{ $prevPost->formulation_label ?? 'N/A' }}</p>
-        </div>
-
-        <div class="col-md-4">
-            <strong>Order Number:</strong>
-            <p>{{ $prevPost->order_number ?? 'N/A' }}</p>
         </div>
 
         <div class="col-md-4">

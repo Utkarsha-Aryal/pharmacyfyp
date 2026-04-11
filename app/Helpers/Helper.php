@@ -7,6 +7,7 @@ use App\Models\ProductBatch;
 use App\Models\PurchaseOrder;
 use App\Models\SalesInvoice;
 use App\Models\Setting;
+use App\Models\StockMovement;
 use App\Models\User;
 use App\Mail\SystemStatusMail;
 use App\Mail\AdminNotificationDigestMail;
@@ -350,6 +351,32 @@ if (!function_exists('record_account_transaction')) {
             'entry_type' => $payload['entry_type'],
             'account_type' => $payload['account_type'],
             'amount' => $payload['amount'],
+            'notes' => $payload['notes'] ?? null,
+            'created_by' => $payload['created_by'] ?? auth()->id(),
+        ]);
+    }
+}
+
+if (!function_exists('record_stock_movement')) {
+    function record_stock_movement(array $payload)
+    {
+        if (!Schema::hasTable('stock_movements')) {
+            return null;
+        }
+
+        return StockMovement::create([
+            'movement_date' => $payload['movement_date'] ?? now()->toDateString(),
+            'product_id' => $payload['product_id'],
+            'batch_id' => $payload['batch_id'] ?? null,
+            'movement_type' => $payload['movement_type'],
+            'quantity_in' => (int) ($payload['quantity_in'] ?? 0),
+            'quantity_out' => (int) ($payload['quantity_out'] ?? 0),
+            'source_type' => $payload['source_type'] ?? null,
+            'source_id' => $payload['source_id'] ?? null,
+            'destination_type' => $payload['destination_type'] ?? null,
+            'destination_id' => $payload['destination_id'] ?? null,
+            'reference_type' => $payload['reference_type'] ?? null,
+            'reference_id' => $payload['reference_id'] ?? null,
             'notes' => $payload['notes'] ?? null,
             'created_by' => $payload['created_by'] ?? auth()->id(),
         ]);

@@ -56,6 +56,22 @@ class StockAdjustment extends Model
 
             $adjustment->save();
 
+            $isInbound = in_array($type, ['add', 'return'], true);
+            record_stock_movement([
+                'movement_date' => now()->toDateString(),
+                'product_id' => $batch->product_id,
+                'batch_id' => $batch->id,
+                'movement_type' => $isInbound ? 'adjustment_in' : 'adjustment_out',
+                'quantity_in' => $isInbound ? $quantity : 0,
+                'quantity_out' => $isInbound ? 0 : $quantity,
+                'source_type' => $isInbound ? 'Adjustment' : 'Inventory',
+                'destination_type' => $isInbound ? 'Inventory' : 'Adjustment',
+                'reference_type' => 'StockAdjustment',
+                'reference_id' => $adjustment->id,
+                'notes' => ucfirst($type) . ' adjustment' . (!empty($data['reason']) ? ': ' . $data['reason'] : '.'),
+                'created_by' => $data['adjusted_by'],
+            ]);
+
             return $adjustment;
         });
     }

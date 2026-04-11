@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\AccountTransaction;
 use App\Models\Batch;
-use App\Models\Category;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\DropdownOption;
 use App\Models\Expense;
@@ -68,35 +68,37 @@ class ExportController extends Controller
         );
     }
 
-    public function categories()
+    public function companies()
     {
-        $rows = Category::query()
+        $rows = Company::query()
             ->where('status', 'Y')
-            ->orderBy('order_number')
+            ->orderBy('name')
             ->get()
-            ->map(fn ($category) => [
-                'Company Name' => $category->name,
-                'Order' => $category->order_number,
-                'Added Date' => $category->created_at?->format('M j, Y'),
+            ->map(fn ($company) => [
+                'Company Name' => $company->name,
+                'Type' => ucfirst((string) $company->company_type),
+                'Default CC Rate' => number_format((float) ($company->default_cc_rate ?? 0), 2) . '%',
+                'Added Date' => $company->created_at?->format('M j, Y'),
             ]);
 
-        return $this->downloadExcel('categories.xlsx', $rows);
+        return $this->downloadExcel('companies.xlsx', $rows);
     }
 
-    // Export category list as PDF for sharing and print.
-    public function categoriesPdf()
+    // Export company list as PDF for sharing and print.
+    public function companiesPdf()
     {
-        $rows = Category::query()
+        $rows = Company::query()
             ->where('status', 'Y')
-            ->orderBy('order_number')
+            ->orderBy('name')
             ->get()
-            ->map(fn ($category) => [
-                'Company Name' => $category->name,
-                'Display Order' => $category->order_number,
-                'Added Date' => $category->created_at?->format('M j, Y'),
+            ->map(fn ($company) => [
+                'Company Name' => $company->name,
+                'Type' => ucfirst((string) $company->company_type),
+                'Default CC Rate' => number_format((float) ($company->default_cc_rate ?? 0), 2) . '%',
+                'Added Date' => $company->created_at?->format('M j, Y'),
             ]);
 
-        return $this->downloadTablePdf('categories.pdf', 'Company List', 'Sorted company master list', ['Company Name', 'Display Order', 'Added Date'], $rows);
+        return $this->downloadTablePdf('companies.pdf', 'Company List', 'Company master with default CC settings', ['Company Name', 'Type', 'Default CC Rate', 'Added Date'], $rows);
     }
 
     public function units()
@@ -170,13 +172,13 @@ class ExportController extends Controller
     public function products()
     {
         $rows = Product::query()
-            ->with(['category', 'productBatches' => fn ($query) => $query->where('status', 'Y')])
+            ->with(['company', 'productBatches' => fn ($query) => $query->where('status', 'Y')])
             ->where('status', 'Y')
             ->orderBy('product_name')
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->product_name,
-                'Company' => $product->category?->name,
+                'Company' => $product->company?->name,
                 'Generic Name' => $product->generic_name,
                 'MRP' => $product->mrp,
                 'Purchase Price' => $product->purchase_price,
@@ -191,13 +193,13 @@ class ExportController extends Controller
     public function productsPdf()
     {
         $rows = Product::query()
-            ->with(['category', 'productBatches' => fn ($query) => $query->where('status', 'Y')])
+            ->with(['company', 'productBatches' => fn ($query) => $query->where('status', 'Y')])
             ->where('status', 'Y')
             ->orderBy('product_name')
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->product_name,
-                'Company' => $product->category?->name ?: '-',
+                'Company' => $product->company?->name ?: '-',
                 'Generic Name' => $product->generic_name ?: '-',
                 'MRP' => number_format((float) $product->mrp, 2),
                 'Alert Qty' => (int) $product->alert_quantity,
@@ -211,7 +213,7 @@ class ExportController extends Controller
     {
         $rows = Product::query()
             ->with([
-                'category',
+                'company',
                 'formulationOption',
                 'batches' => fn ($query) => $query->where('is_active', true),
             ])
@@ -220,7 +222,7 @@ class ExportController extends Controller
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->display_name,
-                'Company' => $product->category?->name,
+                'Company' => $product->company?->name,
                 'Formulation' => $product->formulation_label,
                 'Unit' => $product->unit,
                 'Reorder Level' => $product->effective_reorder_level,
@@ -236,7 +238,7 @@ class ExportController extends Controller
     {
         $rows = Product::query()
             ->with([
-                'category',
+                'company',
                 'formulationOption',
                 'batches' => fn ($query) => $query->where('is_active', true),
             ])
@@ -245,7 +247,7 @@ class ExportController extends Controller
             ->get()
             ->map(fn ($product) => [
                 'Product' => $product->display_name,
-                'Company' => $product->category?->name ?: '-',
+                'Company' => $product->company?->name ?: '-',
                 'Formulation' => $product->formulation_label ?: '-',
                 'Unit' => $product->unit ?: '-',
                 'Reorder Level' => $product->effective_reorder_level,
@@ -532,20 +534,20 @@ class ExportController extends Controller
     public function lowStock()
     {
         $rows = Product::query()
-            ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+            ->leftJoin('companies', 'companies.id', '=', 'products.company_id')
             ->leftJoin('batches', function ($join) {
                 $join->on('products.id', '=', 'batches.product_id')
                     ->where('batches.is_active', true);
             })
             ->where('products.status', 'Y')
-            ->groupBy('products.id', 'products.product_name', 'products.reorder_level', 'products.alert_quantity', 'categories.name')
-            ->selectRaw('products.product_name, categories.name as category_name, COALESCE(products.reorder_level, products.alert_quantity, 10) as reorder_level, COALESCE(SUM(batches.quantity_available), 0) as current_stock')
+            ->groupBy('products.id', 'products.product_name', 'products.reorder_level', 'products.alert_quantity', 'companies.name')
+            ->selectRaw('products.product_name, companies.name as company_name, COALESCE(products.reorder_level, products.alert_quantity, 10) as reorder_level, COALESCE(SUM(batches.quantity_available), 0) as current_stock')
             ->havingRaw('COALESCE(SUM(batches.quantity_available), 0) <= COALESCE(products.reorder_level, products.alert_quantity, 10)')
             ->orderBy('current_stock')
             ->get()
             ->map(fn ($item) => [
                 'Product' => $item->product_name,
-                'Company' => $item->category_name,
+                'Company' => $item->company_name,
                 'Reorder Level' => $item->reorder_level,
                 'Current Stock' => $item->current_stock,
                 'Deficit' => max(0, (int) $item->reorder_level - (int) $item->current_stock),
@@ -558,20 +560,20 @@ class ExportController extends Controller
     public function lowStockPdf()
     {
         $rows = Product::query()
-            ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+            ->leftJoin('companies', 'companies.id', '=', 'products.company_id')
             ->leftJoin('batches', function ($join) {
                 $join->on('products.id', '=', 'batches.product_id')
                     ->where('batches.is_active', true);
             })
             ->where('products.status', 'Y')
-            ->groupBy('products.id', 'products.product_name', 'products.reorder_level', 'products.alert_quantity', 'categories.name')
-            ->selectRaw('products.product_name, categories.name as category_name, COALESCE(products.reorder_level, products.alert_quantity, 10) as reorder_level, COALESCE(SUM(batches.quantity_available), 0) as current_stock')
+            ->groupBy('products.id', 'products.product_name', 'products.reorder_level', 'products.alert_quantity', 'companies.name')
+            ->selectRaw('products.product_name, companies.name as company_name, COALESCE(products.reorder_level, products.alert_quantity, 10) as reorder_level, COALESCE(SUM(batches.quantity_available), 0) as current_stock')
             ->havingRaw('COALESCE(SUM(batches.quantity_available), 0) <= COALESCE(products.reorder_level, products.alert_quantity, 10)')
             ->orderBy('current_stock')
             ->get()
             ->map(fn ($item) => [
                 'Product' => $item->product_name,
-                'Company' => $item->category_name ?: '-',
+                'Company' => $item->company_name ?: '-',
                 'Reorder Level' => $item->reorder_level,
                 'Current Stock' => $item->current_stock,
                 'Deficit' => max(0, (int) $item->reorder_level - (int) $item->current_stock),

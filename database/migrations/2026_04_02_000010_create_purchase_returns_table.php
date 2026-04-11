@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('purchase_returns', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('purchase_id')->constrained('purchases')->restrictOnDelete();
+            $table->foreignId('purchase_id')->nullable()->constrained('purchases')->restrictOnDelete();
             $table->foreignId('supplier_id')->constrained('suppliers')->restrictOnDelete();
             $table->date('return_date');
             $table->text('notes')->nullable();

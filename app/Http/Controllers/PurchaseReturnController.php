@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Batch;
+use App\Models\Product;
 use App\Models\ProductBatch;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
@@ -11,23 +12,113 @@ use App\Models\PurchaseReturnItem;
 use App\Models\Supplier;
 use App\Models\SupplierType;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class PurchaseReturnController extends Controller
 {
     // List purchase returns for admin and superadmin users.
-    public function index()
+    public function index(Request $request)
     {
         abort_unless(auth()->user()->hasRole(['admin', 'superadmin']), 403);
 
+        $filters = $request->only(['supplier_id', 'return_mode', 'date_from', 'date_to']);
+        $summaryQuery = $this->applyIndexFilters(
+            PurchaseReturn::query()->withCount('items'),
+            $filters
+        );
+
         return view('purchase-return.index', [
-            'returns' => PurchaseReturn::query()
-                ->with(['supplier', 'purchase.reference', 'returnedBy'])
-                ->latest('return_date')
-                ->latest('id')
-                ->paginate(15),
+            'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
+            'filters' => $filters,
+            'summary' => [
+                'count' => (clone $summaryQuery)->count(),
+                'manual' => (clone $summaryQuery)->whereNull('purchase_id')->count(),
+                'items' => (int) (clone $summaryQuery)->get()->sum('items_count'),
+                'this_month' => (clone $summaryQuery)
+                    ->whereMonth('return_date', now()->month)
+                    ->whereYear('return_date', now()->year)
+                    ->count(),
+            ],
+        ]);
+    }
+
+    // Return purchase return rows for the server-side table.
+    public function list(Request $request)
+    {
+        abort_unless(auth()->user()->hasRole(['admin', 'superadmin']), 403);
+
+        $filters = $request->only(['supplier_id', 'return_mode', 'date_from', 'date_to']);
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 15);
+
+        $query = PurchaseReturn::query()
+            ->with(['supplier', 'purchase.reference', 'returnedBy'])
+            ->withCount('items')
+            ->orderByDesc('return_date')
+            ->orderByDesc('id');
+
+        $recordsTotal = (clone $query)->count();
+        $query = $this->applyIndexFilters($query, $filters);
+
+        if ($keyword !== '') {
+            $query->where(function (Builder $builder) use ($keyword) {
+                $builder->where('notes', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('supplier', function (Builder $supplierQuery) use ($keyword) {
+                        $supplierQuery->where('supplier_name', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('purchase.reference', function (Builder $referenceQuery) use ($keyword) {
+                        $referenceQuery->where('reference_no', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('returnedBy', function (Builder $userQuery) use ($keyword) {
+                        $userQuery->where('name', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $returns = $query->get();
+        $data = [];
+
+        foreach ($returns as $index => $return) {
+            $modeLabel = $return->purchase_id ? 'By Purchase Bill' : 'By Product & Batch';
+            $modeClass = $return->purchase_id ? 'bg-primary' : 'bg-warning text-dark';
+            $billLabel = $return->purchase?->reference?->reference_no ?: ($return->purchase_id ? ('PUR-' . $return->purchase_id) : 'Manual entry');
+            $action = '<div class="table-action-group">';
+            $action .= '<a href="' . route('admin.purchase-returns.show', $return) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View"><i class="fa-solid fa-eye"></i></a>';
+            $action .= '<a href="' . route('admin.purchase-returns.edit', $return) . '" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit"><i class="fa-solid fa-pen-to-square"></i></a>';
+            $action .= '<a href="' . route('admin.purchase-returns.print', $return) . '" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF"><i class="fa-solid fa-print"></i></a>';
+            $action .= '<form action="' . route('admin.purchase-returns.delete', $return) . '" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete purchase return?" data-confirm-text="This will restore the stock back to inventory." data-confirm-button="Yes, delete it">';
+            $action .= '<input type="hidden" name="_token" value="' . csrf_token() . '">';
+            $action .= '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete"><i class="fa-solid fa-trash"></i></button>';
+            $action .= '</form></div>';
+
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'date' => '<div class="fw-semibold">' . e($return->return_date_show) . '</div>',
+                'supplier' => '<div class="fw-semibold text-wrap">' . e($return->supplier?->supplier_name ?? '-') . '</div><div class="small text-muted text-wrap">' . e(Str::limit((string) ($return->notes ?: 'No notes'), 60)) . '</div>',
+                'mode' => '<span class="badge ' . $modeClass . '">' . e($modeLabel) . '</span>',
+                'purchase_bill' => '<span class="badge bg-light text-dark border">' . e($billLabel) . '</span>',
+                'items' => '<span class="badge bg-secondary">' . (int) $return->items_count . ' item(s)</span>',
+                'created_by' => e($return->returnedBy?->name ?? '-'),
+                'action' => $action,
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
         ]);
     }
 
@@ -38,6 +129,7 @@ class PurchaseReturnController extends Controller
 
         return view('purchase-return.create', [
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
+            'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
             'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
         ]);
     }
@@ -51,9 +143,13 @@ class PurchaseReturnController extends Controller
 
         return view('purchase-return.edit', [
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
+            'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
             'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
             'purchaseReturn' => $purchaseReturn,
             'itemsRows' => $this->buildEditableRows($purchaseReturn),
+            'selectedManualProductId' => !$purchaseReturn->purchase_id && $purchaseReturn->items->pluck('product_id')->unique()->count() === 1
+                ? (int) $purchaseReturn->items->pluck('product_id')->unique()->first()
+                : null,
         ]);
     }
 
@@ -130,6 +226,61 @@ class PurchaseReturnController extends Controller
         return response()->json($items);
     }
 
+    // Return supplier batch rows so returns can be entered even when purchase bill is unknown.
+    public function getSupplierBatches(Request $request)
+    {
+        abort_unless(auth()->user()->hasRole(['admin', 'superadmin']), 403);
+
+        $validated = $request->validate([
+            'supplier_id' => ['required', 'exists:suppliers,id'],
+            'product_id' => ['nullable', 'exists:products,id'],
+        ]);
+
+        $items = Batch::query()
+            ->with('product')
+            ->where('supplier_id', $validated['supplier_id'])
+            ->when(!empty($validated['product_id']), function ($builder) use ($validated) {
+                $builder->where('product_id', $validated['product_id']);
+            })
+            ->where('is_active', true)
+            ->where('quantity_available', '>', 0)
+            ->orderBy('expiry_date')
+            ->orderBy('batch_number')
+            ->get()
+            ->map(function (Batch $batch) {
+                $daysRemaining = (int) $batch->days_remaining;
+                $state = $daysRemaining < 0 ? 'expired' : ($daysRemaining <= 30 ? 'warning' : 'valid');
+                $badgeClass = $state === 'expired' ? 'bg-danger' : ($state === 'warning' ? 'bg-warning text-dark' : 'bg-success');
+                $badgeLabel = $state === 'expired' ? 'Expired batch' : ($state === 'warning' ? 'Expiring soon' : 'Valid batch');
+
+                return [
+                    'purchase_item_id' => null,
+                    'batch_id' => $batch->id,
+                    'product_id' => $batch->product_id,
+                    'product_name' => $batch->product?->display_name ?? '-',
+                    'batch_no' => $batch->batch_number ?: '-',
+                    'original_qty' => (int) $batch->quantity_received,
+                    'already_returned' => 0,
+                    'max_returnable' => (int) $batch->quantity_available,
+                    'rate' => round((float) $batch->purchase_price, 2),
+                    'batch_options' => [[
+                        'id' => $batch->id,
+                        'text' => trim(($batch->batch_number ?: '-') . ' | Exp: ' . ($batch->expiry_show ?: '-') . ' | Qty: ' . (int) $batch->quantity_available),
+                        'badge_class' => $badgeClass,
+                        'badge_label' => $badgeLabel,
+                        'disabled' => false,
+                        'quantity_available' => (int) $batch->quantity_available,
+                    ]],
+                    'selected_batch_id' => (int) $batch->id,
+                    'batch_badge_class' => $badgeClass,
+                    'batch_badge_label' => $badgeLabel,
+                ];
+            })
+            ->values();
+
+        return response()->json($items);
+    }
+
     // Save the return and reduce stock from the chosen batch.
     public function store(Request $request)
     {
@@ -150,13 +301,13 @@ class PurchaseReturnController extends Controller
     private function persistReturn(Request $request, ?PurchaseReturn $existingReturn = null)
     {
         $validated = $request->validate([
-            'purchase_id' => ['required', 'exists:purchases,id'],
+            'purchase_id' => ['nullable', 'exists:purchases,id'],
             'supplier_id' => ['required', 'exists:suppliers,id'],
             'return_date' => ['required', 'date'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.purchase_item_id' => ['nullable', 'exists:purchase_items,id'],
-            'items.*.batch_id' => ['nullable', 'integer', 'min:1'],
+            'items.*.batch_id' => ['nullable', 'integer', 'min:1', 'exists:batches,id'],
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.return_qty' => ['nullable', 'integer', 'min:0'],
         ], [
@@ -182,17 +333,19 @@ class PurchaseReturnController extends Controller
         }
 
         foreach ($rows as $row) {
-            if (empty($row['purchase_item_id']) || empty($row['batch_id']) || empty($row['product_id'])) {
+            if (empty($row['batch_id']) || empty($row['product_id'])) {
                 throw ValidationException::withMessages([
-                    'items' => 'Every return row needs a product, purchase item and batch selected from the dropdown.',
+                    'items' => 'Every return row needs a product and batch selected from the dropdown.',
                 ]);
             }
         }
 
         $purchaseReturn = DB::transaction(function () use ($validated, $request, $rows, $existingReturn) {
-            $purchase = Purchase::query()->findOrFail($validated['purchase_id']);
+            $purchase = !empty($validated['purchase_id'])
+                ? Purchase::query()->findOrFail($validated['purchase_id'])
+                : null;
 
-            if ((int) $purchase->supplier_id !== (int) $validated['supplier_id']) {
+            if ($purchase && (int) $purchase->supplier_id !== (int) $validated['supplier_id']) {
                 throw ValidationException::withMessages([
                     'supplier_id' => 'Selected purchase bill does not belong to the chosen supplier.',
                 ]);
@@ -203,7 +356,7 @@ class PurchaseReturnController extends Controller
                 $this->restoreReturnStock($existingReturn);
                 PurchaseReturnItem::query()->where('purchase_return_id', $existingReturn->id)->delete();
                 $existingReturn->update([
-                    'purchase_id' => $validated['purchase_id'],
+                    'purchase_id' => $validated['purchase_id'] ?? null,
                     'supplier_id' => $validated['supplier_id'],
                     'return_date' => $validated['return_date'],
                     'notes' => $validated['notes'] ?? null,
@@ -212,7 +365,7 @@ class PurchaseReturnController extends Controller
                 $purchaseReturn = $existingReturn;
             } else {
                 $purchaseReturn = PurchaseReturn::query()->create([
-                    'purchase_id' => $validated['purchase_id'],
+                    'purchase_id' => $validated['purchase_id'] ?? null,
                     'supplier_id' => $validated['supplier_id'],
                     'return_date' => $validated['return_date'],
                     'notes' => $validated['notes'] ?? null,
@@ -221,36 +374,48 @@ class PurchaseReturnController extends Controller
             }
 
             foreach ($rows as $row) {
-                $purchaseItem = PurchaseItem::query()
-                    ->with(['returns', 'batch'])
-                    ->where('purchase_id', $validated['purchase_id'])
-                    ->findOrFail($row['purchase_item_id']);
-
                 $batch = Batch::query()->lockForUpdate()->findOrFail($row['batch_id']);
+                $returnQty = (int) $row['return_qty'];
+                $purchaseItem = null;
+                $rate = round((float) $batch->purchase_price, 2);
 
-                $allowedBatchIds = Batch::query()
-                    ->where('supplier_id', $purchase->supplier_id)
-                    ->where('product_id', $purchaseItem->product_id)
-                    ->pluck('id')
-                    ->map(fn ($id) => (int) $id)
-                    ->all();
-
-                if (! in_array((int) $batch->id, $allowedBatchIds, true)) {
+                if ((int) $batch->supplier_id !== (int) $validated['supplier_id']) {
                     throw ValidationException::withMessages([
-                        'items' => 'Please choose a valid batch from the dropdown for ' . ($purchaseItem->product?->display_name ?? 'this row') . '.',
+                        'items' => 'Selected batch does not belong to the chosen supplier.',
                     ]);
                 }
 
-                $alreadyReturned = (int) $purchaseItem->returns->sum('return_qty');
-                $maxReturnable = max(0, ((int) $purchaseItem->quantity + (int) $purchaseItem->free_qty) - $alreadyReturned);
-
-                if ((int) $row['return_qty'] > $maxReturnable) {
+                if ((int) $batch->product_id !== (int) $row['product_id']) {
                     throw ValidationException::withMessages([
-                        'items' => 'Return quantity cannot be more than the remaining returnable quantity.',
+                        'items' => 'Selected batch does not belong to the selected product row.',
                     ]);
                 }
 
-                if ((int) $batch->quantity_available < (int) $row['return_qty']) {
+                if (!empty($validated['purchase_id']) && !empty($row['purchase_item_id'])) {
+                    $purchaseItem = PurchaseItem::query()
+                        ->with(['returns', 'batch', 'product'])
+                        ->where('purchase_id', $validated['purchase_id'])
+                        ->findOrFail($row['purchase_item_id']);
+
+                    if ((int) $purchaseItem->product_id !== (int) $row['product_id']) {
+                        throw ValidationException::withMessages([
+                            'items' => 'Selected purchase row does not match the selected product.',
+                        ]);
+                    }
+
+                    $alreadyReturned = (int) $purchaseItem->returns->sum('return_qty');
+                    $maxReturnable = max(0, ((int) $purchaseItem->quantity + (int) $purchaseItem->free_qty) - $alreadyReturned);
+
+                    if ($returnQty > $maxReturnable) {
+                        throw ValidationException::withMessages([
+                            'items' => 'Return quantity cannot be more than the remaining returnable quantity.',
+                        ]);
+                    }
+
+                    $rate = (float) $purchaseItem->rate;
+                }
+
+                if ((int) $batch->quantity_available < $returnQty) {
                     throw ValidationException::withMessages([
                         'items' => 'Selected batch does not have enough stock available for this return.',
                     ]);
@@ -258,21 +423,38 @@ class PurchaseReturnController extends Controller
 
                 PurchaseReturnItem::query()->create([
                     'purchase_return_id' => $purchaseReturn->id,
-                    'purchase_item_id' => $purchaseItem->id,
+                    'purchase_item_id' => $purchaseItem?->id,
                     'batch_id' => $batch->id,
-                    'product_id' => $purchaseItem->product_id,
-                    'return_qty' => (int) $row['return_qty'],
-                    'rate' => (float) $purchaseItem->rate,
+                    'product_id' => (int) $row['product_id'],
+                    'return_qty' => $returnQty,
+                    'rate' => $rate,
                 ]);
 
-                $batch->quantity_available = max(0, (int) $batch->quantity_available - (int) $row['return_qty']);
+                $batch->quantity_available = max(0, (int) $batch->quantity_available - $returnQty);
                 $batch->save();
 
-                ProductBatch::query()
-                    ->where('reference_id', $purchase->reference_id)
-                    ->where('product_id', $purchaseItem->product_id)
-                    ->where('batch_no', $purchaseItem->batch_no)
-                    ->decrement('quantity', (int) $row['return_qty']);
+                if ($purchase && $purchaseItem && !empty($purchase->reference_id) && !empty($purchaseItem->batch_no)) {
+                    ProductBatch::query()
+                        ->where('reference_id', $purchase->reference_id)
+                        ->where('product_id', $purchaseItem->product_id)
+                        ->where('batch_no', $purchaseItem->batch_no)
+                        ->decrement('quantity', $returnQty);
+                }
+
+                record_stock_movement([
+                    'movement_date' => $validated['return_date'],
+                    'product_id' => (int) $row['product_id'],
+                    'batch_id' => $batch->id,
+                    'movement_type' => 'purchase_return_out',
+                    'quantity_out' => $returnQty,
+                    'source_type' => 'Inventory',
+                    'destination_type' => 'Supplier',
+                    'destination_id' => $validated['supplier_id'],
+                    'reference_type' => 'PurchaseReturn',
+                    'reference_id' => $purchaseReturn->id,
+                    'notes' => 'Purchase return stock sent to supplier.',
+                    'created_by' => $request->user()->id,
+                ]);
             }
 
             return $purchaseReturn->load(['supplier', 'purchase.reference', 'items.product', 'items.batch']);
@@ -290,13 +472,28 @@ class PurchaseReturnController extends Controller
             if ($batch) {
                 $batch->quantity_available = (int) $batch->quantity_available + (int) $item->return_qty;
                 $batch->save();
+
+                record_stock_movement([
+                    'movement_date' => now()->toDateString(),
+                    'product_id' => $item->product_id,
+                    'batch_id' => $batch->id,
+                    'movement_type' => 'adjustment_in',
+                    'quantity_in' => (int) $item->return_qty,
+                    'source_type' => 'Supplier',
+                    'destination_type' => 'Inventory',
+                    'reference_type' => 'PurchaseReturn',
+                    'reference_id' => $purchaseReturn->id,
+                    'notes' => 'Purchase return rollback restored stock.',
+                ]);
             }
 
-            ProductBatch::query()
-                ->where('reference_id', $purchaseReturn->purchase?->reference_id)
-                ->where('product_id', $item->product_id)
-                ->where('batch_no', $item->purchaseItem?->batch_no)
-                ->increment('quantity', (int) $item->return_qty);
+            if (!empty($purchaseReturn->purchase?->reference_id) && !empty($item->purchaseItem?->batch_no)) {
+                ProductBatch::query()
+                    ->where('reference_id', $purchaseReturn->purchase?->reference_id)
+                    ->where('product_id', $item->product_id)
+                    ->where('batch_no', $item->purchaseItem?->batch_no)
+                    ->increment('quantity', (int) $item->return_qty);
+            }
         }
     }
 
@@ -305,10 +502,29 @@ class PurchaseReturnController extends Controller
     {
         return $purchaseReturn->items->map(function (PurchaseReturnItem $item) use ($purchaseReturn) {
             $purchaseItem = $item->purchaseItem?->loadMissing(['returns', 'batch', 'product']);
-            $originalQty = (int) $purchaseItem?->quantity + (int) $purchaseItem?->free_qty;
-            $otherReturnedQty = (int) ($purchaseItem?->returns->sum('return_qty') ?? 0) - (int) $item->return_qty;
-            $maxReturnable = max(0, $originalQty - $otherReturnedQty);
-            $batchOptions = $this->buildReturnBatchOptions($purchaseReturn->purchase, $purchaseItem);
+            $isLinkedToPurchase = $purchaseItem && $purchaseReturn->purchase;
+            $originalQty = $isLinkedToPurchase
+                ? (int) $purchaseItem->quantity + (int) $purchaseItem->free_qty
+                : ((int) ($item->batch?->quantity_available ?? 0) + (int) $item->return_qty);
+            $otherReturnedQty = $isLinkedToPurchase
+                ? ((int) ($purchaseItem?->returns->sum('return_qty') ?? 0) - (int) $item->return_qty)
+                : 0;
+            $maxReturnable = $isLinkedToPurchase
+                ? max(0, $originalQty - $otherReturnedQty)
+                : max(0, $originalQty);
+            $batchOptions = $isLinkedToPurchase
+                ? $this->buildReturnBatchOptions($purchaseReturn->purchase, $purchaseItem)
+                : $this->buildSupplierBatchOptions((int) $purchaseReturn->supplier_id, (int) $item->product_id);
+            if (!$isLinkedToPurchase && $item->batch && !collect($batchOptions)->contains(fn (array $batchOption) => (int) $batchOption['id'] === (int) $item->batch_id)) {
+                $batchOptions[] = [
+                    'id' => (int) $item->batch_id,
+                    'text' => trim(($item->batch->batch_number ?: '-') . ' | Exp: ' . ($item->batch->expiry_show ?: '-') . ' | Qty: ' . (int) $item->batch->quantity_available),
+                    'badge_class' => 'bg-warning text-dark',
+                    'badge_label' => 'Previously used batch',
+                    'disabled' => false,
+                    'quantity_available' => (int) $item->batch->quantity_available,
+                ];
+            }
             $selectedBatchId = $this->selectedReturnBatchId($item->batch_id, $batchOptions);
             if (!$selectedBatchId && count($batchOptions) === 1) {
                 $selectedBatchId = (int) $batchOptions[0]['id'];
@@ -322,7 +538,7 @@ class PurchaseReturnController extends Controller
                 'product_name' => $item->product?->display_name ?? '-',
                 'batch_no' => $item->batch?->batch_number ?: ($purchaseItem?->batch_no ?: '-'),
                 'original_qty' => $originalQty,
-                'already_returned' => max(0, $otherReturnedQty),
+                'already_returned' => $isLinkedToPurchase ? max(0, $otherReturnedQty) : 0,
                 'max_returnable' => $maxReturnable,
                 'return_qty' => (int) $item->return_qty,
                 'rate' => round((float) $item->rate, 2),
@@ -358,6 +574,38 @@ class PurchaseReturnController extends Controller
                     'text' => trim(($batch->batch_number ?: '-') . ' | Exp: ' . ($batch->expiry_show ?: '-') . ' | Qty: ' . $quantityAvailable),
                     'badge_class' => $quantityAvailable <= 0 ? 'bg-secondary' : ($state === 'expired' ? 'bg-danger' : ($state === 'warning' ? 'bg-warning text-dark' : 'bg-success')),
                     'badge_label' => $quantityAvailable <= 0 ? 'No stock left' : ($state === 'expired' ? 'Expired batch' : ($state === 'warning' ? 'Expiring soon' : 'Valid batch')),
+                    'disabled' => false,
+                    'quantity_available' => $quantityAvailable,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    // Build supplier batch choices for manual returns when purchase bill is unknown.
+    private function buildSupplierBatchOptions(int $supplierId, int $productId): array
+    {
+        if ($supplierId <= 0 || $productId <= 0) {
+            return [];
+        }
+
+        return Batch::query()
+            ->where('supplier_id', $supplierId)
+            ->where('product_id', $productId)
+            ->where('quantity_available', '>', 0)
+            ->orderBy('expiry_date')
+            ->orderBy('batch_number')
+            ->get()
+            ->map(function (Batch $batch) {
+                $quantityAvailable = (int) $batch->quantity_available;
+                $daysRemaining = (int) $batch->days_remaining;
+                $state = $daysRemaining < 0 ? 'expired' : ($daysRemaining <= 30 ? 'warning' : 'valid');
+
+                return [
+                    'id' => $batch->id,
+                    'text' => trim(($batch->batch_number ?: '-') . ' | Exp: ' . ($batch->expiry_show ?: '-') . ' | Qty: ' . $quantityAvailable),
+                    'badge_class' => $state === 'expired' ? 'bg-danger' : ($state === 'warning' ? 'bg-warning text-dark' : 'bg-success'),
+                    'badge_label' => $state === 'expired' ? 'Expired batch' : ($state === 'warning' ? 'Expiring soon' : 'Valid batch'),
                     'disabled' => false,
                     'quantity_available' => $quantityAvailable,
                 ];
@@ -445,5 +693,25 @@ class PurchaseReturnController extends Controller
             'logoSrc' => pdf_logo_src(),
         ])->setPaper('a4', 'portrait')
             ->stream('purchase-return-' . $purchaseReturn->id . '.pdf');
+    }
+
+    private function applyIndexFilters(Builder $query, array $filters): Builder
+    {
+        return $query
+            ->when(!empty($filters['supplier_id']), function (Builder $builder) use ($filters) {
+                $builder->where('supplier_id', $filters['supplier_id']);
+            })
+            ->when(($filters['return_mode'] ?? '') === 'bill', function (Builder $builder) {
+                $builder->whereNotNull('purchase_id');
+            })
+            ->when(($filters['return_mode'] ?? '') === 'product', function (Builder $builder) {
+                $builder->whereNull('purchase_id');
+            })
+            ->when(!empty($filters['date_from']), function (Builder $builder) use ($filters) {
+                $builder->whereDate('return_date', '>=', $filters['date_from']);
+            })
+            ->when(!empty($filters['date_to']), function (Builder $builder) use ($filters) {
+                $builder->whereDate('return_date', '<=', $filters['date_to']);
+            });
     }
 }

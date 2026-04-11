@@ -19,14 +19,14 @@ class ReportController extends Controller
     public function lowStock()
     {
         $lowStockProducts = Product::query()
-            ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+            ->leftJoin('companies', 'companies.id', '=', 'products.company_id')
             ->leftJoin('batches', function ($join) {
                 $join->on('products.id', '=', 'batches.product_id')
                     ->where('batches.is_active', true);
             })
             ->where('products.status', 'Y')
-            ->groupBy('products.id', 'products.product_name', 'products.name', 'products.reorder_level', 'products.alert_quantity', 'categories.name')
-            ->selectRaw('products.id, products.product_name, products.name, COALESCE(products.reorder_level, products.alert_quantity, 10) as reorder_level, categories.name as category_name, COALESCE(SUM(batches.quantity_available), 0) as current_stock')
+            ->groupBy('products.id', 'products.product_name', 'products.name', 'products.reorder_level', 'products.alert_quantity', 'companies.name')
+            ->selectRaw('products.id, products.product_name, products.name, COALESCE(products.reorder_level, products.alert_quantity, 10) as reorder_level, companies.name as company_name, COALESCE(SUM(batches.quantity_available), 0) as current_stock')
             ->havingRaw('COALESCE(SUM(batches.quantity_available), 0) < COALESCE(products.reorder_level, products.alert_quantity, 10)')
             ->orderBy('current_stock')
             ->get();

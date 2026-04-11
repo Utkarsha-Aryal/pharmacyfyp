@@ -1,0 +1,4 @@
+notes,Required column: name. Optional columns: company_type(default domestic), default_cc_rate.
+name,company_type,default_cc_rate
+Himalaya Labs,domestic,5.50
+ABC Pharma Imports,foreign,8.25

@@ -3,8 +3,8 @@
     $isDashboard = request()->routeIs('admin.dashboard');
     // Keep the active state narrow so one page does not light up many menus.
     $isInventoryMenu = request()->routeIs(
-        'admin.category',
-        'admin.category.*',
+        'admin.company',
+        'admin.company.*',
         'admin.unit',
         'admin.unit.*',
         'admin.product',
@@ -12,7 +12,8 @@
         'admin.batch',
         'admin.batch.*',
         'admin.inventory.batches.*',
-        'admin.inventory.adjustments.*'
+        'admin.inventory.adjustments.*',
+        'admin.inventory.movements.*'
     );
     $isPurchaseMenu = request()->routeIs(
         'admin.supplier',
@@ -63,7 +64,7 @@
                     </li>
                 @endcan
 
-                @if (auth()->user()->can('inventory.category') || auth()->user()->can('inventory.unit') || auth()->user()->can('inventory.product') || auth()->user()->can('inventory.batch'))
+                @if (auth()->user()->can('inventory.company') || auth()->user()->can('inventory.unit') || auth()->user()->can('inventory.product') || auth()->user()->can('inventory.batch') || auth()->user()->can('inventory.adjustment') || auth()->user()->can('inventory.view'))
                     <li class="slide has-sub {{ $isInventoryMenu ? 'open active' : '' }}">
                         <a href="javascript:void(0);" class="side-menu__item">
                             <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -76,9 +77,9 @@
                             <li class="slide side-menu__label1">
                                 <a href="javascript:void(0);">Inventory</a>
                             </li>
-                            @can('inventory.category')
-                                <li class="slide {{ request()->routeIs('admin.category', 'admin.category.*') ? 'active' : '' }}">
-                                    <a href="{{ route('admin.category') }}" class="side-menu__item">Company</a>
+                            @can('inventory.company')
+                                <li class="slide {{ request()->routeIs('admin.company', 'admin.company.*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.company') }}" class="side-menu__item">Company</a>
                                 </li>
                             @endcan
                             @can('inventory.unit')
@@ -91,12 +92,19 @@
                                     <a href="{{ route('admin.product') }}" class="side-menu__item">Product</a>
                                 </li>
                             @endcan
-                            @can('inventory.view')
+                            @can('inventory.batch')
                                 <li class="slide {{ request()->routeIs('admin.inventory.batches.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.inventory.batches.index') }}" class="side-menu__item">Batches</a>
                                 </li>
+                            @endcan
+                            @can('inventory.adjustment')
                                 <li class="slide {{ request()->routeIs('admin.inventory.adjustments.*') ? 'active' : '' }}">
                                     <a href="{{ route('admin.inventory.adjustments.index') }}" class="side-menu__item">Stock Adjustment</a>
+                                </li>
+                            @endcan
+                            @can('inventory.view')
+                                <li class="slide {{ request()->routeIs('admin.inventory.movements.*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.inventory.movements.index') }}" class="side-menu__item">Case Movement</a>
                                 </li>
                             @endcan
                         </ul>
@@ -151,16 +159,32 @@
                     </li>
                 @endif
 
-                @if (auth()->user()->can('sales.invoice'))
-                    <li class="slide {{ $isSalesMenu ? 'active' : '' }}">
-                        <a href="{{ route('admin.sales.index') }}" class="side-menu__item">
+                @if (auth()->user()->can('sales.invoice') || auth()->user()->can('sales.return'))
+                    <li class="slide has-sub {{ $isSalesMenu ? 'open active' : '' }}">
+                        <a href="javascript:void(0);" class="side-menu__item">
                             <svg xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                                 <path d="M2 2h12v12H2z" opacity=".2"></path>
                                 <path d="M1 1h14v14H1zm1 1v12h12V2z"></path>
                                 <path d="M4 4h8v1H4zm0 3h8v1H4zm0 3h5v1H4z"></path>
                             </svg>
                             <span class="side-menu__label">Sales / POS</span>
+                            <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
+                        <ul class="slide-menu child1">
+                            <li class="slide side-menu__label1">
+                                <a href="javascript:void(0);">Sales / POS</a>
+                            </li>
+                            @can('sales.invoice')
+                                <li class="slide {{ request()->routeIs('admin.sales.index', 'admin.sales.create', 'admin.sales.show', 'admin.sales.print', 'admin.sales.pdf', 'admin.sales.payment', 'admin.sales.return.store') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.sales.index') }}" class="side-menu__item">Sales</a>
+                                </li>
+                            @endcan
+                            @can('sales.return')
+                                <li class="slide {{ request()->routeIs('admin.sales.returns.*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.sales.returns.index') }}" class="side-menu__item">Manage Sales Return</a>
+                                </li>
+                            @endcan
+                        </ul>
                     </li>
                 @endif
 
@@ -194,6 +218,9 @@
                             @can('accounting.ledger')
                                 <li class="slide {{ request()->routeIs('admin.finance.ledger') ? 'active' : '' }}">
                                     <a href="{{ route('admin.finance.ledger') }}" class="side-menu__item">Ledger</a>
+                                </li>
+                                <li class="slide {{ request()->routeIs('admin.finance.day-book') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.finance.day-book') }}" class="side-menu__item">Day Book</a>
                                 </li>
                                 <li class="slide {{ request()->routeIs('admin.finance.account-tree') ? 'active' : '' }}">
                                     <a href="{{ route('admin.finance.account-tree') }}" class="side-menu__item">Account Tree</a>

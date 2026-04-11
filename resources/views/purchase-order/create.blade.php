@@ -170,7 +170,7 @@
             'showQuickProduct' => auth()->user()->can('inventory.product'),
             'showQuickPaymentMode' => auth()->user()->can('settings.manage'),
             'showQuickUnit' => auth()->user()->can('inventory.unit'),
-            'categories' => $categories,
+            'companies' => $companies,
             'units' => $units,
             'formulations' => $formulations,
             'supplierTypes' => $supplierTypes,

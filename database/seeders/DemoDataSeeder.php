@@ -28,7 +28,7 @@ class DemoDataSeeder extends Seeder
     // so reports do not look empty when someone tests finance and analytics pages.
     public function run(): void
     {
-        if (DB::table('categories')->count() > 0) {
+        if (DB::table('companies')->count() > 0) {
             return;
         }
 
@@ -54,18 +54,19 @@ class DemoDataSeeder extends Seeder
             ]);
         }
 
-        $categoryIds = [];
+        $companyIds = [];
         foreach ([
-            ['name' => 'Pain Relief', 'order_number' => 1],
-            ['name' => 'Antibiotic', 'order_number' => 2],
-            ['name' => 'Vitamin', 'order_number' => 3],
-            ['name' => 'Diabetes Care', 'order_number' => 4],
-            ['name' => 'Cardiovascular', 'order_number' => 5],
-        ] as $category) {
-            $categoryIds[] = DB::table('categories')->insertGetId([
-                'name' => $category['name'],
-                'slug' => Str::slug($category['name']) . '-' . Str::random(8),
-                'order_number' => $category['order_number'],
+            ['name' => 'Himalaya Labs', 'company_type' => 'domestic', 'default_cc_rate' => 5.50],
+            ['name' => 'ABC Pharma Imports', 'company_type' => 'foreign', 'default_cc_rate' => 8.25],
+            ['name' => 'Nutri Life Pharma', 'company_type' => 'domestic', 'default_cc_rate' => 6.00],
+            ['name' => 'Life Care International', 'company_type' => 'foreign', 'default_cc_rate' => 7.25],
+            ['name' => 'Cardio Care Nepal', 'company_type' => 'domestic', 'default_cc_rate' => 5.75],
+        ] as $company) {
+            $companyIds[] = DB::table('companies')->insertGetId([
+                'name' => $company['name'],
+                'slug' => Str::slug($company['name']) . '-' . Str::random(8),
+                'company_type' => $company['company_type'],
+                'default_cc_rate' => $company['default_cc_rate'],
                 'status' => 'Y',
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -116,18 +117,18 @@ class DemoDataSeeder extends Seeder
         $productStatusId = $findDropdownId('product_status', 'In Stock');
 
         $productRows = [
-            ['name' => 'Ibuprofen 400mg', 'generic' => 'Ibuprofen', 'category' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 12, 'mrp' => 110, 'purchase_price' => 78, 'alert' => 12, 'manufacturer' => 'Himalaya Labs', 'cc_rate' => 7.50],
-            ['name' => 'Paracetamol 500mg', 'generic' => 'Paracetamol', 'category' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 20, 'mrp' => 95, 'purchase_price' => 60, 'alert' => 20, 'manufacturer' => 'Health First', 'cc_rate' => 5.00],
-            ['name' => 'Amoxicillin 500mg', 'generic' => 'Amoxicillin', 'category' => 2, 'formulation' => 'capsule', 'unit' => 'Strip', 'reorder' => 18, 'mrp' => 145, 'purchase_price' => 102, 'alert' => 18, 'manufacturer' => 'ABC Pharma', 'cc_rate' => 8.25],
-            ['name' => 'Azithromycin 250mg', 'generic' => 'Azithromycin', 'category' => 2, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 15, 'mrp' => 220, 'purchase_price' => 170, 'alert' => 15, 'manufacturer' => 'Nepal Remedies', 'cc_rate' => 6.00],
-            ['name' => 'Vitamin C 1000mg', 'generic' => 'Ascorbic Acid', 'category' => 3, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 10, 'mrp' => 310, 'purchase_price' => 250, 'alert' => 10, 'manufacturer' => 'Nutri Life', 'cc_rate' => 10.00],
-            ['name' => 'Metformin 500mg', 'generic' => 'Metformin', 'category' => 4, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 14, 'mrp' => 180, 'purchase_price' => 132, 'alert' => 14, 'manufacturer' => 'Life Care', 'cc_rate' => 7.00],
-            ['name' => 'Amlodipine 5mg', 'generic' => 'Amlodipine', 'category' => 5, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 10, 'mrp' => 165, 'purchase_price' => 120, 'alert' => 10, 'manufacturer' => 'Heart Care Pharma', 'cc_rate' => 5.50],
-            ['name' => 'Atorvastatin 10mg', 'generic' => 'Atorvastatin', 'category' => 5, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 8, 'mrp' => 265, 'purchase_price' => 190, 'alert' => 8, 'manufacturer' => 'Cardio Care', 'cc_rate' => 6.75],
+            ['name' => 'Ibuprofen 400mg', 'generic' => 'Ibuprofen', 'company' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 12, 'mrp' => 110, 'purchase_price' => 78, 'alert' => 12, 'manufacturer' => 'Himalaya Labs', 'cc_rate' => 7.50],
+            ['name' => 'Paracetamol 500mg', 'generic' => 'Paracetamol', 'company' => 1, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 20, 'mrp' => 95, 'purchase_price' => 60, 'alert' => 20, 'manufacturer' => 'Himalaya Labs', 'cc_rate' => 5.00],
+            ['name' => 'Amoxicillin 500mg', 'generic' => 'Amoxicillin', 'company' => 2, 'formulation' => 'capsule', 'unit' => 'Strip', 'reorder' => 18, 'mrp' => 145, 'purchase_price' => 102, 'alert' => 18, 'manufacturer' => 'ABC Pharma Imports', 'cc_rate' => 8.25],
+            ['name' => 'Azithromycin 250mg', 'generic' => 'Azithromycin', 'company' => 2, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 15, 'mrp' => 220, 'purchase_price' => 170, 'alert' => 15, 'manufacturer' => 'ABC Pharma Imports', 'cc_rate' => 6.00],
+            ['name' => 'Vitamin C 1000mg', 'generic' => 'Ascorbic Acid', 'company' => 3, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 10, 'mrp' => 310, 'purchase_price' => 250, 'alert' => 10, 'manufacturer' => 'Nutri Life Pharma', 'cc_rate' => 10.00],
+            ['name' => 'Metformin 500mg', 'generic' => 'Metformin', 'company' => 4, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 14, 'mrp' => 180, 'purchase_price' => 132, 'alert' => 14, 'manufacturer' => 'Life Care International', 'cc_rate' => 7.00],
+            ['name' => 'Amlodipine 5mg', 'generic' => 'Amlodipine', 'company' => 5, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 10, 'mrp' => 165, 'purchase_price' => 120, 'alert' => 10, 'manufacturer' => 'Cardio Care Nepal', 'cc_rate' => 5.50],
+            ['name' => 'Atorvastatin 10mg', 'generic' => 'Atorvastatin', 'company' => 5, 'formulation' => 'tablet', 'unit' => 'Strip', 'reorder' => 8, 'mrp' => 265, 'purchase_price' => 190, 'alert' => 8, 'manufacturer' => 'Cardio Care Nepal', 'cc_rate' => 6.75],
         ];
 
         $productIds = [];
-        foreach ($productRows as $index => $product) {
+        foreach ($productRows as $product) {
             $productIds[] = DB::table('products')->insertGetId([
                 'name' => $product['name'],
                 'product_name' => $product['name'],
@@ -143,10 +144,9 @@ class DemoDataSeeder extends Seeder
                 'product_status_id' => $productStatusId,
                 'slug' => Str::slug($product['name']) . '-' . Str::random(8),
                 'keywords' => strtolower($product['name']) . ', medicine, sample',
-                'order_number' => $index + 1,
                 'alert_quantity' => $product['alert'],
                 'reorder_level' => $product['reorder'],
-                'category_id' => $categoryIds[$product['category'] - 1],
+                'company_id' => $companyIds[$product['company'] - 1],
                 'formulation' => ucfirst($product['formulation']),
                 'formulation_id' => $findDropdownId('formulation', ucfirst($product['formulation'])),
                 'unit' => $product['unit'],

@@ -159,6 +159,8 @@
                                 <th>Product</th>
                                 <th>Batch</th>
                                 <th>Qty</th>
+                                <th>Discount %</th>
+                                <th>Net Rate</th>
                                 <th>Refund</th>
                                 <th>Reason</th>
                             </tr>
@@ -171,12 +173,20 @@
                                     <td>{{ $returnItem->product?->display_name ?? '-' }}</td>
                                     <td>{{ $returnItem->batch?->batch_number ?? '-' }}</td>
                                     <td>{{ $returnItem->quantity }}</td>
+                                    <td>{{ number_format((float) ($returnItem->invoiceItem?->discount_percent ?? 0), 2) }}%</td>
+                                    <td>
+                                        {{ money_value(
+                                            ($returnItem->invoiceItem && (float) $returnItem->invoiceItem->quantity > 0)
+                                                ? ((float) $returnItem->invoiceItem->subtotal / (float) $returnItem->invoiceItem->quantity)
+                                                : (float) ($returnItem->invoiceItem?->unit_price ?? 0)
+                                        ) }}
+                                    </td>
                                     <td>{{ money_value($returnItem->refund_amount) }}</td>
                                     <td>{{ $returnItem->reason ?: '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">No return history yet.</td>
+                                    <td colspan="9" class="text-center text-muted py-4">No return history yet.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -243,20 +253,34 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label">Invoice Item</label>
-                                    <select name="sales_invoice_item_id" class="form-select" required>
+                                    <select name="sales_invoice_item_id" id="salesReturnItemSelect" class="form-select" required>
                                         <option value="">Select item</option>
                                         @foreach ($invoice->items as $item)
-                                            <option value="{{ $item->id }}">{{ $item->product?->display_name ?? '-' }} | Batch {{ $item->batch?->batch_number ?? '-' }}</option>
+                                            @php
+                                                $alreadyReturnedQty = (float) $invoice->returns->where('sales_invoice_item_id', $item->id)->sum('quantity');
+                                                $remainingQty = max(0, (float) $item->quantity - $alreadyReturnedQty);
+                                                $netRate = (float) $item->quantity > 0
+                                                    ? round((float) $item->subtotal / (float) $item->quantity, 2)
+                                                    : round((float) $item->unit_price, 2);
+                                            @endphp
+                                            <option value="{{ $item->id }}"
+                                                data-remaining-qty="{{ $remainingQty }}"
+                                                data-net-rate="{{ $netRate }}"
+                                                data-discount-percent="{{ (float) $item->discount_percent }}"
+                                                @disabled($remainingQty <= 0)>
+                                                {{ $item->product?->display_name ?? '-' }} | Batch {{ $item->batch?->batch_number ?? '-' }} | Remaining {{ $remainingQty }} | Disc {{ number_format((float) $item->discount_percent, 2) }}%
+                                            </option>
                                         @endforeach
                                     </select>
+                                    <small class="text-muted d-block mt-1" id="salesReturnItemHint">Select an item to auto-fill remaining qty and discounted refund rate.</small>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Quantity</label>
-                                    <input type="number" min="1" step="1" name="quantity" class="form-control" required>
+                                    <input type="number" min="1" step="1" name="quantity" id="salesReturnQtyInput" class="form-control" required>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Refund Amount</label>
-                                    <input type="number" min="0" step="0.01" name="refund_amount" class="form-control">
+                                    <input type="number" min="0" step="0.01" name="refund_amount" id="salesReturnRefundInput" class="form-control">
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Reason</label>
@@ -299,6 +323,37 @@
                     bootstrap.Modal.getOrCreateInstance(returnModalEl).show();
                 }
             }
+
+            var $itemSelect = $('#salesReturnItemSelect');
+            var $qtyInput = $('#salesReturnQtyInput');
+            var $refundInput = $('#salesReturnRefundInput');
+            var $hint = $('#salesReturnItemHint');
+
+            function syncSalesReturnFields() {
+                var $selected = $itemSelect.find('option:selected');
+                var remainingQty = parseFloat($selected.data('remainingQty') || 0);
+                var netRate = parseFloat($selected.data('netRate') || 0);
+                var discountPercent = parseFloat($selected.data('discountPercent') || 0);
+                var qty = parseFloat($qtyInput.val() || 0);
+
+                if (remainingQty > 0) {
+                    $qtyInput.attr('max', remainingQty);
+                    if (!qty || qty > remainingQty) {
+                        qty = remainingQty;
+                        $qtyInput.val(remainingQty);
+                    }
+
+                    $refundInput.val((qty * netRate).toFixed(2));
+                    $hint.text('Remaining qty: ' + remainingQty + ', discount: ' + discountPercent.toFixed(2) + '%, net rate: ' + netRate.toFixed(2));
+                } else {
+                    $qtyInput.attr('max', 0);
+                    $refundInput.val('');
+                    $hint.text('Select an item to auto-fill remaining qty and discounted refund rate.');
+                }
+            }
+
+            $itemSelect.on('change', syncSalesReturnFields);
+            $qtyInput.on('input', syncSalesReturnFields);
         });
     </script>
 @endsection

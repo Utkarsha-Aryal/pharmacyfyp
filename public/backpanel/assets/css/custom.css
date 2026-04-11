@@ -621,32 +621,31 @@ body.workspace-form-page #purchaseItemsTable td:nth-child(12) {
 }
 
 .report-badge {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    padding: 5px 10px;
-    font-size: 12px;
-    font-weight: 600;
+    display: inline-block;
+    padding: .35em .65em;
+    font-size: .75em;
+    line-height: 1;
+    font-weight: 700;
+    border-radius: .375rem;
+    color: #fff;
 }
 
 .report-badge-danger {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: #dc3545;
 }
 
 .report-badge-warning {
-    background: #fef3c7;
-    color: #b45309;
+    background: #ffc107;
+    color: #212529;
 }
 
 .report-badge-success {
-    background: #dcfce7;
-    color: #15803d;
+    background: #198754;
 }
 
 .report-badge-info {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: #0dcaf0;
+    color: #212529;
 }
 
 .report-badge,

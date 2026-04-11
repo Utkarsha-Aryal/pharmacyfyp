@@ -1353,6 +1353,32 @@
         if (unitTypeSelect && modalElement.dataset.quickUnitType) {
           unitTypeSelect.value = modalElement.dataset.quickUnitType;
         }
+
+        var quickProductCompanySelect = modalElement.querySelector('select[name="company_id"]');
+        var quickProductCcInput = modalElement.querySelector('input[name="cc_rate"]');
+
+        if (quickProductCompanySelect && quickProductCcInput && modalElement.dataset.quickProductCcReady !== "true") {
+          quickProductCcInput.addEventListener("input", function () {
+            quickProductCcInput.dataset.userEdited = "true";
+          });
+
+          quickProductCompanySelect.addEventListener("change", function () {
+            var selectedOption = quickProductCompanySelect.options[quickProductCompanySelect.selectedIndex];
+            var defaultCcRate = selectedOption ? parseFloat(selectedOption.dataset.defaultCcRate || "0") : 0;
+            var safeCcRate = Number.isFinite(defaultCcRate) ? defaultCcRate : 0;
+
+            if (quickProductCcInput.dataset.userEdited !== "true" || !quickProductCcInput.value) {
+              quickProductCcInput.value = safeCcRate.toFixed(2);
+            }
+          });
+
+          modalElement.dataset.quickProductCcReady = "true";
+        }
+
+        if (quickProductCompanySelect && quickProductCcInput) {
+          quickProductCcInput.dataset.userEdited = "";
+          quickProductCompanySelect.dispatchEvent(new Event("change"));
+        }
       });
 
       modalElement.addEventListener("hidden.bs.modal", function () {
@@ -1364,6 +1390,11 @@
 
         modalElement.dataset.parentModalId = "";
         modalElement.dataset.quickUnitType = "";
+
+        var quickProductCcInput = modalElement.querySelector('input[name="cc_rate"]');
+        if (quickProductCcInput) {
+          quickProductCcInput.dataset.userEdited = "";
+        }
 
         if (parentModalId) {
           var parentModalElement = byId(parentModalId);

@@ -35,10 +35,10 @@
                     <div class="card-title">Inventory Product List</div>
                     <div class="d-flex my-xl-auto right-content gap-2">
                         <form class="d-flex gap-2 align-items-end" method="GET">
-                            <select name="category_id" class="form-select js-select2" data-placeholder="All companies" data-allow-clear="1" style="min-width: 220px;">
+                            <select name="company_id" class="form-select js-select2" data-placeholder="All companies" data-allow-clear="1" style="min-width: 220px;">
                                 <option value="">All Companies</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}" @selected(request('category_id') == $category->id)>{{ $category->name }}</option>
+                                @foreach ($companies as $company)
+                                    <option value="{{ $company->id }}" @selected(request('company_id') == $company->id)>{{ $company->name }}</option>
                                 @endforeach
                             </select>
                             <button class="btn btn-primary btn-sm icon-only-btn" type="submit" title="Filter" aria-label="Filter">
@@ -107,7 +107,7 @@
                 columns: [
                     { data: 'sno' },
                     { data: 'product_name' },
-                    { data: 'category' },
+                    { data: 'company' },
                     { data: 'formulation' },
                     { data: 'unit' },
                     { data: 'reorder_level' },
@@ -117,7 +117,7 @@
                 ],
                 ajaxUrl: '{{ route('admin.inventory.products.list') }}',
                 ajaxData: function(d) {
-                    d.category_id = '{{ request('category_id') }}';
+                    d.company_id = '{{ request('company_id') }}';
                     d.type = $('#trashed_file').is(':checked') ? 'trashed' : 'nottrashed';
                 }
             });

@@ -11,16 +11,16 @@
             <h5 class="page-title fs-21 mb-1">Company</h5>
         </div>
         <div class="d-flex gap-2 mt-3 mt-md-0">
-            <a href="{{ route('admin.export.category') }}" class="btn btn-excel">
+            <a href="{{ route('admin.export.company') }}" class="btn btn-excel">
                 <i class="fa-solid fa-file-excel"></i> Excel
             </a>
-            <a href="{{ route('admin.export.category-pdf') }}" class="btn btn-pdf">
+            <a href="{{ route('admin.export.company-pdf') }}" class="btn btn-pdf">
                 <i class="fa-solid fa-file-pdf"></i> PDF
             </a>
-            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#categoryImportModal">
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#companyImportModal">
                 <i class="fa-solid fa-upload"></i> Import
             </button>
-            <button type="button" class="btn btn-primary addCategoryBtn">
+            <button type="button" class="btn btn-primary addCompanyBtn">
                 <i class="fa fa-plus"></i> Add Company
             </button>
         </div>
@@ -38,11 +38,11 @@
         </div>
     @endif
 
-    <div class="modal fade" id="categoryModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+    <div class="modal fade" id="companyModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
         aria-labelledby="staticBackdropLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <form action="{{ route('admin.category.save')}}" method="POST" id="categoryForm" enctype="multipart/form-data">
+                <form action="{{ route('admin.company.save')}}" method="POST" id="companyForm" enctype="multipart/form-data">
                     @csrf
                     <div class="modal-header">
                         <h5 class="modal-title">Company Form</h5>
@@ -56,25 +56,16 @@
                                 <input type="text" class="form-control" id="name" placeholder="Enter company name..." name="name">
                             </div>
                             <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6">
-                                <label for="order_number" class="form-label">Display Order <span class="required-field">*</span></label>
-                                <input type="number" class="form-control" id="order_number" placeholder="1, 2, 3..." name="order_number">
+                                <label for="company_type" class="form-label">Company Type <span class="required-field">*</span></label>
+                                <select class="form-select js-select2" id="company_type" name="company_type" data-placeholder="Select company type">
+                                    <option value="">Select company type</option>
+                                    <option value="domestic">Domestic</option>
+                                    <option value="foreign">Foreign</option>
+                                </select>
                             </div>
-                            <div class="col-12">
-                                <label for="photo" class="form-label">Photo</label>
-                                <div class="relative" id="edit-image">
-                                    <div class="profile-user">
-                                        <label for="file_input" class="fe fe-camera profile-edit text-primary absolute"></label>
-                                    </div>
-                                    <input type="file" class="file_input" id="file_input"
-                                        style="position: absolute; clip: rect(0, 0, 0, 0); pointer-events: none;"
-                                        accept="image/*" name="image">
-                                    <img id="upload-image" src="{{ asset('/images/no-image.jpg') }}" width="160px"
-                                        alt="Default Image" class='_image'>
-                                </div>
-                            </div>
-                            <div class="col-12">
-                                <p class="p-0 m-0">Accepted Format :<span class="text-muted"> jpg/jpeg/png</span></p>
-                                <p class="p-0 m-0">File size :<span class="text-muted"> 512KB </span></p>
+                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6">
+                                <label for="default_cc_rate" class="form-label">Default CC Rate (%)</label>
+                                <input type="number" step="0.01" min="0" max="100" class="form-control" id="default_cc_rate" placeholder="0.00" name="default_cc_rate" value="0">
                             </div>
                         </div>
                     </div>
@@ -87,10 +78,10 @@
         </div>
     </div>
 
-    <div class="modal fade" id="categoryImportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="companyImportModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <form action="{{ route('admin.imports.categories') }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('admin.imports.companies') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     <div class="modal-header">
                         <h5 class="modal-title">Import Companies</h5>
@@ -98,15 +89,15 @@
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
-                            <a href="{{ route('admin.imports.sample.categories') }}" class="btn btn-outline-primary">
+                            <a href="{{ route('admin.imports.sample.companies') }}" class="btn btn-outline-primary">
                                 <i class="fa-solid fa-download"></i> Download Company Sample File
                             </a>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Select CSV or XLSX</label>
-                            <input type="file" name="file" class="form-control js-import-preview-input" data-preview-target="#categoryImportPreview" accept=".csv,.xlsx" required>
+                            <input type="file" name="file" class="form-control js-import-preview-input" data-preview-target="#companyImportPreview" accept=".csv,.xlsx" required>
                         </div>
-                        <div class="d-none" id="categoryImportPreview"></div>
+                        <div class="d-none" id="companyImportPreview"></div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
@@ -139,13 +130,13 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table id="categoryTable" class="table table-bordered text-nowrap w-100 mt-3">
+                        <table id="companyTable" class="table table-bordered text-nowrap w-100 mt-3">
                             <thead>
                                 <tr>
                                     <th>S.No</th>
                                     <th>Company Name</th>
-                                    <th>Display Order</th>
-                                    <th>Image</th>
+                                    <th>Type</th>
+                                    <th>Default CC Rate</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -162,27 +153,27 @@
 
 @section('script')
     <script>
-        var categoryTable;
+        var companyTable;
         $(document).ready(function() {
-            var categoryModalElement = document.getElementById('categoryModal');
-            var categoryModal = categoryModalElement ? new bootstrap.Modal(categoryModalElement) : null;
+            var companyModalElement = document.getElementById('companyModal');
+            var companyModal = companyModalElement ? new bootstrap.Modal(companyModalElement) : null;
 
-            function resetCategoryForm() {
-                $('#categoryForm')[0].reset();
+            function resetCompanyForm() {
+                $('#companyForm')[0].reset();
                 $('#id').val('');
-                $('._image').attr('src', "{{ asset('/images/no-image.jpg') }}");
+                $('#default_cc_rate').val('0');
                 $('.saveData').html('<i class="fa fa-save"></i> Save');
             }
 
-            $(document).on('click', '.addCategoryBtn', function() {
-                resetCategoryForm();
-                if (categoryModal) {
-                    categoryModal.show();
+            $(document).on('click', '.addCompanyBtn', function() {
+                resetCompanyForm();
+                if (companyModal) {
+                    companyModal.show();
                 }
             });
 
-            categoryTable = window.initServerSideDataTable({
-                selector: '#categoryTable',
+            companyTable = window.initServerSideDataTable({
+                selector: '#companyTable',
                 pageLength: 15,
                 sort: false,
                 searchColumns: [1],
@@ -197,56 +188,46 @@
                         data: 'name'
                     },
                     {
-                        data: 'order_number'
+                        data: 'company_type'
                     },
                     {
-                        data: 'image'
+                        data: 'default_cc_rate'
                     },
                     {
                         data: 'action'
                     },
                 ],
-                ajaxUrl: "{{ route('admin.category.list') }}",
+                ajaxUrl: "{{ route('admin.company.list') }}",
                 ajaxData: function(d) {
                     d.type = $('#trashed_file').is(':checked') == true ? 'trashed' : 'nottrashed';
                 }
             });
 
-            // Save testimonial
-
-            //upload image
-
-            $('#file_input').on('change', function(event) {
-                var selectedFile = event.target.files[0];
-                if (selectedFile) {
-                    $('._image').attr('src', URL.createObjectURL(selectedFile));
-                }
-            });
-            //end upload image
-
-            $(document).on('hidden.bs.modal', '#categoryModal', function() {
-                resetCategoryForm();
+            $(document).on('hidden.bs.modal', '#companyModal', function() {
+                resetCompanyForm();
             });
 
-            $('#categoryForm').validate({
+            $('#companyForm').validate({
                 rules: {
                     name: "required",
-                    order_number: "required",
-                    image: {
-                        required: function() {
-                            return $('#id').val() === '';
-                        }
-                    }
+                    company_type: "required",
+                    default_cc_rate: {
+                        number: true,
+                        min: 0,
+                        max: 100
+                    },
                 },
                 messages: {
                     name: {
                         required: "This field is required."
                     },
-                    order_number: {
-                        required: "This field is required."
+                    company_type: {
+                        required: "Company type is required."
                     },
-                    image: {
-                        required: "This field is required."
+                    default_cc_rate: {
+                        number: "CC rate must be numeric.",
+                        min: "CC rate cannot be negative.",
+                        max: "CC rate cannot exceed 100.",
                     },
                 },
                 highlight: function(element) {
@@ -259,19 +240,19 @@
 
             $(document).off('click', '.saveData');
             $(document).on('click', '.saveData', function() {
-                if ($('#categoryForm').valid()) {
+                if ($('#companyForm').valid()) {
                     showLoader();
-                    $('#categoryForm').ajaxSubmit({
+                    $('#companyForm').ajaxSubmit({
                         success: function(response) {
                             if (response) {
                                 if (response.type === 'success') {
                                     showNotification(response.message, 'success');
                                     hideLoader();
-                                    categoryTable.draw();
-                                    if (categoryModal) {
-                                        categoryModal.hide();
+                                    companyTable.draw();
+                                    if (companyModal) {
+                                        companyModal.hide();
                                     } else {
-                                        resetCategoryForm();
+                                        resetCompanyForm();
                                     }
                                 } else {
                                     showNotification(response.message, 'error');
@@ -291,20 +272,20 @@
                 }
             });
 
-            // update category
-            $(document).off('click', '.editCategory');
-            $(document).on('click', '.editCategory', function() {
+            // update company
+            $(document).off('click', '.editCompany');
+            $(document).on('click', '.editCompany', function() {
                 var id = $(this).data('id');
                 var name = $(this).data('name');
-                var order_number = $(this).data('order_number');
-                var image = $(this).data('image');
-                $('#categoryForm input[name = "id"]').val(id);
-                $('#categoryForm input[name = "name"]').val(name);
-                $('#categoryForm input[name = "order_number"]').val(order_number);
-                $('#categoryForm ._image').attr('src', image);
+                var companyType = $(this).data('company_type');
+                var defaultCcRate = $(this).data('default_cc_rate');
+                $('#companyForm input[name = "id"]').val(id);
+                $('#companyForm input[name = "name"]').val(name);
+                $('#companyForm select[name = "company_type"]').val(companyType).trigger('change');
+                $('#companyForm input[name = "default_cc_rate"]').val(defaultCcRate);
                 $('.saveData').html('<i class="fa fa-save"></i> Update');
-                if (categoryModal) {
-                    categoryModal.show();
+                if (companyModal) {
+                    companyModal.show();
                 }
             });
 
@@ -312,13 +293,13 @@
             // view trashed items-start
             $('#trashed_file').off('change');
             $('#trashed_file').on('change', function(e) {
-                categoryTable.draw();
+                companyTable.draw();
             });
             // view trashed items-ends
 
 
             // Delete company
-            $(document).on('click', '.deletecategory', function(e) {
+            $(document).on('click', '.deleteCompany', function(e) {
                 e.preventDefault();
 
                 var type = $('#trashed_file').is(':checked') == true ? 'trashed' :
@@ -339,14 +320,14 @@
                             id: id,
                             type: type,
                         };
-                        var url = "{{route('admin.category.delete')}}";
+                        var url = "{{route('admin.company.delete')}}";
                         $.post(url, data, function(response) {
 
                             if (response) {
                                 showNotification(response.message, response.type);
                                 if (response.type === 'success') {
-                                    categoryTable.draw();
-                                    $('#categoryForm')[0].reset();
+                                    companyTable.draw();
+                                    $('#companyForm')[0].reset();
                                     $('#id').val('');
                                 }
                             }
@@ -356,8 +337,8 @@
             });
 
             // Restore company
-            $(document).off('click', '.restoreCategory');
-            $(document).on('click', '.restoreCategory', function() {
+            $(document).off('click', '.restoreCompany');
+            $(document).on('click', '.restoreCompany', function() {
                 Swal.fire({
                     title: "Are you sure you want to restore Company?",
                     text: "This will restore the Company.",
@@ -374,12 +355,12 @@
                             id: id,
                             type: 'restore'
                         };
-                        var url = "{{route('admin.category.restore')}}";
+                        var url = "{{route('admin.company.restore')}}";
                         $.post(url, data, function(response) {
                             if (response) {
                                 if (response.type === 'success') {
                                     showNotification(response.message, 'success');
-                                    categoryTable.draw();
+                                    companyTable.draw();
                                     hideLoader();
                                 } else {
                                     showNotification(response.message, 'error');

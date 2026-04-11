@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Category;
+use App\Models\Company;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Common;
 use App\Models\DropdownOption;
@@ -23,7 +23,7 @@ class ProductController extends Controller
     public function index()
     {
         return view('product.index', [
-            'categories' => Category::query()->orderBy('name')->get(),
+            'companies' => Company::query()->orderBy('name')->get(),
             'units' => Unit::query()->orderBy('unit_name')->get(),
             'saleUnits' => Unit::query()->forSales()->orderBy('unit_name')->get(),
             'purchaseUnits' => Unit::query()->forPurchase()->orderBy('unit_name')->get(),
@@ -35,7 +35,7 @@ class ProductController extends Controller
     // Old inventory products link now points back to the same unified product page.
     public function inventoryIndex()
     {
-        return redirect()->route('admin.product', request()->only('category_id'));
+        return redirect()->route('admin.product', request()->only('company_id'));
     }
 
 
@@ -68,7 +68,7 @@ public function globalSearch(Request $request)
     {
         try {
             $post = $request->all();
-            $category = Category::all();
+            $companies = Company::all();
             $units = Unit::query()->orderBy('unit_name')->get();
             $prevPost = [];
 
@@ -81,7 +81,7 @@ public function globalSearch(Request $request)
             }
 
             $data = [
-                'category' => $category,
+                'companies' => $companies,
                 'prevPost' => $prevPost,
                 'unit' => $units,
                 'saleUnits' => $units->whereIn('type', ['sales', 'both'])->values(),
@@ -116,7 +116,7 @@ public function globalSearch(Request $request)
         try{
             $validated = $request->validate([
                 'id' => ['nullable', 'exists:products,id'],
-                'category_id' => ['required', 'exists:categories,id'],
+                'company_id' => ['required', 'exists:companies,id'],
                 'unit_sale_id' => ['required', Rule::exists('units', 'id')->where(fn ($query) => $query->whereIn('type', ['sales', 'both']))],
                 'unit_purchase_id' => ['required', Rule::exists('units', 'id')->where(fn ($query) => $query->whereIn('type', ['purchase', 'both']))],
                 'product_code' => ['nullable', 'string', 'max:100', Rule::unique('products', 'product_code')->ignore($request->input('id'))],
@@ -128,7 +128,6 @@ public function globalSearch(Request $request)
                 'product_status_id' => ['nullable', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'product_status'))],
                 'formulation_id' => ['nullable', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'formulation'))],
                 'unit' => ['nullable', 'string', 'max:100'],
-                'order_number' => ['nullable', 'integer', 'min:0'],
                 'reorder_level' => ['nullable', 'integer', 'min:0'],
                 'previous_price' => ['nullable', 'numeric', 'min:0'],
                 'mrp' => ['required', 'numeric', 'min:0'],
@@ -171,7 +170,7 @@ public function globalSearch(Request $request)
     public function quickStore(Request $request)
     {
         $validated = $request->validate([
-            'category_id' => ['required', 'exists:categories,id'],
+            'company_id' => ['required', 'exists:companies,id'],
             'unit_sale_id' => ['required', Rule::exists('units', 'id')->where(fn ($query) => $query->whereIn('type', ['sales', 'both']))],
             'unit_purchase_id' => ['required', Rule::exists('units', 'id')->where(fn ($query) => $query->whereIn('type', ['purchase', 'both']))],
             'product_name' => ['required', 'string', 'max:255'],
@@ -186,8 +185,13 @@ public function globalSearch(Request $request)
             'description' => ['nullable', 'string'],
         ]);
 
+        $company = Company::query()->find($validated['company_id']);
+        $inputCcRate = (float) ($validated['cc_rate'] ?? 0);
+        $defaultCompanyCcRate = (float) ($company?->default_cc_rate ?? 0);
+        $ccRate = ($inputCcRate > 0 || $defaultCompanyCcRate <= 0) ? $inputCcRate : $defaultCompanyCcRate;
+
         $product = Product::query()->create([
-            'category_id' => $validated['category_id'],
+            'company_id' => $validated['company_id'],
             'sale_unit_id' => $validated['unit_sale_id'],
             'purchase_unit_id' => $validated['unit_purchase_id'],
             'name' => $validated['product_name'],
@@ -197,7 +201,7 @@ public function globalSearch(Request $request)
             'formulation_id' => $validated['formulation_id'] ?? null,
             'formulation' => DropdownOption::query()->find($validated['formulation_id'] ?? null)?->name,
             'mrp' => round((float) $validated['mrp'], 2),
-            'cc_rate' => round((float) ($validated['cc_rate'] ?? 0), 2),
+            'cc_rate' => round($ccRate, 2),
             'purchase_price' => round((float) ($validated['purchase_price'] ?? 0), 2),
             'reorder_level' => $validated['reorder_level'] ?? 10,
             'alert_quantity' => $validated['reorder_level'] ?? 10,
@@ -218,7 +222,7 @@ public function globalSearch(Request $request)
                 'id' => $product->id,
                 'text' => $product->display_name,
                 'mrp' => round((float) $product->mrp, 2),
-                'cc_rate' => round((float) $product->cc_rate, 2),
+                'cc_rate' => round((float) $product->effective_cc_rate, 2),
                 'purchase_price' => round((float) ($product->purchase_price ?? 0), 2),
             ],
         ]);
@@ -246,18 +250,17 @@ public function globalSearch(Request $request)
 
                 $array[$i]['sno'] = $i + 1;
                 $array[$i]['product_name'] = $row->display_name;
-                $array[$i]['category'] = $row->category?->name ?? '-';
+                $array[$i]['company'] = $row->company?->name ?? '-';
                 $array[$i]['stock_quantity'] = $currentStock;
                 $array[$i]['generic_name'] = $row->generic_name;
                 $array[$i]['formulation'] = $row->formulation_label ?: '-';
                 $array[$i]['unit'] = $row->unit ?: '-';
                 $array[$i]['reorder_level'] = $row->reorder_level ?? $row->alert_quantity ?? 10;
                 $array[$i]['mrp'] = money_value($row->mrp ?? 0);
-                $array[$i]['cc_rate'] = number_format((float) ($row->cc_rate ?? 0), 2) . '%';
+                $array[$i]['cc_rate'] = number_format((float) ($row->effective_cc_rate ?? 0), 2) . '%';
                 $array[$i]['description'] = $row->description;
                 $array[$i]['keywords'] = Str::limit($row->keywords, 25, '...');
                 $array[$i]['display_price'] =$price;
-                $array[$i]['order_number'] = $row->order_number;
                 // $array[$i]['stock_quantity'] = $row->stock_quantity;
                 // $array[$i]['sold_qty'] = $row->orderDetails->sum('qty');
                 // $array[$i]['available_qty'] = $row->stock_quantity - $row->orderDetails->sum('qty');
@@ -294,12 +297,10 @@ public function globalSearch(Request $request)
             if (!$totalrecs)
                 $totalrecs = 0;
         } catch (QueryException $e) {
-            dd($e);
             $array = [];
             $totalrecs = 0;
             $filtereddata = 0;
         } catch (Exception $e) {
-            dd($e);
             $array = [];
             $totalrecs = 0;
             $filtereddata = 0;
@@ -316,12 +317,12 @@ public function globalSearch(Request $request)
                 ->where('status', 'Y')
                 ->first();
 
-            $category = Category::where('id',$prevPost['category_id'])->where('status', 'Y')->first();
+            $company = Company::where('id', $prevPost['company_id'])->where('status', 'Y')->first();
 
 
             $data = [
                 'prevPost' => $prevPost,
-                'category'=>$category
+                'company' => $company
             ];
 
             $data['type'] = 'success';

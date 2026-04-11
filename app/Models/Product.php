@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Category;
+use App\Models\Company;
 use Exception;
 use App\Models\Common;
 use Illuminate\Support\Str;
@@ -26,10 +26,10 @@ class Product extends Model
         'discontinued' => 'Discontinued',
     ];
 
-    // One product belongs to one category.
-    public function category()
+    // One product belongs to one company.
+    public function company()
     {
-        return $this->belongsTo(Category::class, 'category_id');
+        return $this->belongsTo(Company::class, 'company_id');
     }
 
     // Product status is now driven from the shared dropdown options table.
@@ -90,6 +90,21 @@ class Product extends Model
         return (string) ($this->unit ?? 'Unit');
     }
 
+    // Company default CC rate acts as fallback when product-level CC rate was never set.
+    public function getEffectiveCcRateAttribute(): float
+    {
+        $productRate = round((float) ($this->cc_rate ?? 0), 2);
+        if ($productRate > 0) {
+            return $productRate;
+        }
+
+        if ($this->relationLoaded('company') && $this->company) {
+            return round((float) ($this->company->default_cc_rate ?? 0), 2);
+        }
+
+        return round((float) (Company::query()->whereKey($this->company_id)->value('default_cc_rate') ?? 0), 2);
+    }
+
     // Prefer the shared dropdown label, but keep the old string value as a fallback during migration.
     public function getProductStatusLabelAttribute(): string
     {
@@ -113,6 +128,11 @@ class Product extends Model
                 ? DropdownOption::query()->forAlias('formulation')->find($post['formulation_id'])
                 : null;
             $legacyProductStatus = static::legacyStatusCode($productStatus?->name ?? ($post['product_status'] ?? null));
+            $companyCcRate = (float) (Company::query()->find($post['company_id'] ?? null)?->default_cc_rate ?? 0);
+            $inputCcRate = (float) ($post['cc_rate'] ?? 0);
+            $resolvedCcRate = (!empty($post['id']) || $inputCcRate > 0 || $companyCcRate <= 0)
+                ? $inputCcRate
+                : $companyCcRate;
 
             $dataArray = [
                 'product_code' => $post['product_code'] ?? null,
@@ -120,14 +140,13 @@ class Product extends Model
                 'product_name' => $post['product_name'] ?? null,
                 'generic_name' => $post['generic_name'] ?? null,
                 'composition' => $post['composition'] ?? null,
-                'order_number' => $post['order_number'] ?? null,
                 'group_name' => $post['group_name'] ?? null,
                 'description' => $post['description'] ?? null,
                 'manufacturer' => $post['manufacturer'] ?? null,
                 'previous_price' => $post['previous_price'] ?? null,
                 'mrp' => $post['mrp'] ?? null,
-                'cc_rate' => $post['cc_rate'] ?? 0,
-                'category_id' => $post['category_id'] ?? null,
+                'cc_rate' => round($resolvedCcRate, 2),
+                'company_id' => $post['company_id'] ?? null,
                 'formulation' => $formulation?->name ?? ($post['formulation'] ?? null),
                 'formulation_id' => $formulation?->id,
                 'unit' => $post['unit_name'] ?? $post['unit'] ?? null,
@@ -178,9 +197,9 @@ class Product extends Model
         try {
             $get = $post;
             $sorting = !empty($get['order'][0]['dir']) ? $get['order'][0]['dir'] : 'asc';
-            $orderby = " order_number " . $sorting . "";
+            $orderby = " product_name " . $sorting . "";
             if (!empty($get['order'][0]['column']) && $get['order'][0]['column'] == 6) {
-                $orderby = " order_number " . $sorting . "";
+                $orderby = " product_name " . $sorting . "";
             }
             foreach ($get['columns'] as $key => $value) {
                 $get['columns'][$key]['search']['value'] = trim(strtolower(htmlspecialchars($value['search']['value'], ENT_QUOTES)));
@@ -195,8 +214,8 @@ class Product extends Model
             if ($get['columns'][1]['search']['value'])
                 $cond .= " and lower(product_name) like '%" . $get['columns'][1]['search']['value'] . "%'";
 
-            if (!empty($post['category_id'])) {
-                $cond .= " and category_id = '" . addslashes($post['category_id']) . "'";
+            if (!empty($post['company_id'])) {
+                $cond .= " and company_id = '" . addslashes($post['company_id']) . "'";
             }
 
             $limit = 15;
@@ -207,7 +226,7 @@ class Product extends Model
             }
 
             $query = Product::with([
-                'category',
+                'company',
                 'productBatches' => function ($batchQuery) {
                     $batchQuery->where('status', 'Y');
                 },
@@ -216,7 +235,7 @@ class Product extends Model
                 },
             ])
                 ->selectRaw("(SELECT COUNT(*) FROM products WHERE {$cond}) 
-               AS totalrecs, id, name, product_name, description, mrp, cc_rate, discount, slug, image, category_id, keywords, order_number, generic_name, display_price, manufacturer, formulation, formulation_id, product_status, product_status_id, unit, reorder_level, is_active")
+               AS totalrecs, id, name, product_name, description, mrp, cc_rate, discount, slug, image, company_id, keywords, generic_name, display_price, manufacturer, formulation, formulation_id, product_status, product_status_id, unit, reorder_level, is_active")
                 ->whereRaw($cond);
             if ($limit > -1) {
                 $result = $query->orderByRaw($orderby)->offset($offset)->limit($limit)->get();

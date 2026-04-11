@@ -79,12 +79,12 @@
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label">Company <span class="text-danger">*</span></label>
-                <select class="form-select js-select2" name="category_id" data-placeholder="Select Company" required>
+                <select class="form-select js-select2" name="company_id" data-placeholder="Select Company" required>
                     <option disabled selected>Select Company</option>
-                    @foreach ($category as $categoryProduct)
-                        <option value="{{ $categoryProduct->id }}" 
-                            {{ @$prevPost->category_id == $categoryProduct->id ? 'selected' : '' }}>
-                            {{ $categoryProduct->name }}
+                    @foreach ($companies as $company)
+                        <option value="{{ $company->id }}" data-default-cc-rate="{{ number_format((float) ($company->default_cc_rate ?? 0), 2, '.', '') }}"
+                            {{ @$prevPost->company_id == $company->id ? 'selected' : '' }}>
+                            {{ $company->name }}
                         </option>
                     @endforeach
                 </select>
@@ -213,12 +213,6 @@
                 <label class="form-label">Unit</label>
                 <input type="text" name="unit" class="form-control" placeholder="e.g. Strip"
                     value="{{ old('unit', $prevPost->unit ?? '') }}">
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Order Number</label>
-                <input type="number" name="order_number" class="form-control"
-                    value="{{ @$prevPost->order_number }}">
             </div>
 
             <div class="col-md-4">
@@ -396,12 +390,11 @@
 
         $('#productForm').validate({
             rules: {
-                category_id: "required",
+                company_id: "required",
                 product_name: "required",
                 unit_sale_id: "required",
                 unit_purchase_id: "required",
                 description: "required",
-                order_number: "required",
                 mrp: "required",
                 cc_rate: {
                     number: true,
@@ -414,7 +407,7 @@
                 }
             },
             messages: {
-                category_id: {
+                company_id: {
                     required: "Company is required."
                 },
                 unit_sale_id: {
@@ -425,9 +418,6 @@
                 },
                 product_name: {
                     required: "Product name is required."
-                },
-                order_number: {
-                    required: "Order is required."
                 },
                 image: {
                     required: "Thumbnail image is required."
@@ -483,5 +473,28 @@
                 });
             }
         });
+
+        var ccRateManuallyEdited = false;
+        var isEditMode = $('#id').val() !== '';
+        var $companySelect = $('#productForm select[name="company_id"]');
+        var $ccRateInput = $('#cc_rate');
+
+        $ccRateInput.on('input', function() {
+            ccRateManuallyEdited = true;
+        });
+
+        $companySelect.on('change', function() {
+            var selected = $(this).find('option:selected');
+            var defaultCcRate = parseFloat(selected.data('defaultCcRate'));
+            var safeCcRate = Number.isFinite(defaultCcRate) ? defaultCcRate : 0;
+
+            if (!ccRateManuallyEdited || !isEditMode || !$ccRateInput.val()) {
+                $ccRateInput.val(safeCcRate.toFixed(2));
+            }
+        });
+
+        if (!isEditMode) {
+            $companySelect.trigger('change');
+        }
     });
 </script>

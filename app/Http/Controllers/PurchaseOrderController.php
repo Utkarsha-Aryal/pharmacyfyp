@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\AccountTransaction;
 use App\Models\Batch;
-use App\Models\Category;
+use App\Models\Company;
 use App\Models\DropdownOption;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
@@ -67,7 +67,7 @@ class PurchaseOrderController extends Controller
             'reference' => PurchaseOrder::makeReference(),
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
             'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
-            'categories' => Category::query()->orderBy('name')->get(),
+            'companies' => Company::query()->orderBy('name')->get(),
             'units' => Unit::query()->orderBy('unit_name')->get(),
             'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
             'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
@@ -106,7 +106,7 @@ class PurchaseOrderController extends Controller
         $keyword = trim((string) $request->input('q'));
 
         $products = Product::query()
-            ->with('category')
+            ->with('company')
             ->where('status', 'Y')
             ->when($keyword !== '', function ($query) use ($keyword) {
                 $query->where(function ($builder) use ($keyword) {
@@ -120,7 +120,7 @@ class PurchaseOrderController extends Controller
             ->get()
             ->map(fn ($product) => [
                 'id' => $product->id,
-                'text' => $product->display_name . ($product->category?->name ? ' - ' . $product->category->name : ''),
+                'text' => $product->display_name . ($product->company?->name ? ' - ' . $product->company->name : ''),
             ])
             ->values();
 

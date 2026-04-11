@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\AccountTransaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class FinanceController extends Controller
 {
@@ -108,6 +110,79 @@ class FinanceController extends Controller
             'transactions' => $transactions,
             'summary' => $this->summarizeTransactions($transactions),
             'filters' => $request->only(['date_from', 'date_to']),
+        ]);
+    }
+
+    // Day book shows one date-range running balance for daily operation tracking.
+    public function dayBook(Request $request)
+    {
+        $filters = $this->dayBookFilters($request);
+        $transactions = $this->dayBookBaseQuery($filters)->get();
+        $openingBalance = $this->dayBookOpeningBalance($filters);
+        $summary = $this->dayBookSummary($transactions, $openingBalance);
+
+        return view('finance.day-book', [
+            'filters' => $filters,
+            'summary' => $summary,
+        ]);
+    }
+
+    // Return day book rows for the server-side table.
+    public function dayBookList(Request $request)
+    {
+        $filters = $this->dayBookFilters($request);
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 15);
+
+        $query = $this->dayBookBaseQuery($filters);
+        $recordsTotal = (clone $query)->count();
+
+        if ($keyword !== '') {
+            $query = $this->applyDayBookSearch($query, $keyword);
+        }
+
+        $transactions = $query->get();
+        $openingBalance = $this->dayBookOpeningBalance($filters);
+        $runningBalance = round($openingBalance, 2);
+
+        $transactions->each(function ($transaction) use (&$runningBalance) {
+            $delta = $transaction->entry_type === 'debit'
+                ? (float) $transaction->amount
+                : -(float) $transaction->amount;
+            $runningBalance = round($runningBalance + $delta, 2);
+            $transaction->running_balance = $runningBalance;
+        });
+
+        $recordsFiltered = $transactions->count();
+        $rows = $length > -1
+            ? $transactions->slice($start, $length)->values()
+            : $transactions->values();
+
+        $data = $rows->values()->map(function ($transaction, $index) use ($start) {
+            $reference = $transaction->reference_type
+                ? $transaction->reference_type . ' #' . $transaction->reference_id
+                : '-';
+            $entryClass = $transaction->entry_type === 'debit' ? 'bg-success' : 'bg-danger';
+
+            return [
+                'sno' => $start + $index + 1,
+                'date' => e($transaction->transaction_date_show),
+                'reference' => '<span class="badge bg-light text-dark border">' . e($reference) . '</span>',
+                'party' => '<div class="text-wrap">' . e($transaction->party_name) . '</div>',
+                'account' => '<div class="fw-semibold">' . e($transaction->account_label) . '</div><div class="small text-muted"><span class="badge ' . $entryClass . '">' . e($transaction->entry_label) . '</span></div>',
+                'narration' => '<div class="text-wrap small">' . e(Str::limit((string) ($transaction->notes ?: '-'), 100)) . '</div>',
+                'debit' => $transaction->entry_type === 'debit' ? money_value($transaction->amount) : '-',
+                'credit' => $transaction->entry_type === 'credit' ? money_value($transaction->amount) : '-',
+                'running_balance' => '<span class="fw-semibold">' . money_value($transaction->running_balance ?? 0) . '</span>',
+            ];
+        })->all();
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
         ]);
     }
 
@@ -228,6 +303,69 @@ class FinanceController extends Controller
             'bank' => round((float) $transactions->where('account_type', 'bank')->sum('amount'), 2),
             'receivable' => round((float) $transactions->where('account_type', 'receivable')->sum('amount'), 2),
             'payable' => round((float) $transactions->where('account_type', 'payable')->sum('amount'), 2),
+        ];
+    }
+
+    private function dayBookFilters(Request $request): array
+    {
+        $dateFrom = $request->input('date_from', now()->toDateString());
+
+        return [
+            'date_from' => $dateFrom,
+            'date_to' => $request->input('date_to', $dateFrom),
+            'account_type' => $request->input('account_type'),
+        ];
+    }
+
+    private function dayBookBaseQuery(array $filters): Builder
+    {
+        return AccountTransaction::query()
+            ->with(['creator', 'customer', 'supplier'])
+            ->whereDate('transaction_date', '>=', $filters['date_from'])
+            ->whereDate('transaction_date', '<=', $filters['date_to'])
+            ->when(!empty($filters['account_type']), function (Builder $builder) use ($filters) {
+                $builder->where('account_type', $filters['account_type']);
+            })
+            ->orderBy('transaction_date')
+            ->orderBy('id');
+    }
+
+    private function dayBookOpeningBalance(array $filters): float
+    {
+        return (float) AccountTransaction::query()
+            ->when(!empty($filters['account_type']), function (Builder $builder) use ($filters) {
+                $builder->where('account_type', $filters['account_type']);
+            })
+            ->whereDate('transaction_date', '<', $filters['date_from'])
+            ->selectRaw("COALESCE(SUM(CASE WHEN entry_type = 'debit' THEN amount ELSE -amount END), 0) as opening_balance")
+            ->value('opening_balance');
+    }
+
+    private function applyDayBookSearch(Builder $query, string $keyword): Builder
+    {
+        return $query->where(function (Builder $builder) use ($keyword) {
+            $builder->where('reference_type', 'like', '%' . $keyword . '%')
+                ->orWhere('notes', 'like', '%' . $keyword . '%')
+                ->orWhere('account_type', 'like', '%' . $keyword . '%')
+                ->orWhereHas('customer', function (Builder $customerQuery) use ($keyword) {
+                    $customerQuery->where('name', 'like', '%' . $keyword . '%');
+                })
+                ->orWhereHas('supplier', function (Builder $supplierQuery) use ($keyword) {
+                    $supplierQuery->where('supplier_name', 'like', '%' . $keyword . '%');
+                });
+        });
+    }
+
+    private function dayBookSummary(Collection $transactions, float $openingBalance): array
+    {
+        $totalDebit = round((float) $transactions->where('entry_type', 'debit')->sum('amount'), 2);
+        $totalCredit = round((float) $transactions->where('entry_type', 'credit')->sum('amount'), 2);
+
+        return [
+            'opening_balance' => $openingBalance,
+            'debit' => $totalDebit,
+            'credit' => $totalCredit,
+            'closing_balance' => round($openingBalance + $totalDebit - $totalCredit, 2),
         ];
     }
 }

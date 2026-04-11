@@ -90,10 +90,10 @@
                     </div>
                     <div class="d-flex my-xl-auto right-content gap-2">
                         <form class="d-flex gap-2 align-items-end" method="GET">
-                            <select name="category_id" id="product_category_id" class="form-select js-select2" data-placeholder="All companies" data-allow-clear="1" style="min-width: 220px;">
+                            <select name="company_id" id="product_company_id" class="form-select js-select2" data-placeholder="All companies" data-allow-clear="1" style="min-width: 220px;">
                                 <option value="">All Companies</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}" @selected(request('category_id') == $category->id)>{{ $category->name }}</option>
+                                @foreach ($companies as $company)
+                                    <option value="{{ $company->id }}" @selected(request('company_id') == $company->id)>{{ $company->name }}</option>
                                 @endforeach
                             </select>
                             <button class="btn btn-primary btn-sm icon-only-btn" type="submit" title="Filter" aria-label="Filter">
@@ -144,7 +144,7 @@
         'showQuickDropdownOption' => auth()->user()->can('settings.manage'),
         'showQuickUnit' => auth()->user()->can('inventory.unit'),
         'units' => $units,
-        'categories' => $categories,
+        'companies' => $companies,
         'formulations' => $formulations,
         'productStatuses' => $productStatuses,
         'saleUnits' => $saleUnits,
@@ -192,7 +192,7 @@
                         data: "product_name"
                     },
                     {
-                        data: "category"
+                        data: "company"
                     },
                     {
                         data: "formulation"
@@ -222,7 +222,7 @@
                 ajaxUrl: '{{route('admin.product.list')}}',
                 ajaxData: function(d) {
                     d.type = $('#trashed_file').is(':checked') == true ? 'trashed' : 'nottrashed';
-                    d.category_id = $('#product_category_id').val() || '';
+                    d.company_id = $('#product_company_id').val() || '';
                 }
             });
 

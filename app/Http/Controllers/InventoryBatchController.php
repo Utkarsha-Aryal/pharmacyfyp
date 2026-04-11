@@ -98,12 +98,47 @@ class InventoryBatchController extends Controller
 
         if (!empty($validated['id'])) {
             $batch = Batch::query()->findOrFail($validated['id']);
+            $oldAvailable = (int) $batch->quantity_available;
             $batch->update($batchData);
+
+            $diff = (int) $batch->quantity_available - $oldAvailable;
+            if ($diff !== 0) {
+                record_stock_movement([
+                    'movement_date' => now()->toDateString(),
+                    'product_id' => $batch->product_id,
+                    'batch_id' => $batch->id,
+                    'movement_type' => $diff > 0 ? 'adjustment_in' : 'adjustment_out',
+                    'quantity_in' => $diff > 0 ? abs($diff) : 0,
+                    'quantity_out' => $diff < 0 ? abs($diff) : 0,
+                    'source_type' => $diff > 0 ? 'Batch Update' : 'Inventory',
+                    'destination_type' => $diff > 0 ? 'Inventory' : 'Batch Update',
+                    'reference_type' => 'Batch',
+                    'reference_id' => $batch->id,
+                    'notes' => 'Manual batch quantity update from inventory batch screen.',
+                    'created_by' => $request->user()->id,
+                ]);
+            }
 
             return back()->with('success', 'Batch updated successfully.');
         }
 
-        Batch::create($batchData);
+        $batch = Batch::create($batchData);
+        if ((int) $batch->quantity_available > 0) {
+            record_stock_movement([
+                'movement_date' => now()->toDateString(),
+                'product_id' => $batch->product_id,
+                'batch_id' => $batch->id,
+                'movement_type' => 'purchase_in',
+                'quantity_in' => (int) $batch->quantity_available,
+                'source_type' => 'Supplier',
+                'source_id' => $batch->supplier_id,
+                'destination_type' => 'Inventory',
+                'reference_type' => 'Batch',
+                'reference_id' => $batch->id,
+                'notes' => 'Manual batch entry added to inventory.',
+                'created_by' => $request->user()->id,
+            ]);
+        }
 
         return back()->with('success', 'Batch added successfully.');
     }

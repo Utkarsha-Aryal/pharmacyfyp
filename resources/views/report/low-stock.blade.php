@@ -74,7 +74,7 @@
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td>{{ $item->product_name }}</td>
-                                    <td>{{ $item->category_name ?? '-' }}</td>
+                                    <td>{{ $item->company_name ?? '-' }}</td>
                                     <td>{{ $item->reorder_level }}</td>
                                     <td>{{ $item->current_stock }}</td>
                                     <td>{{ max(0, (int) $item->reorder_level - (int) $item->current_stock) }}</td>

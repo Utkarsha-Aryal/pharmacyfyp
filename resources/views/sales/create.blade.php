@@ -253,7 +253,7 @@
             'showQuickPaymentMode' => auth()->user()->can('settings.manage'),
             'showQuickProduct' => auth()->user()->can('inventory.product'),
             'showQuickUnit' => auth()->user()->can('inventory.unit'),
-            'categories' => $categories,
+            'companies' => $companies,
             'units' => $units,
             'partyTypes' => $partyTypes,
             'showQuickPartyType' => auth()->user()->can('settings.manage'),

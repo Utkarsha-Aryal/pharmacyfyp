@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\DropdownOption;
 use App\Models\PartyType;
@@ -16,10 +16,10 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ImportController extends Controller
 {
-    // Download the category sample file.
-    public function sampleCategories()
+    // Download the company sample file.
+    public function sampleCompanies()
     {
-        return response()->download(storage_path('app/samples/categories-sample.csv'));
+        return response()->download(storage_path('app/samples/companies-sample.csv'));
     }
 
     // Download the unit sample file.
@@ -55,7 +55,7 @@ class ImportController extends Controller
 
         $sheetRows = $this->sheetRows($validated['file']);
         $summary = ['imported' => 0, 'updated' => 0, 'failed' => 0, 'errors' => []];
-        $defaultCategory = Category::query()->orderBy('id')->first();
+        $defaultCompany = Company::query()->orderBy('id')->first();
         $defaultUnit = Unit::query()->orderBy('id')->first();
 
         foreach ($sheetRows as $rowIndex => $row) {
@@ -71,9 +71,11 @@ class ImportController extends Controller
                 ]);
                 $validator->validate();
 
-                $category = !empty($data['category_name'])
-                    ? Category::query()->where('name', $data['category_name'])->first()
-                    : $defaultCategory;
+                $companyName = $data['company_name'] ?? null;
+                $company = !empty($companyName)
+                    ? Company::query()->where('name', $companyName)->first()
+                    : $defaultCompany;
+                $inputCcRate = (float) ($data['cc_rate'] ?? 0);
                 $product = Product::query()->where('product_code', $data['product_code'])->first();
                 $payload = [
                     'product_code' => $data['product_code'],
@@ -81,10 +83,10 @@ class ImportController extends Controller
                     'product_name' => $data['product_name'],
                     'generic_name' => $data['generic_name'] ?? null,
                     'mrp' => $data['mrp'] ?? 0,
-                    'cc_rate' => $data['cc_rate'] ?? 0,
+                    'cc_rate' => $inputCcRate > 0 ? $inputCcRate : (float) ($company?->default_cc_rate ?? 0),
                     'reorder_level' => $data['reorder_level'] ?? 10,
                     'alert_quantity' => $data['reorder_level'] ?? 10,
-                    'category_id' => $category?->id,
+                    'company_id' => $company?->id,
                     'sale_unit_id' => $defaultUnit?->id,
                     'purchase_unit_id' => $defaultUnit?->id,
                     'unit' => $data['unit'] ?? ($defaultUnit?->unit_name ?: 'Unit'),
@@ -218,8 +220,8 @@ class ImportController extends Controller
         return back()->with('import_summary', $summary);
     }
 
-    // Import category rows in bulk and update by category name.
-    public function importCategories(Request $request)
+    // Import company rows in bulk and update by company name.
+    public function importCompanies(Request $request)
     {
         $validated = $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,csv', 'max:5120'],
@@ -234,24 +236,24 @@ class ImportController extends Controller
 
                 $validator = Validator::make($data, [
                     'name' => ['required', 'string', 'max:255'],
-                    'order_number' => ['nullable', 'integer', 'min:0'],
+                    'company_type' => ['nullable', 'in:domestic,foreign'],
+                    'default_cc_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
                 ]);
                 $validator->validate();
 
-                $category = Category::query()->where('name', $data['name'])->first();
+                $company = Company::query()->where('name', $data['name'])->first();
                 $payload = [
                     'name' => $data['name'],
-                    'order_number' => $data['order_number'] ?? 0,
-                    'description' => $data['description'] ?? null,
-                    'image' => $category?->image ?? null,
+                    'company_type' => $data['company_type'] ?? ($company?->company_type ?? 'domestic'),
+                    'default_cc_rate' => round((float) ($data['default_cc_rate'] ?? ($company?->default_cc_rate ?? 0)), 2),
                     'status' => 'Y',
                 ];
 
-                if ($category) {
-                    $category->update($payload);
+                if ($company) {
+                    $company->update($payload);
                     $summary['updated']++;
                 } else {
-                    Category::query()->create($payload);
+                    Company::query()->create($payload);
                     $summary['imported']++;
                 }
             } catch (\Throwable $throwable) {

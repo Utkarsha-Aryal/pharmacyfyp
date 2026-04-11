@@ -28,10 +28,9 @@ return new class extends Migration
             $table->unsignedBigInteger('product_status_id')->nullable();
             $table->string('slug')->nullable();
             $table->text('keywords')->nullable();
-            $table->integer('order_number')->nullable();
             $table->integer('alert_quantity')->nullable();
             $table->integer('tab_per_quantity')->nullable();
-            $table->foreignId('category_id')->constrained('categories', 'id');
+            $table->foreignId('company_id')->constrained('companies', 'id');
             $table->string('formulation')->nullable();
             $table->unsignedBigInteger('formulation_id')->nullable();
             $table->string('unit')->nullable();

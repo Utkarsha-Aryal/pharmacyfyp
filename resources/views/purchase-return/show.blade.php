@@ -39,7 +39,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label text-muted">Purchase Bill</label>
-                        <div class="fw-semibold">{{ $purchaseReturn->purchase?->reference?->reference_no ?: ('PUR-' . $purchaseReturn->purchase_id) }}</div>
+                        <div class="fw-semibold">{{ $purchaseReturn->purchase?->reference?->reference_no ?: ($purchaseReturn->purchase_id ? ('PUR-' . $purchaseReturn->purchase_id) : 'Manual / Unknown Bill') }}</div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label text-muted">Return Date</label>

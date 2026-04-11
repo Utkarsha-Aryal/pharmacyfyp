@@ -1,5 +1,5 @@
 @php
-    $categories = $categories ?? collect();
+    $companies = $companies ?? collect();
     $units = $units ?? collect();
     $saleUnits = $saleUnits ?? $units->whereIn('type', ['sales', 'both'])->values();
     $purchaseUnits = $purchaseUnits ?? $units->whereIn('type', ['purchase', 'both'])->values();
@@ -368,10 +368,10 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Company</label>
-                                <select name="category_id" class="form-select js-select2" data-placeholder="Select company" required>
+                                <select name="company_id" class="form-select js-select2" data-placeholder="Select company" required>
                                     <option value="">Select company</option>
-                                    @foreach ($categories as $category)
-                                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                    @foreach ($companies as $company)
+                                        <option value="{{ $company->id }}" data-default-cc-rate="{{ number_format((float) ($company->default_cc_rate ?? 0), 2, '.', '') }}">{{ $company->name }}</option>
                                     @endforeach
                                 </select>
                             </div>

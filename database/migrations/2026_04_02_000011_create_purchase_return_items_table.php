@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('purchase_return_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('purchase_return_id')->constrained('purchase_returns')->cascadeOnDelete();
-            $table->foreignId('purchase_item_id')->constrained('purchase_items')->restrictOnDelete();
+            $table->foreignId('purchase_item_id')->nullable()->constrained('purchase_items')->restrictOnDelete();
             $table->foreignId('batch_id')->constrained('batches')->restrictOnDelete();
             $table->foreignId('product_id')->constrained('products')->restrictOnDelete();
             $table->integer('return_qty');

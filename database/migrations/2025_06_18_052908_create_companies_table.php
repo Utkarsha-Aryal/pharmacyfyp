@@ -11,15 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('categories', function (Blueprint $table) {
+        Schema::create('companies', function (Blueprint $table) {
             $table->id();
-            $table->timestamps();
             $table->string('name');
-            $table->string('image', 255)->nullable();
+            $table->enum('company_type', ['domestic', 'foreign'])->default('domestic');
+            $table->decimal('default_cc_rate', 8, 2)->default(0);
             $table->enum('status', ['Y', 'N'])->default('Y');
             $table->string('slug')->nullable();
-            $table->integer('order_number')->nullable();
-
+            $table->timestamps();
         });
     }
 
@@ -28,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('categories');
+        Schema::dropIfExists('companies');
     }
 };

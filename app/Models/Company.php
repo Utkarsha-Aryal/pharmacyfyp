@@ -3,46 +3,40 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\Common;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Str;
 
-class Category extends Model
+class Company extends Model
 {
-        use HasFactory;
+    use HasFactory;
+
+    protected $guarded = [];
 
     public function products()
-{
-    return $this->hasMany(Product::class, 'category_id');
-}
+    {
+        return $this->hasMany(Product::class, 'company_id');
+    }
 
-    
-         public static function saveData($post)
+    public static function saveData($post)
     {
         try {
             $dataArray = [
                 'name' => $post['name'],
-                'order_number' => $post['order_number'],
+                'company_type' => $post['company_type'] ?? 'domestic',
+                'default_cc_rate' => round((float) ($post['default_cc_rate'] ?? 0), 2),
                 'slug' => Str::slug($post['name']) . '-' . Str::random(20) . '-' . time(),
             ];
-            if (!empty($post['image'])) {
-                $fileName = Common::uploadFile('category', $post['image']);
-                if (!$fileName) {
-                    return false;
-                }
-                $dataArray['image'] = $fileName;
-            }
+
             if (!empty($post['id'])) {
                 $dataArray['updated_at'] = Carbon::now();
-                if (!Category::where('id', $post['id'])->update($dataArray)) {
+                if (!Company::where('id', $post['id'])->update($dataArray)) {
                     throw new Exception("Couldn't update Records", 1);
                 }
             } else {
                 $dataArray['created_at'] = Carbon::now();
-                if (!Category::insert($dataArray)) {
+                if (!Company::insert($dataArray)) {
                     throw new Exception("Couldn't Save Records", 1);
                 }
             }
@@ -52,14 +46,14 @@ class Category extends Model
         }
     }
 
-     public static function list($post)
+    public static function list($post)
     {
         try {
             $get = $post;
             $sorting = !empty($get['order'][0]['dir']) ? $get['order'][0]['dir'] : 'asc';
-            $orderby = " order_number " . $sorting . "";
-            if (!empty($get['order'][0]['column']) && $get['order'][0]['column'] == 6) {
-                $orderby = " order_number " . $sorting . "";
+            $orderby = " name " . $sorting . "";
+            if (!empty($get['order'][0]['column']) && (int) $get['order'][0]['column'] === 2) {
+                $orderby = " company_type " . $sorting . "";
             }
             foreach ($get['columns'] as $key => $value) {
                 $get['columns'][$key]['search']['value'] = trim(strtolower(htmlspecialchars($value['search']['value'], ENT_QUOTES)));
@@ -71,8 +65,13 @@ class Category extends Model
                 $cond = " status = 'N'";
             }
 
-            if ($get['columns'][1]['search']['value'])
+            if ($get['columns'][1]['search']['value']) {
                 $cond .= " and lower(name) like '%" . $get['columns'][1]['search']['value'] . "%'";
+            }
+
+            if (!empty($get['columns'][2]['search']['value'])) {
+                $cond .= " and lower(company_type) like '%" . $get['columns'][2]['search']['value'] . "%'";
+            }
 
             $limit = 15;
             $offset = 0;
@@ -81,7 +80,7 @@ class Category extends Model
                 $offset = $get["start"];
             }
 
-            $query = Category::selectRaw("(SELECT count(*) FROM categories WHERE {$cond}) AS totalrecs, name,image, id as id,order_number")
+            $query = Company::selectRaw("(SELECT count(*) FROM companies WHERE {$cond}) AS totalrecs, id, name, company_type, default_cc_rate")
                 ->whereRaw($cond);
 
             if ($limit > -1) {
@@ -103,14 +102,14 @@ class Category extends Model
         }
     }
 
-     public static function restoreData($post)
+    public static function restoreData($post)
     {
         try {
             $updateArray = [
                 'status' => 'Y',
                 'updated_at' => Carbon::now(),
             ];
-            if (!Category::where(['id' => $post['id']])->update($updateArray)) {
+            if (!Company::where(['id' => $post['id']])->update($updateArray)) {
                 throw new Exception("Couldn't Restore Data. Please try again", 1);
             }
             return true;
@@ -118,5 +117,4 @@ class Category extends Model
             throw $e;
         }
     }
-
 }

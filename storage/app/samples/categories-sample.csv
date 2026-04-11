@@ -1,4 +1,0 @@
-notes,Required columns: name,order_number. Optional: description. Example rows below.
-name,order_number,description
-General Goods,1,General items and common stock
-Office Supplies,2,Stationery and office materials

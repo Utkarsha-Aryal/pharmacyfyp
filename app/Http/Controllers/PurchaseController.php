@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Category;
+use App\Models\Company;
 use App\Models\DropdownOption;
 use App\Models\Product;
 use App\Models\ProductBatch;
@@ -102,7 +102,7 @@ class PurchaseController extends Controller
             'reference' => PurchaseReference::makeNewReference(),
             'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
             'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
-            'categories' => Category::query()->orderBy('name')->get(),
+            'companies' => Company::query()->orderBy('name')->get(),
             'units' => Unit::query()->orderBy('unit_name')->get(),
             'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
         ]);
@@ -142,7 +142,7 @@ class PurchaseController extends Controller
         $keyword = trim((string) $request->input('q'));
 
         $products = Product::query()
-            ->with('category')
+            ->with('company')
             ->where('status', 'Y')
             ->when($keyword !== '', function ($query) use ($keyword) {
                 $query->where(function ($builder) use ($keyword) {
@@ -157,7 +157,7 @@ class PurchaseController extends Controller
             ->map(function ($product) {
                 return [
                     'id' => $product->id,
-                    'text' => $product->product_name . ($product->category?->name ? ' - ' . $product->category->name : ''),
+                    'text' => $product->product_name . ($product->company?->name ? ' - ' . $product->company->name : ''),
                 ];
             })
             ->values();
@@ -180,7 +180,7 @@ class PurchaseController extends Controller
             'id' => $product->id,
             'name' => $product->display_name,
             'mrp' => round((float) ($product->mrp ?? 0), 2),
-            'cc_rate' => round((float) ($product->cc_rate ?? 0), 2),
+            'cc_rate' => round((float) ($product->effective_cc_rate ?? 0), 2),
             'purchase_price' => round((float) ($product->purchase_price ?? 0), 2),
         ]);
     }

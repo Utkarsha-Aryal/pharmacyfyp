@@ -50,7 +50,7 @@
             <td width="4%"></td>
             <td class="info-box">
                 <strong>Document Info</strong><br>
-                Original Purchase Bill: {{ $purchaseReturn->purchase?->reference?->reference_no ?: ('PUR-' . $purchaseReturn->purchase_id) }}<br>
+                Original Purchase Bill: {{ $purchaseReturn->purchase?->reference?->reference_no ?: ($purchaseReturn->purchase_id ? ('PUR-' . $purchaseReturn->purchase_id) : 'Manual / Unknown Bill') }}<br>
                 Date: {{ $purchaseReturn->return_date_show }}<br>
                 Notes: {{ $purchaseReturn->notes ?: '-' }}
             </td>

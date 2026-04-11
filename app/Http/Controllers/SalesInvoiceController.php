@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\AccountTransaction;
 use App\Models\Batch;
-use App\Models\Category;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\DropdownOption;
 use App\Models\PartyType;
@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -49,6 +50,103 @@ class SalesInvoiceController extends Controller
                     ? (clone $summaryQuery)->where('sale_type_id', $creditSaleTypeId)->count()
                     : (clone $summaryQuery)->where('sale_type', 'credit')->count(),
             ],
+        ]);
+    }
+
+    // Show the sales return manager with summary cards and filters.
+    public function returnsIndex(Request $request)
+    {
+        $filters = $request->only(['customer_id', 'product_id', 'date_from', 'date_to']);
+        $summaryQuery = $this->applySalesReturnFilters(SalesReturn::query(), $filters);
+
+        return view('sales.returns.index', [
+            'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
+            'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
+            'filters' => $filters,
+            'summary' => [
+                'count' => (clone $summaryQuery)->count(),
+                'refund_total' => round((float) (clone $summaryQuery)->sum('refund_amount'), 2),
+                'this_month' => round((float) (clone $summaryQuery)
+                    ->whereMonth('return_date', now()->month)
+                    ->whereYear('return_date', now()->year)
+                    ->sum('refund_amount'), 2),
+                'today' => (clone $summaryQuery)->whereDate('return_date', now()->toDateString())->count(),
+            ],
+        ]);
+    }
+
+    // Return sales return rows for the manager table.
+    public function returnsList(Request $request)
+    {
+        $filters = $request->only(['customer_id', 'product_id', 'date_from', 'date_to']);
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 10);
+
+        $query = SalesReturn::query()
+            ->with(['invoice.customer', 'product', 'batch', 'creator'])
+            ->orderByDesc('return_date')
+            ->orderByDesc('id');
+
+        $recordsTotal = (clone $query)->count();
+        $query = $this->applySalesReturnFilters($query, $filters);
+
+        if ($keyword !== '') {
+            $query->where(function (Builder $builder) use ($keyword) {
+                $builder->where('reason', 'like', '%' . $keyword . '%')
+                    ->orWhere('notes', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('invoice', function (Builder $invoiceQuery) use ($keyword) {
+                        $invoiceQuery->where('reference', 'like', '%' . $keyword . '%')
+                            ->orWhereHas('customer', function (Builder $customerQuery) use ($keyword) {
+                                $customerQuery->where('name', 'like', '%' . $keyword . '%');
+                            });
+                    })
+                    ->orWhereHas('product', function (Builder $productQuery) use ($keyword) {
+                        $productQuery->where('product_name', 'like', '%' . $keyword . '%')
+                            ->orWhere('generic_name', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('batch', function (Builder $batchQuery) use ($keyword) {
+                        $batchQuery->where('batch_number', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $returns = $query->get();
+        $data = [];
+
+        foreach ($returns as $index => $return) {
+            $invoiceLabel = $return->invoice?->reference ?: ('Invoice #' . $return->sales_invoice_id);
+            $customerName = $return->invoice?->customer?->name ?: 'Walk-in Customer';
+            $productLabel = $return->product?->display_name ?? '-';
+            $batchLabel = $return->batch?->batch_number ?: '-';
+            $action = auth()->user()->can('sales.invoice')
+                ? '<div class="table-action-group"><a href="' . route('admin.sales.show', $return->sales_invoice_id) . '#returnModal" class="btn btn-sm btn-outline-primary table-action-btn" title="Open Invoice" aria-label="Open Invoice"><i class="fa-solid fa-eye"></i></a></div>'
+                : '<span class="text-muted">-</span>';
+
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'date' => $return->return_date_show,
+                'invoice' => '<div class="fw-semibold">' . e($invoiceLabel) . '</div><div class="small text-muted">Return #' . (int) $return->id . '</div>',
+                'customer' => '<div class="text-wrap">' . e($customerName) . '</div>',
+                'product' => '<div class="fw-semibold text-wrap">' . e($productLabel) . '</div><div class="small text-muted">Batch: ' . e($batchLabel) . '</div>',
+                'qty' => '<span class="badge bg-info text-dark">' . e(number_format((float) $return->quantity, 0)) . '</span>',
+                'refund' => money_value($return->refund_amount),
+                'reason' => '<div class="text-wrap small">' . e(Str::limit((string) ($return->reason ?: $return->notes ?: '-'), 90)) . '</div>',
+                'action' => $action,
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
         ]);
     }
 
@@ -110,11 +208,11 @@ class SalesInvoiceController extends Controller
 
         foreach ($invoices as $index => $invoice) {
             $statusClass = $invoice->status === 'cancelled'
-                ? 'report-badge-danger'
-                : ($invoice->status === 'draft' ? 'report-badge-warning' : 'report-badge-success');
+                ? 'bg-danger'
+                : ($invoice->status === 'draft' ? 'bg-warning text-dark' : 'bg-success');
             $paymentClass = $invoice->payment_status === 'paid'
-                ? 'report-badge-success'
-                : ($invoice->payment_status === 'partial' ? 'report-badge-warning' : 'report-badge-danger');
+                ? 'bg-success'
+                : ($invoice->payment_status === 'partial' ? 'bg-warning text-dark' : 'bg-danger');
 
             $action = '<div class="table-action-group">';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Invoice" aria-label="View Invoice"><i class="fa-solid fa-eye"></i></a>';
@@ -128,9 +226,9 @@ class SalesInvoiceController extends Controller
                 'reference' => e($invoice->reference),
                 'customer' => e($invoice->customer?->name ?: '-'),
                 'date' => e($invoice->invoice_date_show),
-                'sale_type' => '<span class="report-badge report-badge-info">' . e($invoice->sale_type_label) . '</span>',
-                'status' => '<span class="report-badge ' . $statusClass . '">' . e($invoice->status_label) . '</span>',
-                'payment' => '<span class="report-badge ' . $paymentClass . '">' . e($invoice->payment_label) . '</span>',
+                'sale_type' => '<span class="badge bg-info text-dark">' . e($invoice->sale_type_label) . '</span>',
+                'status' => '<span class="badge ' . $statusClass . '">' . e($invoice->status_label) . '</span>',
+                'payment' => '<span class="badge ' . $paymentClass . '">' . e($invoice->payment_label) . '</span>',
                 'total' => money_value($invoice->total_amount),
                 'due' => money_value($invoice->due_amount),
                 'action' => $action,
@@ -155,7 +253,7 @@ class SalesInvoiceController extends Controller
             'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
             'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
             'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
-            'categories' => Category::query()->orderBy('name')->get(),
+            'companies' => Company::query()->orderBy('name')->get(),
             'units' => Unit::query()->orderBy('unit_name')->get(),
             'saleTypes' => DropdownOption::query()->forAlias('sales_type')->active()->orderBy('name')->get(),
         ]);
@@ -193,7 +291,7 @@ class SalesInvoiceController extends Controller
         $keyword = trim((string) $request->input('q'));
 
         $products = Product::query()
-            ->with('category')
+            ->with('company')
             ->where('status', 'Y')
             ->when($keyword !== '', function ($query) use ($keyword) {
                 $query->where(function (Builder $builder) use ($keyword) {
@@ -207,7 +305,7 @@ class SalesInvoiceController extends Controller
             ->get()
             ->map(fn ($product) => [
                 'id' => $product->id,
-                'text' => $product->display_name . ($product->category?->name ? ' - ' . $product->category->name : ''),
+                'text' => $product->display_name . ($product->company?->name ? ' - ' . $product->company->name : ''),
             ])
             ->values();
 
@@ -222,7 +320,7 @@ class SalesInvoiceController extends Controller
         ]);
 
         $product = Product::query()
-            ->with(['category', 'batches' => function ($query) {
+            ->with(['company', 'batches' => function ($query) {
                 $query->where('is_active', true);
             }])
             ->findOrFail($validated['product_id']);
@@ -236,7 +334,7 @@ class SalesInvoiceController extends Controller
             'name' => $product->display_name,
             'price' => $this->resolveSalePrice($product),
             'mrp' => round((float) ($product->mrp ?? 0), 2),
-            'cc_rate' => round((float) ($product->cc_rate ?? 0), 2),
+            'cc_rate' => round((float) ($product->effective_cc_rate ?? 0), 2),
             'stock' => (int) $activeBatches->sum('quantity_available'),
             'batches' => $activeBatches->map(function ($batch) {
                 return [
@@ -315,7 +413,7 @@ class SalesInvoiceController extends Controller
                     $freeQuantity = (float) ($row['free_qty'] ?? 0);
                     $unitPrice = (float) $row['unit_price'];
                     $mrp = (float) ($row['mrp'] ?? 0);
-                    $ccRate = (float) ($row['cc_rate'] ?? $product->cc_rate ?? 0);
+                    $ccRate = (float) ($row['cc_rate'] ?? $product->effective_cc_rate ?? 0);
                     $discountPercent = (float) ($row['discount_percent'] ?? 0);
                     $stockQuantity = $quantity + $freeQuantity;
                     $batch = !empty($row['batch_id'])
@@ -344,6 +442,21 @@ class SalesInvoiceController extends Controller
                         'discount_amount' => $lineDiscount,
                         'free_goods_value' => $freeGoodsValue,
                         'subtotal' => $lineTotal,
+                    ]);
+
+                    record_stock_movement([
+                        'movement_date' => $validated['invoice_date'],
+                        'product_id' => $product->id,
+                        'batch_id' => $batch->id,
+                        'movement_type' => 'sales_out',
+                        'quantity_out' => (int) $stockQuantity,
+                        'source_type' => 'Inventory',
+                        'destination_type' => 'Customer',
+                        'destination_id' => $validated['customer_id'] ?? null,
+                        'reference_type' => 'SalesInvoice',
+                        'reference_id' => $invoice->id,
+                        'notes' => 'Stock issued from sales invoice.',
+                        'created_by' => $request->user()->id,
                     ]);
 
                     $subtotal += $lineBase;
@@ -537,22 +650,30 @@ class SalesInvoiceController extends Controller
                 ->findOrFail($validated['sales_invoice_item_id']);
 
             $returnQty = (float) $validated['quantity'];
-            if ($returnQty > (float) $invoiceItem->quantity) {
+            $alreadyReturnedQty = (float) SalesReturn::query()
+                ->where('sales_invoice_item_id', $invoiceItem->id)
+                ->sum('quantity');
+            $maxReturnableQty = max(0, (float) $invoiceItem->quantity - $alreadyReturnedQty);
+
+            if ($returnQty > $maxReturnableQty) {
                 throw ValidationException::withMessages([
-                    'quantity' => 'Return quantity cannot be more than sold quantity.',
+                    'quantity' => 'Return quantity cannot be more than remaining returnable quantity.',
                 ]);
             }
 
+            $discountedUnitRate = (float) $invoiceItem->quantity > 0
+                ? round((float) $invoiceItem->subtotal / (float) $invoiceItem->quantity, 2)
+                : round((float) $invoiceItem->unit_price, 2);
             $refundAmount = isset($validated['refund_amount'])
                 ? round((float) $validated['refund_amount'], 2)
-                : round($returnQty * (float) $invoiceItem->unit_price, 2);
+                : round($returnQty * $discountedUnitRate, 2);
 
             if ($invoiceItem->batch) {
                 $invoiceItem->batch->quantity_available = round((float) $invoiceItem->batch->quantity_available + $returnQty, 2);
                 $invoiceItem->batch->save();
             }
 
-            SalesReturn::create([
+            $salesReturn = SalesReturn::create([
                 'sales_invoice_id' => $salesInvoice->id,
                 'sales_invoice_item_id' => $invoiceItem->id,
                 'product_id' => $invoiceItem->product_id,
@@ -565,6 +686,21 @@ class SalesInvoiceController extends Controller
                 'notes' => $validated['notes'] ?? null,
             ]);
 
+            record_stock_movement([
+                'movement_date' => now()->toDateString(),
+                'product_id' => $invoiceItem->product_id,
+                'batch_id' => $invoiceItem->batch_id,
+                'movement_type' => 'sales_return_in',
+                'quantity_in' => (int) $returnQty,
+                'source_type' => 'Customer',
+                'source_id' => $salesInvoice->customer_id,
+                'destination_type' => 'Inventory',
+                'reference_type' => 'SalesReturn',
+                'reference_id' => $salesReturn->id,
+                'notes' => 'Stock returned from sales invoice.',
+                'created_by' => $request->user()->id,
+            ]);
+
             if ($salesInvoice->customer_id) {
                 $customer = Customer::query()->lockForUpdate()->findOrFail($salesInvoice->customer_id);
                 $customer->current_balance = max(0, round((float) $customer->current_balance - $refundAmount, 2));
@@ -574,7 +710,7 @@ class SalesInvoiceController extends Controller
             record_account_transaction([
                 'transaction_date' => now()->toDateString(),
                 'reference_type' => 'SalesReturn',
-                'reference_id' => $salesInvoice->id,
+                'reference_id' => $salesReturn->id,
                 'party_type' => $salesInvoice->customer_id ? 'customer' : null,
                 'party_id' => $salesInvoice->customer_id,
                 'entry_type' => 'debit',
@@ -587,7 +723,7 @@ class SalesInvoiceController extends Controller
             record_account_transaction([
                 'transaction_date' => now()->toDateString(),
                 'reference_type' => 'SalesReturn',
-                'reference_id' => $salesInvoice->id,
+                'reference_id' => $salesReturn->id,
                 'party_type' => $salesInvoice->customer_id ? 'customer' : null,
                 'party_id' => $salesInvoice->customer_id,
                 'entry_type' => 'credit',
@@ -665,6 +801,25 @@ class SalesInvoiceController extends Controller
         return 0.00;
     }
 
+    private function applySalesReturnFilters(Builder $query, array $filters): Builder
+    {
+        return $query
+            ->when(!empty($filters['customer_id']), function (Builder $builder) use ($filters) {
+                $builder->whereHas('invoice', function (Builder $invoiceQuery) use ($filters) {
+                    $invoiceQuery->where('customer_id', $filters['customer_id']);
+                });
+            })
+            ->when(!empty($filters['product_id']), function (Builder $builder) use ($filters) {
+                $builder->where('product_id', $filters['product_id']);
+            })
+            ->when(!empty($filters['date_from']), function (Builder $builder) use ($filters) {
+                $builder->whereDate('return_date', '>=', $filters['date_from']);
+            })
+            ->when(!empty($filters['date_to']), function (Builder $builder) use ($filters) {
+                $builder->whereDate('return_date', '<=', $filters['date_to']);
+            });
+    }
+
     // Keep invoice loading in one place so show, print and pdf use the same data.
     private function loadInvoiceRelations(SalesInvoice $salesInvoice): SalesInvoice
     {
@@ -677,6 +832,7 @@ class SalesInvoiceController extends Controller
             'items.batch',
             'returns.product',
             'returns.batch',
+            'returns.invoiceItem',
         ]);
     }
 

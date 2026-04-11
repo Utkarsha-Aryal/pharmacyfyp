@@ -39,10 +39,11 @@ class ProductBatch extends Model
             }
 
             foreach ($post['items'] as $item) {
+                $product = Product::query()->with('company')->findOrFail($item['product_id']);
                 $quantity = (int) ($item['quantity'] ?? 0);
                 $freeQuantity = (int) ($item['free_qty'] ?? 0);
                 $mrp = round((float) ($item['mrp'] ?? 0), 2);
-                $ccRate = round((float) ($item['cc_rate'] ?? 0), 2);
+                $ccRate = round((float) ($item['cc_rate'] ?? $product->effective_cc_rate ?? 0), 2);
                 $discountPercent = round((float) ($item['discount_percent'] ?? 0), 2);
                 $lineAmount = round($quantity * (float) $item['purchase_price'], 2);
                 $discountAmount = round(($lineAmount * $discountPercent) / 100, 2);
@@ -107,6 +108,20 @@ class ProductBatch extends Model
                         'amount' => $netAmount,
                     ]);
                 }
+
+                record_stock_movement([
+                    'movement_date' => $post['purchase_date'] ?? now()->toDateString(),
+                    'product_id' => $item['product_id'],
+                    'batch_id' => $inventoryBatchId,
+                    'movement_type' => 'purchase_in',
+                    'quantity_in' => $physicalQuantity,
+                    'source_type' => 'Supplier',
+                    'source_id' => $post['supplier_id'] ?? null,
+                    'destination_type' => 'Inventory',
+                    'reference_type' => 'Purchase',
+                    'reference_id' => $post['purchase_id'] ?? null,
+                    'notes' => 'Stock received from purchase bill.',
+                ]);
 
                 // keep latest purchase side data on master product
                 Product::where('id', $item['product_id'])->update([
