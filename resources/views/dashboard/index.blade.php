@@ -6,7 +6,6 @@
 
 @section('main-content')
     @php
-        // keep the dashboard focused on the parts this user can actually work on
         $currentUser = auth()->user();
         $canInventoryView = $currentUser?->can('inventory.view') || $currentUser?->can('inventory.product') || $currentUser?->can('inventory.batch') || $currentUser?->can('inventory.adjustment');
         $canPurchaseView = $currentUser?->can('purchase.orders') || $currentUser?->can('purchase.entry') || $currentUser?->can('purchase.supplier');
@@ -36,10 +35,9 @@
                 <p class="mb-0 text-muted">Overview of stock, purchases, alerts and quick admin actions.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
-                {{-- role-aware actions: only show buttons the current user can use --}}
                 @if ($canPurchaseView)
                     <a href="{{ route('admin.purchase-orders.create') }}" class="btn btn-primary">
-                        <i class="fa fa-plus"></i> Create Order
+                        <i class="fa fa-plus"></i> Create Purchase Order
                     </a>
                     <a href="{{ route('admin.export.purchase-orders') }}" class="btn btn-outline-primary">
                         <i class="fa-solid fa-file-excel"></i> Purchase Excel
