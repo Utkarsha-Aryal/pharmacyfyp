@@ -89,7 +89,7 @@
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-bordered js-datatable" data-page-length="10" data-searchable="true">
+                            <table id="customerLedgerInvoicesTable" class="table table-bordered w-100">
                                 <thead>
                                     <tr>
                                         <th style="width: 70px;">S.No</th>
@@ -103,25 +103,7 @@
                                         <th>Due</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    @forelse ($invoices as $index => $invoice)
-                                        <tr>
-                                            <td>{{ $index + 1 }}</td>
-                                            <td>{{ $invoice->reference }}</td>
-                                            <td>{{ $invoice->invoice_date_show }}</td>
-                                            <td>{{ $invoice->sale_type_label }}</td>
-                                            <td><span class="report-badge {{ $invoice->status_badge_class }}">{{ $invoice->status_label }}</span></td>
-                                            <td><span class="report-badge {{ $invoice->payment_badge_class }}">{{ $invoice->payment_label }}</span></td>
-                                            <td>{{ money_value($invoice->total_amount) }}</td>
-                                            <td>{{ money_value($invoice->paid_amount) }}</td>
-                                            <td>{{ money_value($invoice->due_amount) }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="9" class="text-center text-muted py-4">No invoice history available.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
+                                <tbody></tbody>
                             </table>
                         </div>
                     </div>
@@ -134,7 +116,7 @@
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-bordered js-datatable" data-page-length="10" data-searchable="true">
+                            <table id="customerLedgerReturnsTable" class="table table-bordered w-100">
                                 <thead>
                                     <tr>
                                         <th style="width: 70px;">S.No</th>
@@ -148,31 +130,7 @@
                                         <th>Reason</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    @forelse ($returns as $index => $returnItem)
-                                        <tr>
-                                            <td>{{ $index + 1 }}</td>
-                                            <td>{{ $returnItem->return_date_show }}</td>
-                                            <td>{{ $returnItem->product?->display_name ?? '-' }}</td>
-                                            <td>{{ $returnItem->quantity }}</td>
-                                            <td>{{ number_format((float) $returnItem->effective_discount_percent, 2) }}% / {{ money_value($returnItem->effective_discount_amount) }}</td>
-                                            <td>{{ money_value($returnItem->effective_net_unit_price) }}</td>
-                                            <td>
-                                                {{ money_value($returnItem->refund_amount) }}
-                                                <small class="text-muted d-block">Adj {{ money_value($returnItem->receivable_adjusted_amount) }} | Cash {{ money_value($returnItem->cash_refund_amount) }}</small>
-                                            </td>
-                                            <td>
-                                                {{ $returnItem->refund_status_label }}
-                                                <small class="text-muted d-block">{{ $returnItem->cash_refund_amount > 0 ? ($returnItem->payment_mode_label ?: 'Paid out') : ($returnItem->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance') }}</small>
-                                            </td>
-                                            <td>{{ $returnItem->reason ?: '-' }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="9" class="text-center text-muted py-4">No return record found.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
+                                <tbody></tbody>
                             </table>
                         </div>
                     </div>
@@ -181,4 +139,48 @@
         </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function () {
+            window.customerLedgerInvoicesTable = window.initServerSideDataTable({
+                selector: '#customerLedgerInvoicesTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'reference' },
+                    { data: 'date' },
+                    { data: 'sale_type' },
+                    { data: 'status' },
+                    { data: 'payment' },
+                    { data: 'total' },
+                    { data: 'paid' },
+                    { data: 'due' },
+                ],
+                ajaxUrl: '{{ route('admin.customers.ledger.invoices.list', $customer) }}',
+            });
+
+            window.customerLedgerReturnsTable = window.initServerSideDataTable({
+                selector: '#customerLedgerReturnsTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'date' },
+                    { data: 'product' },
+                    { data: 'quantity' },
+                    { data: 'discount' },
+                    { data: 'net_rate' },
+                    { data: 'refund' },
+                    { data: 'settlement' },
+                    { data: 'reason' },
+                ],
+                ajaxUrl: '{{ route('admin.customers.ledger.returns.list', $customer) }}',
+            });
+        });
+    </script>
 @endsection

@@ -27,7 +27,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="10" data-searchable="true">
+                    <table id="supplierPerformanceTable" class="table table-bordered align-middle w-100">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -37,30 +37,31 @@
                                 <th>Outstanding</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($suppliers as $index => $supplier)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $supplier->supplier_name }}</td>
-                                    <td>{{ $supplier->total_orders }}</td>
-                                    <td>{{ money_value($supplier->total_value) }}</td>
-                                    <td>
-                                        @if ((float) $supplier->outstanding_amount > 0)
-                                            <span class="text-danger fw-semibold">{{ money_value($supplier->outstanding_amount) }}</span>
-                                        @else
-                                            <span class="report-badge report-badge-success">Paid</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">No supplier data found.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function () {
+            window.supplierPerformanceTable = window.initServerSideDataTable({
+                selector: '#supplierPerformanceTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'supplier' },
+                    { data: 'total_orders' },
+                    { data: 'total_value' },
+                    { data: 'outstanding' },
+                ],
+                ajaxUrl: '{{ route('admin.report.suppliers.list') }}',
+            });
+        });
+    </script>
 @endsection

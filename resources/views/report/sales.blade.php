@@ -118,7 +118,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="15" data-searchable="true">
+                    <table id="salesReportTable" class="table table-bordered align-middle w-100">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -132,28 +132,48 @@
                                 <th>Due</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($sales as $index => $sale)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $sale->reference }}</td>
-                                    <td>{{ $sale->customer?->name ?? '-' }}</td>
-                                    <td>{{ $sale->invoice_date_show }}</td>
-                                    <td>{{ $sale->sale_type_label }}</td>
-                                    <td>{{ $sale->payment_label }}</td>
-                                    <td>{{ money_value($sale->total_amount) }}</td>
-                                    <td>{{ money_value($sale->paid_amount) }}</td>
-                                    <td>{{ money_value($sale->due_amount) }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">No sales found.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function () {
+            window.salesReportTable = window.initServerSideDataTable({
+                selector: '#salesReportTable',
+                pageLength: 15,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'reference' },
+                    { data: 'party' },
+                    { data: 'date' },
+                    { data: 'sale_type' },
+                    { data: 'payment' },
+                    { data: 'total' },
+                    { data: 'paid' },
+                    { data: 'due' },
+                ],
+                ajaxUrl: '{{ route('admin.report.sales.list') }}',
+                ajaxData: function (request) {
+                    request.customer_id = $('[name="customer_id"]').val() || '';
+                    request.sale_type_id = $('[name="sale_type_id"]').val() || '';
+                    request.payment_status = $('[name="payment_status"]').val() || '';
+                    request.date_from = $('[name="date_from"]').val() || '';
+                    request.date_to = $('[name="date_to"]').val() || '';
+                }
+            });
+
+            $(document).on('change', '.filter-card select, .filter-card input', function () {
+                if (window.salesReportTable) {
+                    window.salesReportTable.draw();
+                }
+            });
+        });
+    </script>
 @endsection

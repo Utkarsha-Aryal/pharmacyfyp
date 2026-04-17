@@ -591,22 +591,78 @@
     });
   }
 
-  function addColumnSearch(api, columns) {
+  function debounceDataTableSearch(callback, wait) {
+    var timeoutId = null;
+
+    return function () {
+      var context = this;
+      var args = arguments;
+
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(function () {
+        callback.apply(context, args);
+      }, wait);
+    };
+  }
+
+  function bindServerSideSearch(api, tableContainer, wait) {
+    var $input = $(tableContainer).find("div.dataTables_filter input[type='search']");
+    var timeoutId = null;
+
+    if ($input.length === 0) {
+      return;
+    }
+
+    var runSearch = function (value) {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(function () {
+        if (api.search() !== value) {
+          api.search(value).draw();
+        }
+      }, wait);
+    };
+
+    var flushSearch = function (value) {
+      window.clearTimeout(timeoutId);
+
+      if (api.search() !== value) {
+        api.search(value).draw();
+      }
+    };
+
+    $input.off(".DT");
+    $input.on("input.datatableDebounce", function () {
+      runSearch(this.value);
+    });
+    $input.on("keydown.datatableDebounce", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        flushSearch(this.value);
+      }
+    });
+  }
+
+  function addColumnSearch(api, columns, wait) {
     columns.forEach(function (index) {
       api.columns(index).every(function () {
         var column = this;
         var columnHeader = column.header();
         var columnName = columnHeader.innerText.trim();
         var input = document.createElement("input");
+        var runColumnSearch = debounceDataTableSearch(function (value) {
+          if (column.search() !== value) {
+            column.search(value).draw();
+          }
+        }, wait);
 
         $(input)
           .appendTo($(columnHeader).empty())
           .attr("placeholder", columnName)
           .css("width", "100%")
           .addClass("search-input-highlight")
-          .on("keyup change", function () {
-            column.search(this.value).draw();
-        });
+          .on("input change", function () {
+            runColumnSearch(this.value);
+          });
       });
     });
   }
@@ -626,6 +682,9 @@
     var ajaxData = options.ajaxData;
     var searchColumns = Array.isArray(options.searchColumns) ? options.searchColumns : [];
     var searchable = options.searchable === true;
+    var searchDelay = Number.isFinite(parseInt(options.searchDelay, 10))
+      ? parseInt(options.searchDelay, 10)
+      : 450;
 
     // Some older Blade pages still print one empty fallback row.
     // Removing that row first keeps server-side DataTables from complaining about column counts.
@@ -651,7 +710,7 @@
       bSort: options.sort !== false,
       bProcessing: options.processing !== false,
       bServerSide: options.serverSide !== false,
-      searchDelay: 300,
+      searchDelay: searchDelay,
       oLanguage: {
         sSearch: "",
         sSearchPlaceholder: "Search here",
@@ -671,14 +730,19 @@
         },
       },
       initComplete: function () {
-        decorateDataTableUi($(this.api().table().container()));
+        var api = this.api();
+        var $container = $(api.table().container());
+
+        decorateDataTableUi($container);
+
+        bindServerSideSearch(api, $container, searchDelay);
 
         if (searchColumns.length > 0) {
-          addColumnSearch(this.api(), searchColumns);
+          addColumnSearch(api, searchColumns, searchDelay);
         }
 
         if (typeof options.afterInit === "function") {
-          options.afterInit.call(this, this.api());
+          options.afterInit.call(this, api);
         }
       },
       drawCallback: function () {

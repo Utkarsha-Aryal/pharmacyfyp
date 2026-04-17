@@ -57,7 +57,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered js-datatable" data-page-length="10" data-searchable="true">
+                    <table id="lowStockReportTable" class="table table-bordered w-100">
                         <thead>
                             <tr>
                                 <th>S.No</th>
@@ -69,30 +69,33 @@
                                 <th>Status</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($lowStockProducts as $index => $item)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $item->product_name }}</td>
-                                    <td>{{ $item->company_name ?? '-' }}</td>
-                                    <td>{{ $item->reorder_level }}</td>
-                                    <td>{{ $item->current_stock }}</td>
-                                    <td>{{ max(0, (int) $item->reorder_level - (int) $item->current_stock) }}</td>
-                                    <td>
-                                        <span class="report-badge {{ $item->current_stock == 0 ? 'report-badge-danger' : 'report-badge-warning' }}">
-                                            {{ $item->current_stock == 0 ? 'Out of Stock' : 'Low Stock' }}
-                                        </span>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">No low stock item right now.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function () {
+            window.lowStockReportTable = window.initServerSideDataTable({
+                selector: '#lowStockReportTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'product' },
+                    { data: 'company' },
+                    { data: 'reorder_level' },
+                    { data: 'current_stock' },
+                    { data: 'deficit' },
+                    { data: 'status' },
+                ],
+                ajaxUrl: '{{ route('admin.report.lowstock.list') }}',
+            });
+        });
+    </script>
 @endsection

@@ -72,7 +72,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="10">
+                    <table id="purchaseOrderItemsTable" class="table table-bordered align-middle w-100">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -85,20 +85,7 @@
                                 <th>Subtotal</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @foreach ($order->items as $index => $item)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $item->product?->display_name ?? '-' }}</td>
-                                    <td>{{ $item->quantity_ordered }}</td>
-                                    <td>{{ $item->quantity_received }}</td>
-                                    <td>{{ number_format((float) $item->unit_price, 2) }}</td>
-                                    <td>{{ $item->batch_number ?: '-' }}</td>
-                                    <td>{{ $item->expiry_date ? \Carbon\Carbon::parse($item->expiry_date)->format('M j, Y') : '-' }}</td>
-                                    <td>{{ number_format((float) $item->subtotal, 2) }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -130,4 +117,28 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function () {
+            window.purchaseOrderItemsTable = window.initServerSideDataTable({
+                selector: '#purchaseOrderItemsTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'product' },
+                    { data: 'qty_ordered' },
+                    { data: 'qty_received' },
+                    { data: 'unit_price' },
+                    { data: 'batch_number' },
+                    { data: 'expiry_date' },
+                    { data: 'subtotal' },
+                ],
+                ajaxUrl: '{{ route('admin.purchase-orders.items.list', $order) }}',
+            });
+        });
+    </script>
 @endsection

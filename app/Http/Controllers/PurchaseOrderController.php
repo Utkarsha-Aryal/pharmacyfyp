@@ -15,6 +15,7 @@ use App\Models\SupplierType;
 use App\Models\Unit;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,30 +25,7 @@ class PurchaseOrderController extends Controller
     // Show the purchase order list with summary cards and filters.
     public function index(Request $request)
     {
-        $query = PurchaseOrder::with(['supplier', 'orderedBy', 'items.product']);
-
-        if ($request->filled('supplier_id')) {
-            $query->where('supplier_id', $request->supplier_id);
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->filled('payment_status')) {
-            $query->where('payment_status', $request->payment_status);
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('order_date', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('order_date', '<=', $request->date_to);
-        }
-
         return view('purchase-order.index', [
-            'orders' => $query->latest('order_date')->get(),
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
             'filters' => $request->only(['supplier_id', 'status', 'payment_status', 'date_from', 'date_to']),
             'summary' => [
@@ -57,6 +35,78 @@ class PurchaseOrderController extends Controller
                 'this_month' => PurchaseOrder::query()->whereMonth('order_date', now()->month)->whereYear('order_date', now()->year)->sum('total_amount'),
                 'all_time' => PurchaseOrder::query()->sum('total_amount'),
             ],
+        ]);
+    }
+
+    // Return purchase orders for the server-side table.
+    public function list(Request $request)
+    {
+        $filters = $request->only(['supplier_id', 'status', 'payment_status', 'date_from', 'date_to']);
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 15);
+
+        $query = PurchaseOrder::query()
+            ->with(['supplier'])
+            ->withCount('items')
+            ->orderByDesc('order_date')
+            ->orderByDesc('id');
+
+        $recordsTotal = (clone $query)->count();
+        $query = $this->applyIndexFilters($query, $filters);
+
+        if ($keyword !== '') {
+            $query->where(function (Builder $builder) use ($keyword) {
+                $builder->where('reference', 'like', '%' . $keyword . '%')
+                    ->orWhere('status', 'like', '%' . $keyword . '%')
+                    ->orWhere('payment_status', 'like', '%' . $keyword . '%')
+                    ->orWhere('notes', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('supplier', function (Builder $supplierQuery) use ($keyword) {
+                        $supplierQuery->where('supplier_name', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $orders = $query->get();
+        $data = [];
+
+        foreach ($orders as $index => $order) {
+            $statusClass = match ($order->status) {
+                'pending' => 'bg-warning text-dark',
+                'approved' => 'bg-info text-dark',
+                'received' => 'bg-success',
+                default => 'bg-secondary',
+            };
+            $paymentClass = match ($order->payment_status) {
+                'paid' => 'bg-success',
+                'partial' => 'bg-info text-dark',
+                default => 'bg-danger',
+            };
+
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'reference' => '<span class="fw-semibold">' . e($order->reference) . '</span>',
+                'supplier' => '<div class="text-wrap">' . e($order->supplier?->supplier_name ?? '-') . '</div>',
+                'date' => e($order->order_date_show),
+                'items' => '<span class="badge bg-secondary">' . (int) $order->items_count . '</span>',
+                'status' => '<span class="badge ' . $statusClass . '">' . e($order->status_label) . '</span>',
+                'payment' => '<span class="badge ' . $paymentClass . '">' . e($order->payment_label) . '</span>',
+                'total' => money_value($order->total_amount),
+                'action' => '<a href="' . route('admin.purchase-orders.show', $order) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Order" aria-label="View Order"><i class="fa-solid fa-eye"></i></a>',
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
         ]);
     }
 
@@ -200,7 +250,61 @@ class PurchaseOrderController extends Controller
     public function show(PurchaseOrder $purchaseOrder)
     {
         return view('purchase-order.show', [
-            'order' => $purchaseOrder->load(['supplier', 'orderedBy', 'items.product']),
+            'order' => $purchaseOrder->load(['supplier', 'orderedBy']),
+        ]);
+    }
+
+    // Return item rows for one purchase order detail screen.
+    public function itemsList(Request $request, PurchaseOrder $purchaseOrder)
+    {
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 10);
+
+        $query = PurchaseOrderItem::query()
+            ->with('product')
+            ->where('purchase_order_id', $purchaseOrder->id)
+            ->orderBy('id');
+
+        $recordsTotal = (clone $query)->count();
+
+        if ($keyword !== '') {
+            $query->where(function (Builder $builder) use ($keyword) {
+                $builder->where('batch_number', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('product', function (Builder $productQuery) use ($keyword) {
+                        $productQuery->where('product_name', 'like', '%' . $keyword . '%')
+                            ->orWhere('generic_name', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $items = $query->get();
+        $data = [];
+
+        foreach ($items as $index => $item) {
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'product' => '<div class="text-wrap fw-semibold">' . e($item->product?->display_name ?? '-') . '</div>',
+                'qty_ordered' => (int) $item->quantity_ordered,
+                'qty_received' => '<span class="badge ' . ((int) $item->quantity_received > 0 ? 'bg-success' : 'bg-light text-dark border') . '">' . (int) $item->quantity_received . '</span>',
+                'unit_price' => money_value($item->unit_price),
+                'batch_number' => '<span class="badge bg-light text-dark border">' . e($item->batch_number ?: '-') . '</span>',
+                'expiry_date' => e($item->expiry_date ? Carbon::parse($item->expiry_date)->format('M j, Y') : '-'),
+                'subtotal' => money_value($item->subtotal),
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
         ]);
     }
 
@@ -379,5 +483,25 @@ class PurchaseOrderController extends Controller
                 'created_by' => $userId,
             ]);
         }
+    }
+
+    private function applyIndexFilters(Builder $query, array $filters): Builder
+    {
+        return $query
+            ->when(!empty($filters['supplier_id']), function (Builder $builder) use ($filters) {
+                $builder->where('supplier_id', $filters['supplier_id']);
+            })
+            ->when(!empty($filters['status']), function (Builder $builder) use ($filters) {
+                $builder->where('status', $filters['status']);
+            })
+            ->when(!empty($filters['payment_status']), function (Builder $builder) use ($filters) {
+                $builder->where('payment_status', $filters['payment_status']);
+            })
+            ->when(!empty($filters['date_from']), function (Builder $builder) use ($filters) {
+                $builder->whereDate('order_date', '>=', $filters['date_from']);
+            })
+            ->when(!empty($filters['date_to']), function (Builder $builder) use ($filters) {
+                $builder->whereDate('order_date', '<=', $filters['date_to']);
+            });
     }
 }

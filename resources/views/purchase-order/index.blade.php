@@ -119,7 +119,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="15">
+                    <table id="purchaseOrderTable" class="table table-bordered align-middle w-100">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -133,40 +133,48 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($orders as $index => $order)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $order->reference }}</td>
-                                    <td>{{ $order->supplier?->supplier_name ?? '-' }}</td>
-                                    <td>{{ $order->order_date_show }}</td>
-                                    <td>{{ $order->items->count() }}</td>
-                                    <td>
-                                        <span class="report-badge {{ $order->status === 'pending' ? 'report-badge-warning' : ($order->status === 'approved' ? 'report-badge-info' : 'report-badge-success') }}">
-                                            {{ $order->status_label }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="report-badge {{ $order->payment_status === 'paid' ? 'report-badge-success' : ($order->payment_status === 'partial' ? 'report-badge-info' : 'report-badge-danger') }}">
-                                            {{ $order->payment_label }}
-                                        </span>
-                                    </td>
-                                    <td>{{ number_format((float) $order->total_amount, 2) }}</td>
-                                    <td>
-                                        <a href="{{ route('admin.purchase-orders.show', $order) }}" class="btn btn-sm btn-outline-primary table-action-btn" title="View Order" aria-label="View Order">
-                                            <i class="fa-solid fa-eye"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">No purchase orders found.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function () {
+            window.purchaseOrderTable = window.initServerSideDataTable({
+                selector: '#purchaseOrderTable',
+                pageLength: 15,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'reference' },
+                    { data: 'supplier' },
+                    { data: 'date' },
+                    { data: 'items' },
+                    { data: 'status' },
+                    { data: 'payment' },
+                    { data: 'total' },
+                    { data: 'action' },
+                ],
+                ajaxUrl: '{{ route('admin.purchase-orders.list') }}',
+                ajaxData: function (request) {
+                    request.supplier_id = $('[name="supplier_id"]').val() || '';
+                    request.status = $('[name="status"]').val() || '';
+                    request.payment_status = $('[name="payment_status"]').val() || '';
+                    request.date_from = $('[name="date_from"]').val() || '';
+                    request.date_to = $('[name="date_to"]').val() || '';
+                }
+            });
+
+            $(document).on('change', '.filter-card select, .filter-card input', function () {
+                if (window.purchaseOrderTable) {
+                    window.purchaseOrderTable.draw();
+                }
+            });
+        });
+    </script>
 @endsection

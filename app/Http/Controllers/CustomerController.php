@@ -9,6 +9,7 @@ use App\Models\SalesInvoice;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -197,20 +198,133 @@ class CustomerController extends Controller
     // Show the customer ledger and history.
     public function ledger(Customer $customer)
     {
-        $customer->load(['salesInvoices.items.product', 'salesReturns.product', 'salesReturns.paymentMode']);
-
-        $invoices = $customer->salesInvoices()->with('items.product')->latest('invoice_date')->get();
-        $returns = $customer->salesReturns()->with(['product', 'paymentMode'])->latest('return_date')->take(20)->get();
+        $invoiceQuery = $customer->salesInvoices();
 
         return view('customer.ledger', [
             'customer' => $customer,
-            'invoices' => $invoices,
-            'returns' => $returns,
             'outstanding' => $customer->balance,
-            'invoiceTotal' => $invoices->sum('total_amount'),
-            'paidTotal' => $invoices->sum('paid_amount'),
-            'salesCount' => $invoices->count(),
+            'invoiceTotal' => (float) (clone $invoiceQuery)->sum('total_amount'),
+            'paidTotal' => (float) (clone $invoiceQuery)->sum('paid_amount'),
+            'salesCount' => (clone $invoiceQuery)->count(),
             'agingDays' => $this->customerAgingDays($customer),
+        ]);
+    }
+
+    public function ledgerInvoicesList(Request $request, Customer $customer)
+    {
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 10);
+
+        $query = $customer->salesInvoices()
+            ->with(['saleTypeOption'])
+            ->latest('invoice_date')
+            ->latest('id');
+
+        $recordsTotal = (clone $query)->count();
+
+        if ($keyword !== '') {
+            $query->where(function (Builder $builder) use ($keyword) {
+                $builder->where('reference', 'like', '%' . $keyword . '%')
+                    ->orWhere('status', 'like', '%' . $keyword . '%')
+                    ->orWhere('payment_status', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('saleTypeOption', function (Builder $typeQuery) use ($keyword) {
+                        $typeQuery->where('name', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $invoices = $query->get();
+        $data = [];
+
+        foreach ($invoices as $index => $invoice) {
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'reference' => e($invoice->reference),
+                'date' => e($invoice->invoice_date_show),
+                'sale_type' => e($invoice->sale_type_label),
+                'status' => '<span class="badge bg-light text-dark border">' . e($invoice->status_label) . '</span>',
+                'payment' => '<span class="badge bg-light text-dark border">' . e($invoice->payment_label) . '</span>',
+                'total' => money_value($invoice->total_amount),
+                'paid' => money_value($invoice->paid_amount),
+                'due' => money_value($invoice->due_amount),
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
+    public function ledgerReturnsList(Request $request, Customer $customer)
+    {
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 10);
+
+        $query = $customer->salesReturns()
+            ->with(['product', 'paymentMode'])
+            ->latest('return_date')
+            ->latest('id');
+
+        $recordsTotal = (clone $query)->count();
+
+        if ($keyword !== '') {
+            $query->where(function (Builder $builder) use ($keyword) {
+                $builder->where('reason', 'like', '%' . $keyword . '%')
+                    ->orWhere('notes', 'like', '%' . $keyword . '%')
+                    ->orWhere('refund_status', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('product', function (Builder $productQuery) use ($keyword) {
+                        $productQuery->where('product_name', 'like', '%' . $keyword . '%')
+                            ->orWhere('generic_name', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('paymentMode', function (Builder $modeQuery) use ($keyword) {
+                        $modeQuery->where('name', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $returns = $query->get();
+        $data = [];
+
+        foreach ($returns as $index => $returnItem) {
+            $settlementLabel = $returnItem->cash_refund_amount > 0
+                ? ($returnItem->payment_mode_label ?: 'Paid out')
+                : ($returnItem->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance');
+
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'date' => e($returnItem->return_date_show),
+                'product' => e($returnItem->product?->display_name ?? '-'),
+                'quantity' => '<span class="badge bg-secondary">' . (float) $returnItem->quantity . '</span>',
+                'discount' => e(number_format((float) $returnItem->effective_discount_percent, 2)) . '% / ' . e(money_value($returnItem->effective_discount_amount)),
+                'net_rate' => money_value($returnItem->effective_net_unit_price),
+                'refund' => '<div>' . e(money_value($returnItem->refund_amount)) . '</div><small class="text-muted d-block">Adj ' . e(money_value($returnItem->receivable_adjusted_amount)) . ' | Cash ' . e(money_value($returnItem->cash_refund_amount)) . '</small>',
+                'settlement' => '<div>' . e($returnItem->refund_status_label) . '</div><small class="text-muted d-block">' . e($settlementLabel) . '</small>',
+                'reason' => e($returnItem->reason ?: '-'),
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
         ]);
     }
 

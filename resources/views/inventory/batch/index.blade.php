@@ -185,7 +185,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="10">
+                    <table id="inventoryBatchTable" class="table table-bordered align-middle w-100">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -200,57 +200,7 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($batches as $index => $batch)
-                                <tr class="{{ $batch->days_remaining < 0 ? 'table-danger' : ($batch->days_remaining <= 7 ? 'table-danger' : ($batch->days_remaining <= 15 ? 'table-warning' : ($batch->days_remaining <= 30 ? 'table-info' : ''))) }}">
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $batch->product?->display_name ?? '-' }}</td>
-                                    <td>{{ $batch->batch_number }}</td>
-                                    <td>{{ $batch->supplier?->supplier_name ?? '-' }}</td>
-                                    <td>{{ $batch->expiry_show }}</td>
-                                    <td>{{ $batch->days_remaining }}</td>
-                                    <td>{{ $batch->quantity_available }}</td>
-                                    <td>{{ $batch->storage_location ?: '-' }}</td>
-                                    <td>
-                                        <span class="report-badge {{ $batch->row_state === 'danger' ? 'report-badge-danger' : ($batch->row_state === 'warning' ? 'report-badge-warning' : ($batch->row_state === 'info' ? 'report-badge-info' : 'report-badge-success')) }}">
-                                            {{ strtoupper($batch->row_state) }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="table-action-group">
-                                            <button type="button" class="btn btn-sm btn-outline-primary table-action-btn editBatch"
-                                                title="Edit Batch"
-                                                data-id="{{ $batch->id }}"
-                                                data-product-id="{{ $batch->product_id }}"
-                                                data-supplier-id="{{ $batch->supplier_id }}"
-                                                data-batch-number="{{ $batch->batch_number }}"
-                                                data-manufacturing-date="{{ $batch->manufacturing_date }}"
-                                                data-expiry-date="{{ $batch->expiry_date }}"
-                                                data-quantity-received="{{ $batch->quantity_received }}"
-                                                data-quantity-available="{{ $batch->quantity_available }}"
-                                                data-purchase-price="{{ $batch->purchase_price }}"
-                                                data-storage-location="{{ $batch->storage_location }}">
-                                                <i class="fa-solid fa-pen-to-square"></i>
-                                            </button>
-
-                                            <form action="{{ route('admin.inventory.batches.delete', $batch) }}" method="POST" class="d-inline js-confirm-submit"
-                                                data-confirm-title="Delete this batch?"
-                                                data-confirm-text="This batch will be hidden from the active list."
-                                                data-confirm-button="Yes, delete batch">
-                                                @csrf
-                                                <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Batch" aria-label="Delete Batch">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="10" class="text-center text-muted py-4">No batch data available.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -261,6 +211,31 @@
 @section('script')
     <script>
         $(document).ready(function () {
+            window.inventoryBatchTable = window.initServerSideDataTable({
+                selector: '#inventoryBatchTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'product' },
+                    { data: 'batch_number' },
+                    { data: 'supplier' },
+                    { data: 'expiry_date' },
+                    { data: 'days_remaining' },
+                    { data: 'quantity' },
+                    { data: 'storage' },
+                    { data: 'status' },
+                    { data: 'action' },
+                ],
+                ajaxUrl: '{{ route('admin.inventory.batches.list') }}',
+                ajaxData: function (request) {
+                    request.product_id = $('[name="product_id"]').val() || '';
+                    request.supplier_id = $('[name="supplier_id"]').val() || '';
+                    request.expiry_status = $('[name="expiry_status"]').val() || '';
+                }
+            });
+
             var batchModalElement = document.getElementById('batchModal');
             var batchModal = batchModalElement ? new bootstrap.Modal(batchModalElement) : null;
             var batchForm = $('#batchForm');
@@ -290,6 +265,12 @@
 
             $(document).on('hidden.bs.modal', '#batchModal', function () {
                 resetBatchForm();
+            });
+
+            $(document).on('change', '.filter-card select, .filter-card input', function () {
+                if (window.inventoryBatchTable) {
+                    window.inventoryBatchTable.draw();
+                }
             });
 
             $(document).on('click', '.editBatch', function () {

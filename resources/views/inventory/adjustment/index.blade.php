@@ -89,7 +89,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="10" data-searchable="true">
+                    <table id="stockAdjustmentTable" class="table table-bordered align-middle w-100">
                         <thead>
                             <tr>
                                 <th>S.No</th>
@@ -103,43 +103,7 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @foreach ($adjustments as $index => $adjustment)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $adjustment->product?->display_name ?? '-' }}</td>
-                                    <td>{{ $adjustment->batch?->batch_number ?? '-' }}</td>
-                                    <td>{{ ucfirst($adjustment->adjustment_type) }}</td>
-                                    <td>{{ $adjustment->quantity }}</td>
-                                    <td>{{ $adjustment->reason ?: '-' }}</td>
-                                    <td>{{ $adjustment->adjustedBy?->name ?? '-' }}</td>
-                                    <td>{{ $adjustment->created_at?->format('M j, Y') }}</td>
-                                    <td>
-                                        <div class="table-action-group">
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-outline-primary table-action-btn editAdjustmentBtn"
-                                                title="Edit Adjustment"
-                                                data-id="{{ $adjustment->id }}"
-                                                data-product_id="{{ $adjustment->product_id }}"
-                                                data-batch_id="{{ $adjustment->batch_id }}"
-                                                data-adjustment_type="{{ $adjustment->adjustment_type }}"
-                                                data-quantity="{{ $adjustment->quantity }}"
-                                                data-reason="{{ $adjustment->reason }}"
-                                            >
-                                                <i class="fa-solid fa-pen-to-square"></i>
-                                            </button>
-                                            <form action="{{ route('admin.inventory.adjustments.delete', $adjustment) }}" method="POST" class="js-confirm-submit" data-confirm-title="Delete this adjustment?" data-confirm-text="This will reverse the stock effect from the selected batch." data-confirm-button="Yes, delete adjustment">
-                                                @csrf
-                                                <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Adjustment">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -150,6 +114,25 @@
 @section('script')
     <script>
         $(document).ready(function () {
+            window.stockAdjustmentTable = window.initServerSideDataTable({
+                selector: '#stockAdjustmentTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'product' },
+                    { data: 'batch' },
+                    { data: 'type' },
+                    { data: 'quantity' },
+                    { data: 'reason' },
+                    { data: 'adjusted_by' },
+                    { data: 'date' },
+                    { data: 'action' },
+                ],
+                ajaxUrl: '{{ route('admin.inventory.adjustments.list') }}',
+            });
+
             var adjustmentModalElement = document.getElementById('adjustmentModal');
             var adjustmentModal = adjustmentModalElement ? new bootstrap.Modal(adjustmentModalElement) : null;
             var $productSelect = $('#adjustmentProductSelect');

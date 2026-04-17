@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Batch;
 use App\Models\Product;
 use App\Models\StockAdjustment;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class StockAdjustmentController extends Controller
@@ -16,18 +17,93 @@ class StockAdjustmentController extends Controller
         $productId = $request->input('product_id');
         $batchId = $request->input('batch_id');
 
-        $adjustments = StockAdjustment::with(['product', 'batch', 'adjustedBy'])
-            ->latest()
-            ->take(20)
-            ->get();
-
         return view('inventory.adjustment.index', [
             'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
             'batches' => Batch::query()->with('product')->where('is_active', true)->orderByDesc('id')->get(),
-            'adjustments' => $adjustments,
             'selectedProductId' => $productId,
             'selectedBatchId' => $batchId,
             'adjustmentTypes' => ['add', 'subtract', 'expired', 'damaged', 'return'],
+        ]);
+    }
+
+    // Return stock adjustments for the server-side table.
+    public function list(Request $request)
+    {
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 10);
+
+        $query = StockAdjustment::query()
+            ->with(['product', 'batch', 'adjustedBy'])
+            ->latest('id');
+
+        $recordsTotal = (clone $query)->count();
+
+        if ($keyword !== '') {
+            $query->where(function (Builder $builder) use ($keyword) {
+                $builder->where('adjustment_type', 'like', '%' . $keyword . '%')
+                    ->orWhere('reason', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('product', function (Builder $productQuery) use ($keyword) {
+                        $productQuery->where('product_name', 'like', '%' . $keyword . '%')
+                            ->orWhere('generic_name', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('batch', function (Builder $batchQuery) use ($keyword) {
+                        $batchQuery->where('batch_number', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('adjustedBy', function (Builder $userQuery) use ($keyword) {
+                        $userQuery->where('name', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $adjustments = $query->get();
+        $data = [];
+
+        foreach ($adjustments as $index => $adjustment) {
+            $typeClass = in_array($adjustment->adjustment_type, ['add', 'return'], true)
+                ? 'bg-success'
+                : 'bg-warning text-dark';
+            $editButton = '<button type="button" class="btn btn-sm btn-outline-primary table-action-btn editAdjustmentBtn"'
+                . ' title="Edit Adjustment"'
+                . ' data-id="' . $adjustment->id . '"'
+                . ' data-product_id="' . $adjustment->product_id . '"'
+                . ' data-batch_id="' . $adjustment->batch_id . '"'
+                . ' data-adjustment_type="' . e($adjustment->adjustment_type) . '"'
+                . ' data-quantity="' . (int) $adjustment->quantity . '"'
+                . ' data-reason="' . e((string) $adjustment->reason) . '">'
+                . '<i class="fa-solid fa-pen-to-square"></i></button>';
+            $deleteForm = '<form action="' . route('admin.inventory.adjustments.delete', $adjustment) . '" method="POST" class="js-confirm-submit"'
+                . ' data-confirm-title="Delete this adjustment?"'
+                . ' data-confirm-text="This will reverse the stock effect from the selected batch."'
+                . ' data-confirm-button="Yes, delete adjustment">'
+                . csrf_field()
+                . '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Adjustment"><i class="fa-solid fa-trash"></i></button>'
+                . '</form>';
+
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'product' => '<div class="text-wrap fw-semibold">' . e($adjustment->product?->display_name ?? '-') . '</div>',
+                'batch' => '<span class="badge bg-light text-dark border">' . e($adjustment->batch?->batch_number ?? '-') . '</span>',
+                'type' => '<span class="badge ' . $typeClass . '">' . e(ucfirst($adjustment->adjustment_type)) . '</span>',
+                'quantity' => '<span class="badge bg-secondary">' . (int) $adjustment->quantity . '</span>',
+                'reason' => '<div class="text-wrap small">' . e($adjustment->reason ?: '-') . '</div>',
+                'adjusted_by' => e($adjustment->adjustedBy?->name ?? '-'),
+                'date' => e($adjustment->created_at?->format('M j, Y') ?: '-'),
+                'action' => '<div class="table-action-group">' . $editButton . $deleteForm . '</div>',
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
         ]);
     }
 

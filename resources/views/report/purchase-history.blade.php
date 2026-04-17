@@ -79,7 +79,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="15" data-searchable="true">
+                    <table id="purchaseHistoryTable" class="table table-bordered align-middle w-100">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -92,27 +92,47 @@
                                 <th>Due</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($orders as $index => $order)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $order->reference }}</td>
-                                    <td>{{ $order->supplier?->supplier_name ?? '-' }}</td>
-                                    <td>{{ $order->order_date_show }}</td>
-                                    <td>{{ $order->status_label }}</td>
-                                    <td>{{ $order->payment_label }}</td>
-                                    <td>{{ money_value($order->total_amount) }}</td>
-                                    <td>{{ money_value($order->outstanding_amount) }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="8" class="text-center text-muted py-4">No purchase history found.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function () {
+            window.purchaseHistoryTable = window.initServerSideDataTable({
+                selector: '#purchaseHistoryTable',
+                pageLength: 15,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'reference' },
+                    { data: 'supplier' },
+                    { data: 'date' },
+                    { data: 'status' },
+                    { data: 'payment' },
+                    { data: 'total' },
+                    { data: 'due' },
+                ],
+                ajaxUrl: '{{ route('admin.report.purchases.list') }}',
+                ajaxData: function (request) {
+                    request.supplier_id = $('[name="supplier_id"]').val() || '';
+                    request.status = $('[name="status"]').val() || '';
+                    request.payment_status = $('[name="payment_status"]').val() || '';
+                    request.date_from = $('[name="date_from"]').val() || '';
+                    request.date_to = $('[name="date_to"]').val() || '';
+                }
+            });
+
+            $(document).on('change', '.filter-card select, .filter-card input', function () {
+                if (window.purchaseHistoryTable) {
+                    window.purchaseHistoryTable.draw();
+                }
+            });
+        });
+    </script>
 @endsection

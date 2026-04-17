@@ -79,10 +79,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/products/list', [ProductController::class, 'list'])->middleware('permission:inventory.product')->name('products.list');
 
         Route::get('/batches', [InventoryBatchController::class, 'index'])->middleware('permission:inventory.batch')->name('batches.index');
+        Route::post('/batches/list', [InventoryBatchController::class, 'list'])->middleware('permission:inventory.batch')->name('batches.list');
         Route::post('/batches', [InventoryBatchController::class, 'store'])->middleware('permission:inventory.batch')->name('batches.store');
         Route::post('/batches/{batch}/delete', [InventoryBatchController::class, 'destroy'])->middleware('permission:inventory.batch')->name('batches.delete');
 
         Route::get('/adjustments', [StockAdjustmentController::class, 'index'])->middleware('permission:inventory.adjustment')->name('adjustments.index');
+        Route::post('/adjustments/list', [StockAdjustmentController::class, 'list'])->middleware('permission:inventory.adjustment')->name('adjustments.list');
         Route::post('/adjustments', [StockAdjustmentController::class, 'store'])->middleware('permission:inventory.adjustment')->name('adjustments.store');
         Route::post('/adjustments/{stockAdjustment}/delete', [StockAdjustmentController::class, 'delete'])->middleware('permission:inventory.adjustment')->name('adjustments.delete');
 
@@ -139,11 +141,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     Route::prefix('purchase/orders')->name('purchase-orders.')->middleware('permission:purchase.orders')->group(function () {
         Route::get('/', [PurchaseOrderController::class, 'index'])->name('index');
+        Route::post('/list', [PurchaseOrderController::class, 'list'])->name('list');
         Route::get('/create', [PurchaseOrderController::class, 'create'])->name('create');
         Route::post('/store', [PurchaseOrderController::class, 'store'])->name('store');
         Route::get('/supplier-options', [PurchaseOrderController::class, 'supplierOptions'])->name('supplier-options');
         Route::get('/product-options', [PurchaseOrderController::class, 'productOptions'])->name('product-options');
         Route::get('/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('show');
+        Route::post('/{purchaseOrder}/items/list', [PurchaseOrderController::class, 'itemsList'])->name('items.list');
         Route::post('/{purchaseOrder}/approve', [PurchaseOrderController::class, 'approve'])->middleware('permission:purchase.orders')->name('approve');
         Route::get('/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->middleware('permission:purchase.receive')->name('receive');
         Route::post('/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receiveStore'])->middleware('permission:purchase.receive')->name('receive.store');
@@ -156,6 +160,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/save', [CustomerController::class, 'save'])->name('save');
         Route::get('/options', [CustomerController::class, 'options'])->name('options');
         Route::get('/{customer}/ledger', [CustomerController::class, 'ledger'])->name('ledger');
+        Route::post('/{customer}/ledger/invoices/list', [CustomerController::class, 'ledgerInvoicesList'])->name('ledger.invoices.list');
+        Route::post('/{customer}/ledger/returns/list', [CustomerController::class, 'ledgerReturnsList'])->name('ledger.returns.list');
         Route::get('/{customer}/ledger/print', [CustomerController::class, 'ledgerPdf'])->name('ledger.print');
         Route::post('/{customer}/toggle-active', [CustomerController::class, 'toggleActive'])->name('toggle-active');
         Route::post('/{customer}/delete', [CustomerController::class, 'delete'])->name('delete');
@@ -180,6 +186,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::get('/invoices/create', [SalesInvoiceController::class, 'create'])->name('create');
             Route::post('/invoices/store', [SalesInvoiceController::class, 'store'])->name('store');
             Route::get('/invoices/{salesInvoice}', [SalesInvoiceController::class, 'show'])->name('show');
+            Route::post('/invoices/{salesInvoice}/items/list', [SalesInvoiceController::class, 'invoiceItemsList'])->name('items.list');
+            Route::post('/invoices/{salesInvoice}/returns/list', [SalesInvoiceController::class, 'invoiceReturnsList'])->name('returns.history.list');
             Route::get('/invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'printView'])->name('print');
             Route::get('/invoices/{salesInvoice}/pdf', [SalesInvoiceController::class, 'pdf'])->name('pdf');
             Route::post('/invoices/{salesInvoice}/payment', [SalesInvoiceController::class, 'updatePayment'])->name('payment');
@@ -212,21 +220,29 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     Route::prefix('finance')->name('finance.')->group(function () {
         Route::get('/ledger', [FinanceController::class, 'ledger'])->middleware('permission:accounting.ledger')->name('ledger');
+        Route::post('/ledger/list', [FinanceController::class, 'ledgerList'])->middleware('permission:accounting.ledger')->name('ledger.list');
         Route::get('/day-book', [FinanceController::class, 'dayBook'])->middleware('permission:accounting.ledger')->name('day-book');
         Route::post('/day-book/list', [FinanceController::class, 'dayBookList'])->middleware('permission:accounting.ledger')->name('day-book.list');
         Route::get('/account-tree', [FinanceController::class, 'accountTree'])->middleware('permission:accounting.ledger')->name('account-tree');
         Route::get('/trial-balance', [FinanceController::class, 'trialBalance'])->middleware('permission:accounting.trial_balance')->name('trial-balance');
         Route::get('/cash-book', [FinanceController::class, 'cashBook'])->middleware('permission:accounting.cash_book')->name('cash-book');
+        Route::post('/cash-book/list', [FinanceController::class, 'cashBookList'])->middleware('permission:accounting.cash_book')->name('cash-book.list');
         Route::get('/bank-book', [FinanceController::class, 'bankBook'])->middleware('permission:accounting.bank_book')->name('bank-book');
+        Route::post('/bank-book/list', [FinanceController::class, 'bankBookList'])->middleware('permission:accounting.bank_book')->name('bank-book.list');
     });
 
     Route::group(['prefix' => 'report'], function () {
         Route::get('/low-stock', [ReportController::class, 'lowStock'])->middleware('permission:report.low_stock')->name('report.lowstock');
+        Route::post('/low-stock/list', [ReportController::class, 'lowStockList'])->middleware('permission:report.low_stock')->name('report.lowstock.list');
         Route::get('/expiry-alert', [ReportController::class, 'expiryAlert'])->middleware('permission:report.expiry')->name('report.expiry');
+        Route::post('/expiry-alert/list', [ReportController::class, 'expiryAlertList'])->middleware('permission:report.expiry')->name('report.expiry.list');
         Route::get('/expiry-alert/print', [ReportController::class, 'expiryAlertPrint'])->middleware('permission:report.expiry')->name('reports.expiry-alert.print');
         Route::get('/purchases', [ReportController::class, 'purchaseHistory'])->middleware('permission:report.purchases')->name('report.purchases');
+        Route::post('/purchases/list', [ReportController::class, 'purchaseHistoryList'])->middleware('permission:report.purchases')->name('report.purchases.list');
         Route::get('/sales', [ReportController::class, 'salesReport'])->middleware('permission:report.sales')->name('report.sales');
+        Route::post('/sales/list', [ReportController::class, 'salesReportList'])->middleware('permission:report.sales')->name('report.sales.list');
         Route::get('/supplier-performance', [ReportController::class, 'supplierPerformance'])->middleware('permission:report.suppliers')->name('report.suppliers');
+        Route::post('/supplier-performance/list', [ReportController::class, 'supplierPerformanceList'])->middleware('permission:report.suppliers')->name('report.suppliers.list');
     });
 
     Route::get('/sales-invoices/{salesInvoice}/print', [SalesInvoiceController::class, 'printPdf'])->middleware('permission:sales.invoice')->name('sales-invoices.print');

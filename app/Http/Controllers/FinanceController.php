@@ -25,6 +25,12 @@ class FinanceController extends Controller
         ]);
     }
 
+    // Return general ledger rows for the server-side table.
+    public function ledgerList(Request $request)
+    {
+        return $this->transactionListResponse($request, null, true);
+    }
+
     // Show trial balance rows with account code, group and closing balance details.
     // This stays fast because we only ask MySQL for grouped totals, not every raw ledger row.
     public function trialBalance(Request $request)
@@ -99,6 +105,12 @@ class FinanceController extends Controller
         ]);
     }
 
+    // Return cash book rows for the server-side table.
+    public function cashBookList(Request $request)
+    {
+        return $this->transactionListResponse($request, 'cash');
+    }
+
     // Show the bank book based on bank account transactions only.
     public function bankBook(Request $request)
     {
@@ -111,6 +123,12 @@ class FinanceController extends Controller
             'summary' => $this->summarizeTransactions($transactions),
             'filters' => $request->only(['date_from', 'date_to']),
         ]);
+    }
+
+    // Return bank book rows for the server-side table.
+    public function bankBookList(Request $request)
+    {
+        return $this->transactionListResponse($request, 'bank');
     }
 
     // Day book shows one date-range running balance for daily operation tracking.
@@ -304,6 +322,101 @@ class FinanceController extends Controller
             'receivable' => round((float) $transactions->where('account_type', 'receivable')->sum('amount'), 2),
             'payable' => round((float) $transactions->where('account_type', 'payable')->sum('amount'), 2),
         ];
+    }
+
+    private function transactionListResponse(Request $request, ?string $forcedAccountType = null, bool $includeAccountGroup = false)
+    {
+        if ($forcedAccountType) {
+            $request->merge(['account_type' => $forcedAccountType]);
+        }
+
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 15);
+
+        $query = $this->baseTransactionQuery($request)
+            ->latest('transaction_date')
+            ->latest('id');
+
+        $recordsTotal = AccountTransaction::query()
+            ->when($forcedAccountType, function (Builder $builder) use ($forcedAccountType) {
+                $builder->where('account_type', $forcedAccountType);
+            })
+            ->count();
+
+        if ($keyword !== '') {
+            $query = $this->applyTransactionSearch($query, $keyword);
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $transactions = $query->get();
+        $accountCatalog = collect($this->accountCatalog())->keyBy('key');
+        $data = [];
+
+        foreach ($transactions as $index => $transaction) {
+            $reference = $transaction->reference_type
+                ? $transaction->reference_type . ' #' . $transaction->reference_id
+                : '-';
+            $account = $accountCatalog->get($transaction->account_type);
+            $entryClass = $transaction->entry_type === 'debit' ? 'bg-success' : 'bg-danger';
+
+            if ($includeAccountGroup) {
+                $data[] = [
+                    'sno' => $start + $index + 1,
+                    'date' => e($transaction->transaction_date_show),
+                    'reference' => '<span class="badge bg-light text-dark border">' . e($reference) . '</span>',
+                    'party' => '<div class="text-wrap">' . e($transaction->party_name) . '</div>',
+                    'account' => '<div class="fw-semibold">' . e($account['name'] ?? $transaction->account_label) . '</div>',
+                    'group' => e($account['group'] ?? '-'),
+                    'narration' => '<div class="text-wrap small">' . e(Str::limit((string) ($transaction->notes ?: '-'), 100)) . '</div>',
+                    'debit' => $transaction->entry_type === 'debit' ? money_value($transaction->amount) : '-',
+                    'credit' => $transaction->entry_type === 'credit' ? money_value($transaction->amount) : '-',
+                    'created_by' => e($transaction->creator?->name ?: '-'),
+                ];
+
+                continue;
+            }
+
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'date' => e($transaction->transaction_date_show),
+                'reference' => '<span class="badge bg-light text-dark border">' . e($reference) . '</span>',
+                'party' => '<div class="text-wrap">' . e($transaction->party_name) . '</div>',
+                'entry' => '<span class="badge ' . $entryClass . '">' . e($transaction->entry_label) . '</span>',
+                'amount' => money_value($transaction->amount),
+                'notes' => '<div class="text-wrap small">' . e(Str::limit((string) ($transaction->notes ?: '-'), 100)) . '</div>',
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
+    private function applyTransactionSearch(Builder $query, string $keyword): Builder
+    {
+        return $query->where(function (Builder $builder) use ($keyword) {
+            $builder->where('reference_type', 'like', '%' . $keyword . '%')
+                ->orWhere('notes', 'like', '%' . $keyword . '%')
+                ->orWhere('account_type', 'like', '%' . $keyword . '%')
+                ->orWhereHas('customer', function (Builder $customerQuery) use ($keyword) {
+                    $customerQuery->where('name', 'like', '%' . $keyword . '%');
+                })
+                ->orWhereHas('supplier', function (Builder $supplierQuery) use ($keyword) {
+                    $supplierQuery->where('supplier_name', 'like', '%' . $keyword . '%');
+                })
+                ->orWhereHas('creator', function (Builder $userQuery) use ($keyword) {
+                    $userQuery->where('name', 'like', '%' . $keyword . '%');
+                });
+        });
     }
 
     private function dayBookFilters(Request $request): array

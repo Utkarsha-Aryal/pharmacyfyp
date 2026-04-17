@@ -135,7 +135,7 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-bordered align-middle js-datatable" data-page-length="15" data-searchable="true">
+                        <table id="financeLedgerTable" class="table table-bordered align-middle w-100">
                             <thead>
                                 <tr>
                                     <th style="width: 70px;">S.No</th>
@@ -150,33 +150,51 @@
                                     <th>Created By</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                @forelse ($transactions as $index => $transaction)
-                                    @php
-                                        $account = $accountCatalog->get($transaction->account_type);
-                                    @endphp
-                                    <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>{{ $transaction->transaction_date_show }}</td>
-                                        <td>{{ $transaction->reference_type ? $transaction->reference_type . ' #' . $transaction->reference_id : '-' }}</td>
-                                        <td>{{ $transaction->party_name }}</td>
-                                        <td>{{ $account['name'] ?? $transaction->account_label }}</td>
-                                        <td>{{ $account['group'] ?? '-' }}</td>
-                                        <td>{{ $transaction->notes ?: '-' }}</td>
-                                        <td>{{ $transaction->entry_type === 'debit' ? money_value($transaction->amount) : '-' }}</td>
-                                        <td>{{ $transaction->entry_type === 'credit' ? money_value($transaction->amount) : '-' }}</td>
-                                        <td>{{ $transaction->creator?->name ?: '-' }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="10" class="text-center text-muted py-4">No ledger entry found.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
+                            <tbody></tbody>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function () {
+            window.financeLedgerTable = window.initServerSideDataTable({
+                selector: '#financeLedgerTable',
+                pageLength: 15,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'date' },
+                    { data: 'reference' },
+                    { data: 'party' },
+                    { data: 'account' },
+                    { data: 'group' },
+                    { data: 'narration' },
+                    { data: 'debit' },
+                    { data: 'credit' },
+                    { data: 'created_by' },
+                ],
+                ajaxUrl: '{{ route('admin.finance.ledger.list') }}',
+                ajaxData: function (request) {
+                    request.party_type = $('[name="party_type"]').val() || '';
+                    request.party_keyword = $('[name="party_keyword"]').val() || '';
+                    request.account_type = $('[name="account_type"]').val() || '';
+                    request.entry_type = $('[name="entry_type"]').val() || '';
+                    request.date_from = $('[name="date_from"]').val() || '';
+                    request.date_to = $('[name="date_to"]').val() || '';
+                }
+            });
+
+            $(document).on('change', '.filter-card select, .filter-card input', function () {
+                if (window.financeLedgerTable) {
+                    window.financeLedgerTable.draw();
+                }
+            });
+        });
+    </script>
 @endsection

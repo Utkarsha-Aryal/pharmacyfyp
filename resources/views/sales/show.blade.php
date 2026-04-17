@@ -110,7 +110,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="10">
+                    <table id="salesInvoiceItemsTable" class="table table-bordered align-middle w-100">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -126,23 +126,7 @@
                                 <th>Subtotal</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @foreach ($invoice->items as $index => $item)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $item->product?->display_name ?? '-' }}</td>
-                                    <td>{{ $item->batch?->batch_number ?? '-' }}</td>
-                                    <td>{{ $item->quantity }}</td>
-                                    <td>{{ $item->free_qty ?? 0 }}</td>
-                                    <td>{{ money_value($item->mrp ?? 0) }}</td>
-                                    <td>{{ money_value($item->unit_price) }}</td>
-                                    <td>{{ number_format((float) $item->discount_percent, 2) }}%</td>
-                                    <td>{{ number_format((float) ($item->cc_rate ?? 0), 2) }}%</td>
-                                    <td>{{ money_value($item->free_goods_value ?? 0) }}</td>
-                                    <td>{{ money_value($item->subtotal) }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -157,7 +141,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle js-datatable" data-page-length="10">
+                    <table id="salesInvoiceReturnsTable" class="table table-bordered align-middle w-100">
                         <thead>
                             <tr>
                                 <th style="width: 70px;">S.No</th>
@@ -174,49 +158,7 @@
                                 <th style="width: 130px;">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($invoice->returns as $index => $returnItem)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $returnItem->return_date_show }}</td>
-                                    <td>{{ $returnItem->product?->display_name ?? '-' }}</td>
-                                    <td>{{ $returnItem->batch?->batch_number ?? '-' }}</td>
-                                    <td>{{ $returnItem->quantity }}</td>
-                                    <td>{{ number_format((float) $returnItem->effective_discount_percent, 2) }}%</td>
-                                    <td>{{ money_value($returnItem->effective_discount_amount) }}</td>
-                                    <td>{{ money_value($returnItem->effective_net_unit_price) }}</td>
-                                    <td>
-                                        <div>{{ money_value($returnItem->refund_amount) }}</div>
-                                        <small class="text-muted d-block">Adj {{ money_value($returnItem->receivable_adjusted_amount) }}</small>
-                                        <small class="text-muted d-block">Cash {{ money_value($returnItem->cash_refund_amount) }} | Credit {{ money_value($returnItem->pending_credit_amount) }}</small>
-                                    </td>
-                                    <td>
-                                        <span class="badge {{ $returnItem->refund_status_badge_class }}">{{ $returnItem->refund_status_label }}</span>
-                                        <small class="text-muted d-block mt-1">
-                                            {{ $returnItem->cash_refund_amount > 0 ? ($returnItem->payment_mode_label ?: 'Paid out') : ($returnItem->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance') }}
-                                        </small>
-                                    </td>
-                                    <td>{{ $returnItem->reason ?: '-' }}</td>
-                                    <td>
-                                        <div class="table-action-group">
-                                            <a href="{{ route('admin.sales.returns.edit', $returnItem) }}" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Return">
-                                                <i class="fa-solid fa-pen-to-square"></i>
-                                            </a>
-                                            <form action="{{ route('admin.sales.returns.delete', $returnItem) }}" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete sales return?" data-confirm-text="This will remove the return and take the stock back out of inventory." data-confirm-button="Yes, delete it">
-                                                @csrf
-                                                <button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Return">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="12" class="text-center text-muted py-4">No return history yet.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -273,6 +215,49 @@
 @section('script')
     <script>
         $(document).ready(function () {
+            window.salesInvoiceItemsTable = window.initServerSideDataTable({
+                selector: '#salesInvoiceItemsTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'product' },
+                    { data: 'batch' },
+                    { data: 'qty' },
+                    { data: 'free_qty' },
+                    { data: 'mrp' },
+                    { data: 'unit_price' },
+                    { data: 'discount_percent' },
+                    { data: 'cc_rate' },
+                    { data: 'free_goods_value' },
+                    { data: 'subtotal' },
+                ],
+                ajaxUrl: '{{ route('admin.sales.items.list', $invoice) }}',
+            });
+
+            window.salesInvoiceReturnsTable = window.initServerSideDataTable({
+                selector: '#salesInvoiceReturnsTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'date' },
+                    { data: 'product' },
+                    { data: 'batch' },
+                    { data: 'qty' },
+                    { data: 'discount_percent' },
+                    { data: 'discount_amount' },
+                    { data: 'net_rate' },
+                    { data: 'refund' },
+                    { data: 'settlement' },
+                    { data: 'reason' },
+                    { data: 'action' },
+                ],
+                ajaxUrl: '{{ route('admin.sales.returns.history.list', $invoice) }}',
+            });
+
             var hash = window.location.hash || '';
 
             if (hash === '#paymentModal') {

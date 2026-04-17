@@ -686,7 +686,145 @@ class SalesInvoiceController extends Controller
     // Show one invoice with items, payment and return history.
     public function show(SalesInvoice $salesInvoice)
     {
-        return view('sales.show', $this->invoiceViewData($salesInvoice));
+        return view('sales.show', $this->invoiceViewData($salesInvoice, false));
+    }
+
+    // Return invoice item rows for the detail screen table.
+    public function invoiceItemsList(Request $request, SalesInvoice $salesInvoice)
+    {
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 10);
+
+        $query = SalesInvoiceItem::query()
+            ->with(['product', 'batch'])
+            ->where('sales_invoice_id', $salesInvoice->id)
+            ->orderBy('id');
+
+        $recordsTotal = (clone $query)->count();
+
+        if ($keyword !== '') {
+            $query->where(function (Builder $builder) use ($keyword) {
+                $builder->where('discount_percent', 'like', '%' . $keyword . '%')
+                    ->orWhere('cc_rate', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('product', function (Builder $productQuery) use ($keyword) {
+                        $productQuery->where('product_name', 'like', '%' . $keyword . '%')
+                            ->orWhere('generic_name', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('batch', function (Builder $batchQuery) use ($keyword) {
+                        $batchQuery->where('batch_number', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $items = $query->get();
+        $data = [];
+
+        foreach ($items as $index => $item) {
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'product' => e($item->product?->display_name ?? '-'),
+                'batch' => '<span class="badge bg-light text-dark border">' . e($item->batch?->batch_number ?? '-') . '</span>',
+                'qty' => '<span class="badge bg-secondary">' . (float) $item->quantity . '</span>',
+                'free_qty' => (float) ($item->free_qty ?? 0),
+                'mrp' => money_value($item->mrp ?? 0),
+                'unit_price' => money_value($item->unit_price),
+                'discount_percent' => e(number_format((float) $item->discount_percent, 2)) . '%',
+                'cc_rate' => e(number_format((float) ($item->cc_rate ?? 0), 2)) . '%',
+                'free_goods_value' => money_value($item->free_goods_value ?? 0),
+                'subtotal' => money_value($item->subtotal),
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
+    // Return sales return history rows for one invoice detail screen.
+    public function invoiceReturnsList(Request $request, SalesInvoice $salesInvoice)
+    {
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 10);
+
+        $query = SalesReturn::query()
+            ->with(['product', 'batch', 'paymentMode'])
+            ->where('sales_invoice_id', $salesInvoice->id)
+            ->latest('return_date')
+            ->latest('id');
+
+        $recordsTotal = (clone $query)->count();
+
+        if ($keyword !== '') {
+            $query->where(function (Builder $builder) use ($keyword) {
+                $builder->where('reason', 'like', '%' . $keyword . '%')
+                    ->orWhere('notes', 'like', '%' . $keyword . '%')
+                    ->orWhere('refund_status', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('product', function (Builder $productQuery) use ($keyword) {
+                        $productQuery->where('product_name', 'like', '%' . $keyword . '%')
+                            ->orWhere('generic_name', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('batch', function (Builder $batchQuery) use ($keyword) {
+                        $batchQuery->where('batch_number', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('paymentMode', function (Builder $modeQuery) use ($keyword) {
+                        $modeQuery->where('name', 'like', '%' . $keyword . '%');
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take($length);
+        }
+
+        $returns = $query->get();
+        $data = [];
+
+        foreach ($returns as $index => $returnItem) {
+            $settlementLabel = $returnItem->cash_refund_amount > 0
+                ? ($returnItem->payment_mode_label ?: 'Paid out')
+                : ($returnItem->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance');
+            $action = '<div class="table-action-group">';
+            $action .= '<a href="' . route('admin.sales.returns.edit', $returnItem) . '" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Return"><i class="fa-solid fa-pen-to-square"></i></a>';
+            $action .= '<form action="' . route('admin.sales.returns.delete', $returnItem) . '" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete sales return?" data-confirm-text="This will remove the return and take the stock back out of inventory." data-confirm-button="Yes, delete it">';
+            $action .= csrf_field();
+            $action .= '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Return"><i class="fa-solid fa-trash"></i></button>';
+            $action .= '</form></div>';
+
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'date' => e($returnItem->return_date_show),
+                'product' => e($returnItem->product?->display_name ?? '-'),
+                'batch' => '<span class="badge bg-light text-dark border">' . e($returnItem->batch?->batch_number ?? '-') . '</span>',
+                'qty' => '<span class="badge bg-secondary">' . (float) $returnItem->quantity . '</span>',
+                'discount_percent' => e(number_format((float) $returnItem->effective_discount_percent, 2)) . '%',
+                'discount_amount' => money_value($returnItem->effective_discount_amount),
+                'net_rate' => money_value($returnItem->effective_net_unit_price),
+                'refund' => '<div>' . e(money_value($returnItem->refund_amount)) . '</div><small class="text-muted d-block">Adj ' . e(money_value($returnItem->receivable_adjusted_amount)) . '</small><small class="text-muted d-block">Cash ' . e(money_value($returnItem->cash_refund_amount)) . ' | Credit ' . e(money_value($returnItem->pending_credit_amount)) . '</small>',
+                'settlement' => '<span class="badge ' . e($returnItem->refund_status_badge_class) . '">' . e($returnItem->refund_status_label) . '</span><small class="text-muted d-block mt-1">' . e($settlementLabel) . '</small>',
+                'reason' => e($returnItem->reason ?: '-'),
+                'action' => $action,
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
     }
 
     // Open one focused invoice page in a new tab so the user prints only the bill.
@@ -1130,27 +1268,34 @@ class SalesInvoiceController extends Controller
     }
 
     // Keep invoice loading in one place so show, print and pdf use the same data.
-    private function loadInvoiceRelations(SalesInvoice $salesInvoice): SalesInvoice
+    private function loadInvoiceRelations(SalesInvoice $salesInvoice, bool $includeLineData = true): SalesInvoice
     {
-        return $salesInvoice->load([
+        $relations = [
             'customer',
             'paymentMode',
             'soldBy',
             'creator',
-            'items.product',
-            'items.batch',
-            'returns.product',
-            'returns.batch',
-            'returns.invoiceItem',
-            'returns.paymentMode',
-        ]);
+        ];
+
+        if ($includeLineData) {
+            $relations = array_merge($relations, [
+                'items.product',
+                'items.batch',
+                'returns.product',
+                'returns.batch',
+                'returns.invoiceItem',
+                'returns.paymentMode',
+            ]);
+        }
+
+        return $salesInvoice->load($relations);
     }
 
     // Build the common screen data once because invoice screens reuse the same labels and company details.
-    private function invoiceViewData(SalesInvoice $salesInvoice): array
+    private function invoiceViewData(SalesInvoice $salesInvoice, bool $includeLineData = true): array
     {
         return [
-            'invoice' => $this->loadInvoiceRelations($salesInvoice),
+            'invoice' => $this->loadInvoiceRelations($salesInvoice, $includeLineData),
             'company' => $this->invoiceCompanyDetails(),
             'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
             'saleTypes' => DropdownOption::query()->forAlias('sales_type')->active()->orderBy('name')->pluck('name', 'id'),

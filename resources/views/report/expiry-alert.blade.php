@@ -90,7 +90,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered js-datatable" data-page-length="10" data-searchable="true">
+                    <table id="expiryAlertTable" class="table table-bordered w-100">
                         <thead>
                             <tr>
                                 <th>S.No</th>
@@ -104,29 +104,7 @@
                                 <th>Status</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($expiryItems as $index => $item)
-                                <tr class="{{ $item->expiry_state === 'expired' || $item->expiry_state === 'critical' ? 'table-danger' : ($item->expiry_state === 'warning' ? 'table-warning' : ($item->expiry_state === 'near' ? 'table-info' : '')) }}">
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $item->product?->display_name ?? '-' }}</td>
-                                    <td>{{ $item->batch_number ?? '-' }}</td>
-                                    <td>{{ $item->supplier?->supplier_name ?? '-' }}</td>
-                                    <td>{{ $item->expiry_show }}</td>
-                                    <td>{{ $item->days_left }}</td>
-                                    <td>{{ $item->quantity_available }}</td>
-                                    <td>{{ $item->storage_location ?: '-' }}</td>
-                                    <td>
-                                        <span class="report-badge {{ $item->expiry_state === 'expired' || $item->expiry_state === 'critical' ? 'report-badge-danger' : ($item->expiry_state === 'warning' ? 'report-badge-warning' : 'report-badge-info') }}">
-                                            {{ strtoupper($item->expiry_state) }}
-                                        </span>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">No expiry data available for the selected range.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -137,6 +115,30 @@
 @section('script')
     <script>
         $(function () {
+            window.expiryAlertTable = window.initServerSideDataTable({
+                selector: '#expiryAlertTable',
+                pageLength: 10,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'product' },
+                    { data: 'batch' },
+                    { data: 'supplier' },
+                    { data: 'expiry' },
+                    { data: 'days_left' },
+                    { data: 'qty' },
+                    { data: 'location' },
+                    { data: 'status' },
+                ],
+                ajaxUrl: '{{ route('admin.report.expiry.list') }}',
+                ajaxData: function (request) {
+                    request.date_from = $('input[name="date_from"]').val() || '';
+                    request.date_to = $('input[name="date_to"]').val() || '';
+                    request.window = $('#expiryWindow').val() || '6m';
+                }
+            });
+
             $(document).on('click', '.js-expiry-window', function () {
                 var windowType = $(this).data('window');
                 var today = new Date();
@@ -159,6 +161,12 @@
                 $('input[name="date_from"]').val(formatDate(today));
                 $('input[name="date_to"]').val(formatDate(dateTo));
                 $(this).closest('form').trigger('submit');
+            });
+
+            $(document).on('change', 'input[name="date_from"], input[name="date_to"], #expiryWindow', function () {
+                if (window.expiryAlertTable) {
+                    window.expiryAlertTable.draw();
+                }
             });
         });
     </script>
