@@ -119,7 +119,7 @@
     </div>
 
     <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <a href="{{ route('admin.finance.vouchers.index') }}" class="btn btn-outline-secondary">
+        <a href="{{ route('admin.finance.ledger') }}" class="btn btn-outline-secondary">
             <i class="fa-solid fa-arrow-left"></i> Back
         </a>
         <button type="submit" class="btn btn-primary">

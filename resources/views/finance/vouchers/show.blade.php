@@ -12,7 +12,7 @@
                 <p class="mb-0 text-muted">Review the posted voucher and its ledger lines.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="{{ route('admin.finance.vouchers.index') }}" class="btn btn-outline-secondary">
+                <a href="{{ route('admin.finance.ledger') }}" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-arrow-left"></i> Back
                 </a>
                 <a href="{{ route('admin.finance.vouchers.edit', $voucher) }}" class="btn btn-outline-warning">

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Batch;
-use App\Models\Product;
 use App\Models\ProductBatch;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
@@ -129,7 +128,6 @@ class PurchaseReturnController extends Controller
 
         return view('purchase-return.create', [
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
-            'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
             'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
         ]);
     }
@@ -143,13 +141,9 @@ class PurchaseReturnController extends Controller
 
         return view('purchase-return.edit', [
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
-            'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
             'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
             'purchaseReturn' => $purchaseReturn,
             'itemsRows' => $this->buildEditableRows($purchaseReturn),
-            'selectedManualProductId' => !$purchaseReturn->purchase_id && $purchaseReturn->items->pluck('product_id')->unique()->count() === 1
-                ? (int) $purchaseReturn->items->pluck('product_id')->unique()->first()
-                : null,
         ]);
     }
 
@@ -631,6 +625,8 @@ class PurchaseReturnController extends Controller
                     'badge_label' => $quantityAvailable <= 0 ? 'No stock left' : ($state === 'expired' ? 'Expired batch' : ($state === 'warning' ? 'Expiring soon' : 'Valid batch')),
                     'disabled' => false,
                     'quantity_available' => $quantityAvailable,
+                    'quantity_received' => (int) $batch->quantity_received,
+                    'purchase_price' => round((float) $batch->purchase_price, 2),
                 ];
             })
             ->values()
@@ -663,6 +659,8 @@ class PurchaseReturnController extends Controller
                     'badge_label' => $state === 'expired' ? 'Expired batch' : ($state === 'warning' ? 'Expiring soon' : 'Valid batch'),
                     'disabled' => false,
                     'quantity_available' => $quantityAvailable,
+                    'quantity_received' => (int) $batch->quantity_received,
+                    'purchase_price' => round((float) $batch->purchase_price, 2),
                 ];
             })
             ->values()

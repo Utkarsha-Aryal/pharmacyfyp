@@ -12,6 +12,9 @@
                 <p class="mb-0 text-muted">Simple chart of accounts view with group totals and current book movement.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
+                <a href="{{ route('admin.finance.vouchers.create') }}" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i> Create Voucher
+                </a>
                 <a href="{{ route('admin.export.account-tree-pdf', request()->query()) }}" target="_blank" class="btn btn-pdf">
                     <i class="fa-solid fa-file-pdf"></i> PDF
                 </a>

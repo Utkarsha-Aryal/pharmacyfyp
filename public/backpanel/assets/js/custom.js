@@ -2935,7 +2935,6 @@
   function initSidebarPreference() {
     var html = document.documentElement;
     var toggleButton = document.querySelector(".sidemenu-toggle");
-    var isWorkspacePage = document.body && document.body.classList.contains("workspace-form-page");
 
     if (!html || !toggleButton) {
       return;
@@ -2951,30 +2950,15 @@
     }
 
     if (window.innerWidth >= 992) {
-      applySidebarPreference(isWorkspacePage ? "open" : (savedState === "collapsed" ? "collapsed" : "open"));
+      applySidebarPreference(savedState === "collapsed" ? "collapsed" : "open");
     } else if (!html.getAttribute("data-toggled")) {
       html.setAttribute("data-toggled", "close");
-    }
-
-    if (isWorkspacePage) {
-      try {
-        window.localStorage.setItem(storageKey, "open");
-      } catch (error) {
-        // localStorage can be blocked in private browsing modes.
-      }
     }
 
     if (toggleButton.dataset.sidebarPreferenceReady !== "true") {
       // We listen in capture phase so the theme's default click handler does not fight our saved state.
       toggleButton.addEventListener("click", function (event) {
         if (window.innerWidth < 992) {
-          return;
-        }
-
-        if (isWorkspacePage) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          applySidebarPreference("open");
           return;
         }
 
@@ -2996,11 +2980,6 @@
       if (!window.__sidebarPreferenceResizeBound) {
         window.addEventListener("resize", function () {
           if (window.innerWidth >= 992) {
-            if (isWorkspacePage) {
-              applySidebarPreference("open");
-              return;
-            }
-
             var currentState = "open";
 
             try {

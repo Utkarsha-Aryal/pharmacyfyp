@@ -181,7 +181,55 @@ class SalesInvoiceController extends Controller
     // Save one sales return from the dedicated manager flow.
     public function returnsStore(Request $request)
     {
-        $salesReturn = $this->persistSalesReturn($request);
+        $validated = $request->validate([
+            'sales_invoice_id' => ['required', 'exists:sales_invoices,id'],
+            'return_date' => ['required', 'date'],
+            'refund_status' => ['required', Rule::in(['pending', 'paid'])],
+            'payment_mode_id' => [
+                'nullable',
+                Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode')),
+            ],
+            'reason' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.sales_invoice_item_id' => ['required', 'exists:sales_invoice_items,id'],
+            'items.*.quantity' => ['required', 'numeric', 'min:1'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.net_unit_price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.refund_amount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $rows = collect($validated['items'])
+            ->filter(fn (array $row) => (float) ($row['quantity'] ?? 0) > 0)
+            ->values();
+
+        if ($rows->isEmpty()) {
+            throw ValidationException::withMessages([
+                'items' => 'Please add at least one return item with quantity.',
+            ]);
+        }
+
+        DB::transaction(function () use ($rows, $validated, $request) {
+            foreach ($rows as $row) {
+                $this->saveSalesReturnValidated([
+                    'sales_invoice_id' => $validated['sales_invoice_id'],
+                    'sales_invoice_item_id' => $row['sales_invoice_item_id'],
+                    'return_date' => $validated['return_date'],
+                    'quantity' => $row['quantity'],
+                    'refund_status' => $validated['refund_status'],
+                    'payment_mode_id' => $validated['payment_mode_id'] ?? null,
+                    'reason' => $validated['reason'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                    'unit_price' => $row['unit_price'] ?? null,
+                    'discount_percent' => $row['discount_percent'] ?? null,
+                    'discount_amount' => $row['discount_amount'] ?? null,
+                    'net_unit_price' => $row['net_unit_price'] ?? null,
+                    'refund_amount' => $row['refund_amount'] ?? null,
+                ], $request);
+            }
+        });
 
         return redirect()->route('admin.sales.returns.index')->with('success', 'Sales return saved successfully.');
     }
@@ -197,6 +245,64 @@ class SalesInvoiceController extends Controller
     // Update an existing sales return and rebuild stock/accounting safely.
     public function returnsUpdate(Request $request, SalesReturn $salesReturn)
     {
+        if ($request->has('items')) {
+            $validated = $request->validate([
+                'sales_invoice_id' => ['required', 'exists:sales_invoices,id'],
+                'return_date' => ['required', 'date'],
+                'refund_status' => ['required', Rule::in(['pending', 'paid'])],
+                'payment_mode_id' => [
+                    'nullable',
+                    Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode')),
+                ],
+                'reason' => ['nullable', 'string', 'max:255'],
+                'notes' => ['nullable', 'string'],
+                'items' => ['required', 'array', 'min:1'],
+                'items.*.sales_invoice_item_id' => ['required', 'exists:sales_invoice_items,id'],
+                'items.*.quantity' => ['required', 'numeric', 'min:1'],
+                'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+                'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+                'items.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+                'items.*.net_unit_price' => ['nullable', 'numeric', 'min:0'],
+                'items.*.refund_amount' => ['nullable', 'numeric', 'min:0'],
+            ]);
+
+            $rows = collect($validated['items'])
+                ->filter(fn (array $row) => (float) ($row['quantity'] ?? 0) > 0)
+                ->values();
+
+            if ($rows->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'items' => 'Please add at least one return item with quantity.',
+                ]);
+            }
+
+            DB::transaction(function () use ($rows, $validated, $request, $salesReturn) {
+                $existingRow = $salesReturn;
+
+                foreach ($rows as $row) {
+                    $this->saveSalesReturnValidated([
+                        'sales_invoice_id' => $validated['sales_invoice_id'],
+                        'sales_invoice_item_id' => $row['sales_invoice_item_id'],
+                        'return_date' => $validated['return_date'],
+                        'quantity' => $row['quantity'],
+                        'refund_status' => $validated['refund_status'],
+                        'payment_mode_id' => $validated['payment_mode_id'] ?? null,
+                        'reason' => $validated['reason'] ?? null,
+                        'notes' => $validated['notes'] ?? null,
+                        'unit_price' => $row['unit_price'] ?? null,
+                        'discount_percent' => $row['discount_percent'] ?? null,
+                        'discount_amount' => $row['discount_amount'] ?? null,
+                        'net_unit_price' => $row['net_unit_price'] ?? null,
+                        'refund_amount' => $row['refund_amount'] ?? null,
+                    ], $request, $existingRow);
+
+                    $existingRow = null;
+                }
+            });
+
+            return redirect()->route('admin.sales.returns.index')->with('success', 'Sales return updated successfully.');
+        }
+
         $this->persistSalesReturn($request, $salesReturn);
 
         return redirect()->route('admin.sales.returns.index')->with('success', 'Sales return updated successfully.');
@@ -1012,6 +1118,12 @@ class SalesInvoiceController extends Controller
         ]);
 
         return DB::transaction(function () use ($validated, $request, $existingReturn) {
+            return $this->saveSalesReturnValidated($validated, $request, $existingReturn);
+        });
+    }
+
+    private function saveSalesReturnValidated(array $validated, Request $request, ?SalesReturn $existingReturn = null): SalesReturn
+    {
             $salesInvoice = SalesInvoice::query()
                 ->with('customer')
                 ->findOrFail($validated['sales_invoice_id']);
@@ -1217,7 +1329,6 @@ class SalesInvoiceController extends Controller
             }
 
             return $salesReturn->load(['invoice.customer', 'invoiceItem.product', 'invoiceItem.batch', 'product', 'batch', 'paymentMode']);
-        });
     }
 
     // Split a return into balance adjustment, pending credit, and actual cash or bank payout.
@@ -1356,9 +1467,10 @@ class SalesInvoiceController extends Controller
         $selectedInvoiceOption = $selectedInvoice ? $this->formatSalesReturnInvoiceOption($selectedInvoice) : null;
         $selectedItemId = old('sales_invoice_item_id', $salesReturn?->sales_invoice_item_id ?: $request->input('sales_invoice_item_id'));
         $selectedItemOption = null;
+        $salesReturnItemOptions = $selectedInvoice ? $this->buildSalesReturnItemOptions($selectedInvoice, $salesReturn) : [];
 
         if ($selectedInvoice && $selectedItemId) {
-            $selectedItemOption = collect($this->buildSalesReturnItemOptions($selectedInvoice, $salesReturn))
+            $selectedItemOption = collect($salesReturnItemOptions)
                 ->firstWhere('id', (int) $selectedItemId);
         }
 
@@ -1367,6 +1479,7 @@ class SalesInvoiceController extends Controller
             'selectedInvoice' => $selectedInvoice,
             'selectedInvoiceOption' => $selectedInvoiceOption,
             'selectedItemOption' => $selectedItemOption,
+            'salesReturnItemOptions' => $salesReturnItemOptions,
             'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
         ];
     }

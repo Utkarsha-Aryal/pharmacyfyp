@@ -11,6 +11,11 @@
                 <h5 class="page-title fs-21 mb-1">Day Book</h5>
                 <p class="mb-0 text-muted">Review daily debit, credit, and running balance.</p>
             </div>
+            <div class="d-flex gap-2 mt-3 mt-md-0">
+                <a href="{{ route('admin.finance.vouchers.create') }}" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i> Create Voucher
+                </a>
+            </div>
         </div>
 
         <div class="row g-3 mb-4">

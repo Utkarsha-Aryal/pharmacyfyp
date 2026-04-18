@@ -7,7 +7,6 @@ use App\Models\Customer;
 use App\Models\Supplier;
 use App\Models\Voucher;
 use App\Models\VoucherEntry;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -33,106 +32,7 @@ class VoucherController extends Controller
 
     public function index(Request $request)
     {
-        $filters = $request->only(['voucher_type', 'date_from', 'date_to']);
-        $summaryQuery = $this->applyFilters(Voucher::query(), $filters);
-
-        return view('finance.vouchers.index', [
-            'filters' => $filters,
-            'voucherTypes' => self::VOUCHER_TYPES,
-            'summary' => [
-                'count' => (clone $summaryQuery)->count(),
-                'amount' => round((float) (clone $summaryQuery)->sum('total_amount'), 2),
-                'this_month' => (clone $summaryQuery)
-                    ->whereMonth('voucher_date', now()->month)
-                    ->whereYear('voucher_date', now()->year)
-                    ->count(),
-                'journal' => (clone $summaryQuery)->where('voucher_type', 'journal')->count(),
-            ],
-        ]);
-    }
-
-    public function list(Request $request)
-    {
-        $filters = $request->only(['voucher_type', 'date_from', 'date_to']);
-        $keyword = trim((string) $request->input('search.value', ''));
-        $start = max((int) $request->input('start', 0), 0);
-        $length = (int) $request->input('length', 10);
-
-        $query = Voucher::query()
-            ->with(['entries.customer', 'entries.supplier', 'creator'])
-            ->orderByDesc('voucher_date')
-            ->orderByDesc('id');
-
-        $recordsTotal = (clone $query)->count();
-        $query = $this->applyFilters($query, $filters);
-
-        if ($keyword !== '') {
-            $query->where(function (Builder $builder) use ($keyword) {
-                $builder->where('voucher_no', 'like', '%' . $keyword . '%')
-                    ->orWhere('voucher_type', 'like', '%' . $keyword . '%')
-                    ->orWhere('notes', 'like', '%' . $keyword . '%')
-                    ->orWhereHas('entries', function (Builder $entryQuery) use ($keyword) {
-                        $entryQuery->where('account_type', 'like', '%' . $keyword . '%')
-                            ->orWhere('entry_type', 'like', '%' . $keyword . '%')
-                            ->orWhere('notes', 'like', '%' . $keyword . '%')
-                            ->orWhereHas('customer', function (Builder $customerQuery) use ($keyword) {
-                                $customerQuery->where('name', 'like', '%' . $keyword . '%');
-                            })
-                            ->orWhereHas('supplier', function (Builder $supplierQuery) use ($keyword) {
-                                $supplierQuery->where('supplier_name', 'like', '%' . $keyword . '%');
-                            });
-                    });
-            });
-        }
-
-        $recordsFiltered = (clone $query)->count();
-
-        if ($length > -1) {
-            $query->skip($start)->take($length);
-        }
-
-        $vouchers = $query->get();
-        $data = [];
-
-        foreach ($vouchers as $index => $voucher) {
-            $partyNames = $voucher->entries
-                ->map(fn (VoucherEntry $entry) => $entry->party_name)
-                ->filter(fn (string $partyName) => $partyName !== '-')
-                ->unique()
-                ->take(2)
-                ->implode(', ');
-
-            $lineSummary = $voucher->entries
-                ->take(2)
-                ->map(fn (VoucherEntry $entry) => $entry->account_label . ' (' . ucfirst($entry->entry_type) . ')')
-                ->implode(' | ');
-
-            $action = '<div class="table-action-group">';
-            $action .= '<a href="' . route('admin.finance.vouchers.show', $voucher) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Voucher"><i class="fa-solid fa-eye"></i></a>';
-            $action .= '<a href="' . route('admin.finance.vouchers.edit', $voucher) . '" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Voucher"><i class="fa-solid fa-pen-to-square"></i></a>';
-            $action .= '<form action="' . route('admin.finance.vouchers.delete', $voucher) . '" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete voucher?" data-confirm-text="This will remove the voucher and its accounting rows." data-confirm-button="Yes, delete it">';
-            $action .= '<input type="hidden" name="_token" value="' . csrf_token() . '">';
-            $action .= '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Voucher"><i class="fa-solid fa-trash"></i></button>';
-            $action .= '</form></div>';
-
-            $data[] = [
-                'sno' => $start + $index + 1,
-                'voucher_no' => '<div class="fw-semibold">' . e($voucher->voucher_no) . '</div><div class="small text-muted">' . e($voucher->voucher_type_label) . '</div>',
-                'date' => e($voucher->voucher_date_show),
-                'party' => '<div class="text-wrap">' . e($partyNames ?: '-') . '</div>',
-                'entries' => '<div class="text-wrap small">' . e($lineSummary ?: '-') . '</div><div class="small text-muted">' . e($voucher->entries->count()) . ' line(s)</div>',
-                'amount' => '<span class="fw-semibold">' . e(money_value($voucher->total_amount)) . '</span>',
-                'created_by' => e($voucher->creator?->name ?? '-'),
-                'action' => $action,
-            ];
-        }
-
-        return response()->json([
-            'draw' => (int) $request->input('draw', 0),
-            'recordsTotal' => $recordsTotal,
-            'recordsFiltered' => $recordsFiltered,
-            'data' => $data,
-        ]);
+        return redirect()->route('admin.finance.ledger');
     }
 
     public function create()
@@ -180,7 +80,7 @@ class VoucherController extends Controller
             $voucher->delete();
         });
 
-        return redirect()->route('admin.finance.vouchers.index')->with('success', 'Voucher deleted successfully.');
+        return redirect()->route('admin.finance.ledger')->with('success', 'Voucher deleted successfully.');
     }
 
     private function persistVoucher(Request $request, ?Voucher $existingVoucher = null): Voucher
@@ -355,20 +255,6 @@ class VoucherController extends Controller
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(['id', 'supplier_name']),
             'entryRows' => $entryRows,
         ];
-    }
-
-    private function applyFilters(Builder $query, array $filters): Builder
-    {
-        return $query
-            ->when(!empty($filters['voucher_type']), function (Builder $builder) use ($filters) {
-                $builder->where('voucher_type', $filters['voucher_type']);
-            })
-            ->when(!empty($filters['date_from']), function (Builder $builder) use ($filters) {
-                $builder->whereDate('voucher_date', '>=', $filters['date_from']);
-            })
-            ->when(!empty($filters['date_to']), function (Builder $builder) use ($filters) {
-                $builder->whereDate('voucher_date', '<=', $filters['date_to']);
-            });
     }
 
     private function nextVoucherNumber(): string

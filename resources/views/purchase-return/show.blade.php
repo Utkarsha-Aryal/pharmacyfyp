@@ -5,11 +5,25 @@
 @endsection
 
 @section('main-content')
+    @php
+        $totalQty = (float) $purchaseReturn->items->sum('return_qty');
+        $grossReturn = (float) $purchaseReturn->items->sum(function ($item) {
+            return (float) $item->return_qty * (float) $item->rate;
+        });
+        $discountTotal = (float) $purchaseReturn->items->sum('discount_amount');
+        $netReturn = (float) $purchaseReturn->items->sum(function ($item) {
+            return (float) $item->effective_return_amount;
+        });
+        $returnModeLabel = $purchaseReturn->purchase_id ? 'By Purchase Bill' : 'By Product & Batch';
+        $returnModeClass = $purchaseReturn->purchase_id ? 'bg-primary' : 'bg-warning text-dark';
+        $purchaseBillLabel = $purchaseReturn->purchase?->reference?->reference_no ?: ($purchaseReturn->purchase_id ? ('PUR-' . $purchaseReturn->purchase_id) : 'Manual / Unknown Bill');
+    @endphp
+
     <div class="admin-page-wrap">
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Purchase Return Details</h5>
-                <p class="mb-0 text-muted">Review returned batch rows and print the debit note style PDF.</p>
+                <p class="mb-0 text-muted">Review returned rows, totals, and supplier details before printing or editing.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.purchase-returns.index') }}" class="btn btn-outline-secondary">
@@ -30,6 +44,45 @@
             </div>
         </div>
 
+        <div class="row g-3 mb-4">
+            <div class="col-xl-3 col-md-6">
+                <div class="card custom-card summary-card summary-card-blue">
+                    <div class="card-body">
+                        <p class="summary-card-label">Supplier</p>
+                        <h3 class="summary-card-value fs-18">{{ $purchaseReturn->supplier?->supplier_name ?? '-' }}</h3>
+                        <span class="summary-card-note">Return raised against supplier stock.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card custom-card summary-card summary-card-green">
+                    <div class="card-body">
+                        <p class="summary-card-label">Return Mode</p>
+                        <h3 class="summary-card-value fs-18"><span class="badge {{ $returnModeClass }}">{{ $returnModeLabel }}</span></h3>
+                        <span class="summary-card-note">Bill-linked or product-and-batch entry.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card custom-card summary-card summary-card-orange">
+                    <div class="card-body">
+                        <p class="summary-card-label">Items Returned</p>
+                        <h3 class="summary-card-value">{{ number_format($totalQty, 0) }}</h3>
+                        <span class="summary-card-note">{{ $purchaseReturn->items->count() }} row(s) in this return.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card custom-card summary-card summary-card-red">
+                    <div class="card-body">
+                        <p class="summary-card-label">Net Return</p>
+                        <h3 class="summary-card-value">{{ money_value($netReturn) }}</h3>
+                        <span class="summary-card-note">Gross {{ money_value($grossReturn) }} less discount {{ money_value($discountTotal) }}.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card custom-card mb-4">
             <div class="card-body">
                 <div class="row g-3">
@@ -39,7 +92,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label text-muted">Purchase Bill</label>
-                        <div class="fw-semibold">{{ $purchaseReturn->purchase?->reference?->reference_no ?: ($purchaseReturn->purchase_id ? ('PUR-' . $purchaseReturn->purchase_id) : 'Manual / Unknown Bill') }}</div>
+                        <div class="fw-semibold"><span class="badge bg-light text-dark border">{{ $purchaseBillLabel }}</span></div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label text-muted">Return Date</label>
@@ -63,7 +116,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle">
+                    <table class="table table-bordered align-middle purchase-item-table">
                         <thead>
                             <tr>
                                 <th>S.No</th>
@@ -71,34 +124,43 @@
                                 <th>Batch</th>
                                 <th>Return Qty</th>
                                 <th>Rate</th>
-                                <th>Discount</th>
+                                <th>Discount %</th>
+                                <th>Discount Amt</th>
                                 <th>Net Rate</th>
                                 <th>Amount</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @php $totalReturn = 0; @endphp
                             @foreach ($purchaseReturn->items as $index => $item)
-                                @php
-                                    $lineTotal = (float) $item->effective_return_amount;
-                                    $totalReturn += $lineTotal;
-                                @endphp
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td>{{ $item->product?->display_name ?? '-' }}</td>
-                                    <td>{{ $item->batch?->batch_number ?? '-' }}</td>
-                                    <td>{{ $item->return_qty }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ $item->batch?->batch_number ?? '-' }}</span></td>
+                                    <td><span class="badge bg-info text-dark">{{ number_format((float) $item->return_qty, 0) }}</span></td>
                                     <td>{{ money_value($item->rate) }}</td>
                                     <td>{{ number_format((float) ($item->discount_percent ?? 0), 2) }}%</td>
+                                    <td>{{ money_value($item->discount_amount ?? 0) }}</td>
                                     <td>{{ money_value($item->effective_net_rate) }}</td>
-                                    <td>{{ money_value($lineTotal) }}</td>
+                                    <td>{{ money_value($item->effective_return_amount) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot>
                             <tr>
-                                <th colspan="7" class="text-end">Total Return Value</th>
-                                <th>{{ money_value($totalReturn) }}</th>
+                                <th colspan="7" class="text-end">Total Return Qty</th>
+                                <th>{{ number_format($totalQty, 0) }}</th>
+                            </tr>
+                            <tr>
+                                <th colspan="7" class="text-end">Gross Return</th>
+                                <th>{{ money_value($grossReturn) }}</th>
+                            </tr>
+                            <tr>
+                                <th colspan="7" class="text-end">Total Discount</th>
+                                <th>{{ money_value($discountTotal) }}</th>
+                            </tr>
+                            <tr>
+                                <th colspan="7" class="text-end">Net Return</th>
+                                <th>{{ money_value($netReturn) }}</th>
                             </tr>
                         </tfoot>
                     </table>

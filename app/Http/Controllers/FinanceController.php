@@ -178,15 +178,19 @@ class FinanceController extends Controller
             : $transactions->values();
 
         $data = $rows->values()->map(function ($transaction, $index) use ($start) {
-            $reference = $transaction->reference_type
-                ? $transaction->reference_type . ' #' . $transaction->reference_id
-                : '-';
+            $reference = '-';
+            if ($transaction->reference_type) {
+                $label = $transaction->reference_type . ' #' . $transaction->reference_id;
+                $reference = $transaction->reference_type === 'Voucher'
+                    ? '<a href="' . route('admin.finance.vouchers.show', $transaction->reference_id) . '" class="badge bg-light text-dark border text-decoration-none">' . e($label) . '</a>'
+                    : '<span class="badge bg-light text-dark border">' . e($label) . '</span>';
+            }
             $entryClass = $transaction->entry_type === 'debit' ? 'bg-success' : 'bg-danger';
 
             return [
                 'sno' => $start + $index + 1,
                 'date' => e($transaction->transaction_date_show),
-                'reference' => '<span class="badge bg-light text-dark border">' . e($reference) . '</span>',
+                'reference' => $reference,
                 'party' => '<div class="text-wrap">' . e($transaction->party_name) . '</div>',
                 'account' => '<div class="fw-semibold">' . e($transaction->account_label) . '</div><div class="small text-muted"><span class="badge ' . $entryClass . '">' . e($transaction->entry_label) . '</span></div>',
                 'narration' => '<div class="text-wrap small">' . e(Str::limit((string) ($transaction->notes ?: '-'), 100)) . '</div>',
@@ -359,9 +363,17 @@ class FinanceController extends Controller
         $data = [];
 
         foreach ($transactions as $index => $transaction) {
-            $reference = $transaction->reference_type
-                ? $transaction->reference_type . ' #' . $transaction->reference_id
-                : '-';
+            $reference = '-';
+
+            if ($transaction->reference_type) {
+                $label = $transaction->reference_type . ' #' . $transaction->reference_id;
+
+                if ($transaction->reference_type === 'Voucher') {
+                    $reference = '<a href="' . route('admin.finance.vouchers.show', $transaction->reference_id) . '" class="badge bg-light text-dark border text-decoration-none">' . e($label) . '</a>';
+                } else {
+                    $reference = '<span class="badge bg-light text-dark border">' . e($label) . '</span>';
+                }
+            }
             $account = $accountCatalog->get($transaction->account_type);
             $entryClass = $transaction->entry_type === 'debit' ? 'bg-success' : 'bg-danger';
 
@@ -369,7 +381,7 @@ class FinanceController extends Controller
                 $data[] = [
                     'sno' => $start + $index + 1,
                     'date' => e($transaction->transaction_date_show),
-                    'reference' => '<span class="badge bg-light text-dark border">' . e($reference) . '</span>',
+                    'reference' => $reference,
                     'party' => '<div class="text-wrap">' . e($transaction->party_name) . '</div>',
                     'account' => '<div class="fw-semibold">' . e($account['name'] ?? $transaction->account_label) . '</div>',
                     'group' => e($account['group'] ?? '-'),
@@ -385,7 +397,7 @@ class FinanceController extends Controller
             $data[] = [
                 'sno' => $start + $index + 1,
                 'date' => e($transaction->transaction_date_show),
-                'reference' => '<span class="badge bg-light text-dark border">' . e($reference) . '</span>',
+                'reference' => $reference,
                 'party' => '<div class="text-wrap">' . e($transaction->party_name) . '</div>',
                 'entry' => '<span class="badge ' . $entryClass . '">' . e($transaction->entry_label) . '</span>',
                 'amount' => money_value($transaction->amount),
