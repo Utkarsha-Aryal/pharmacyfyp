@@ -29,6 +29,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierTypeController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\UserManagementController;
+use App\Http\Controllers\VoucherController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -229,6 +230,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/cash-book/list', [FinanceController::class, 'cashBookList'])->middleware('permission:accounting.cash_book')->name('cash-book.list');
         Route::get('/bank-book', [FinanceController::class, 'bankBook'])->middleware('permission:accounting.bank_book')->name('bank-book');
         Route::post('/bank-book/list', [FinanceController::class, 'bankBookList'])->middleware('permission:accounting.bank_book')->name('bank-book.list');
+        Route::get('/vouchers', [VoucherController::class, 'index'])->middleware('permission:accounting.ledger')->name('vouchers.index');
+        Route::post('/vouchers/list', [VoucherController::class, 'list'])->middleware('permission:accounting.ledger')->name('vouchers.list');
+        Route::get('/vouchers/create', [VoucherController::class, 'create'])->middleware('permission:accounting.ledger')->name('vouchers.create');
+        Route::post('/vouchers/store', [VoucherController::class, 'store'])->middleware('permission:accounting.ledger')->name('vouchers.store');
+        Route::get('/vouchers/{voucher}/edit', [VoucherController::class, 'edit'])->middleware('permission:accounting.ledger')->name('vouchers.edit');
+        Route::post('/vouchers/{voucher}/update', [VoucherController::class, 'update'])->middleware('permission:accounting.ledger')->name('vouchers.update');
+        Route::post('/vouchers/{voucher}/delete', [VoucherController::class, 'destroy'])->middleware('permission:accounting.ledger')->name('vouchers.delete');
+        Route::get('/vouchers/{voucher}', [VoucherController::class, 'show'])->middleware('permission:accounting.ledger')->name('vouchers.show');
     });
 
     Route::group(['prefix' => 'report'], function () {

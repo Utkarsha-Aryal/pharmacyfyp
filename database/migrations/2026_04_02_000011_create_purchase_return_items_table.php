@@ -16,6 +16,10 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained('products')->restrictOnDelete();
             $table->integer('return_qty');
             $table->decimal('rate', 10, 2)->default(0);
+            $table->decimal('discount_percent', 10, 2)->default(0);
+            $table->decimal('discount_amount', 10, 2)->default(0);
+            $table->decimal('net_rate', 10, 2)->default(0);
+            $table->decimal('return_amount', 10, 2)->default(0);
             $table->timestamps();
         });
     }

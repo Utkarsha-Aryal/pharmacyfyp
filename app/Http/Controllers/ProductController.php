@@ -136,7 +136,7 @@ public function globalSearch(Request $request)
                 'purchase_price' => ['nullable', 'numeric', 'min:0'],
                 'keywords' => ['nullable', 'string'],
                 'description' => ['required', 'string'],
-                'image' => [$request->filled('id') ? 'nullable' : 'required', 'image', 'max:5120'],
+                'image' => ['nullable', 'image', 'max:5120'],
                 'is_active' => ['nullable', 'boolean'],
             ]);
 

@@ -215,6 +215,12 @@ class PurchaseReturnController extends Controller
                     'already_returned' => $returnedQty,
                     'max_returnable' => $maxReturnable,
                     'rate' => round((float) $item->rate, 2),
+                    'discount_percent' => round((float) $item->discount_percent, 2),
+                    'discount_amount' => 0,
+                    'net_rate' => (float) $item->quantity > 0
+                        ? round((float) $item->amount / (float) $item->quantity, 2)
+                        : round((float) $item->rate, 2),
+                    'return_amount' => 0,
                     'batch_options' => $batchOptions,
                     'selected_batch_id' => $selectedBatchId,
                     'batch_badge_class' => $batchBadge['class'],
@@ -263,6 +269,10 @@ class PurchaseReturnController extends Controller
                     'already_returned' => 0,
                     'max_returnable' => (int) $batch->quantity_available,
                     'rate' => round((float) $batch->purchase_price, 2),
+                    'discount_percent' => 0,
+                    'discount_amount' => 0,
+                    'net_rate' => round((float) $batch->purchase_price, 2),
+                    'return_amount' => 0,
                     'batch_options' => [[
                         'id' => $batch->id,
                         'text' => trim(($batch->batch_number ?: '-') . ' | Exp: ' . ($batch->expiry_show ?: '-') . ' | Qty: ' . (int) $batch->quantity_available),
@@ -310,6 +320,10 @@ class PurchaseReturnController extends Controller
             'items.*.batch_id' => ['nullable', 'integer', 'min:1', 'exists:batches,id'],
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.return_qty' => ['nullable', 'integer', 'min:0'],
+            'items.*.rate' => ['nullable', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.net_rate' => ['nullable', 'numeric', 'min:0'],
         ], [
             'items.required' => 'Please add at least one return row.',
             'items.min' => 'Please add at least one return row.',
@@ -378,6 +392,9 @@ class PurchaseReturnController extends Controller
                 $returnQty = (int) $row['return_qty'];
                 $purchaseItem = null;
                 $rate = round((float) $batch->purchase_price, 2);
+                $discountPercent = round((float) ($row['discount_percent'] ?? 0), 2);
+                $discountAmount = round((float) ($row['discount_amount'] ?? 0), 2);
+                $netRate = round((float) ($row['net_rate'] ?? $rate), 2);
 
                 if ((int) $batch->supplier_id !== (int) $validated['supplier_id']) {
                     throw ValidationException::withMessages([
@@ -413,6 +430,7 @@ class PurchaseReturnController extends Controller
                     }
 
                     $rate = (float) $purchaseItem->rate;
+                    $discountPercent = round((float) ($row['discount_percent'] ?? $purchaseItem->discount_percent ?? 0), 2);
                 }
 
                 if ((int) $batch->quantity_available < $returnQty) {
@@ -421,6 +439,35 @@ class PurchaseReturnController extends Controller
                     ]);
                 }
 
+                if ($returnQty <= 0) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Return quantity must be greater than zero.',
+                    ]);
+                }
+
+                if (array_key_exists('net_rate', $row) && $row['net_rate'] !== null && $row['net_rate'] !== '') {
+                    $netRate = round((float) $row['net_rate'], 2);
+                    $netRate = max(0, min($rate, $netRate));
+                    $discountAmount = round(max(0, ($rate - $netRate) * $returnQty), 2);
+                    $discountPercent = $rate > 0
+                        ? round((($rate - $netRate) / $rate) * 100, 2)
+                        : 0;
+                } elseif (array_key_exists('discount_amount', $row) && $row['discount_amount'] !== null && $row['discount_amount'] !== '') {
+                    $discountAmount = round((float) $row['discount_amount'], 2);
+                    $perUnitDiscount = $returnQty > 0 ? round($discountAmount / $returnQty, 4) : 0;
+                    $netRate = round(max(0, $rate - $perUnitDiscount), 2);
+                    $discountPercent = $rate > 0
+                        ? round((($rate - $netRate) / $rate) * 100, 2)
+                        : 0;
+                    $discountAmount = round(max(0, ($rate - $netRate) * $returnQty), 2);
+                } else {
+                    $discountPercent = round(max(0, min(100, $discountPercent)), 2);
+                    $netRate = round(max(0, $rate - (($rate * $discountPercent) / 100)), 2);
+                    $discountAmount = round(max(0, ($rate - $netRate) * $returnQty), 2);
+                }
+
+                $returnAmount = round($returnQty * $netRate, 2);
+
                 PurchaseReturnItem::query()->create([
                     'purchase_return_id' => $purchaseReturn->id,
                     'purchase_item_id' => $purchaseItem?->id,
@@ -428,6 +475,10 @@ class PurchaseReturnController extends Controller
                     'product_id' => (int) $row['product_id'],
                     'return_qty' => $returnQty,
                     'rate' => $rate,
+                    'discount_percent' => $discountPercent,
+                    'discount_amount' => $discountAmount,
+                    'net_rate' => $netRate,
+                    'return_amount' => $returnAmount,
                 ]);
 
                 $batch->quantity_available = max(0, (int) $batch->quantity_available - $returnQty);
@@ -542,6 +593,10 @@ class PurchaseReturnController extends Controller
                 'max_returnable' => $maxReturnable,
                 'return_qty' => (int) $item->return_qty,
                 'rate' => round((float) $item->rate, 2),
+                'discount_percent' => round((float) ($item->discount_percent ?? 0), 2),
+                'discount_amount' => round((float) ($item->discount_amount ?? 0), 2),
+                'net_rate' => round((float) ($item->net_rate ?? $item->rate ?? 0), 2),
+                'return_amount' => round((float) ($item->return_amount ?? 0), 2),
                 'batch_options' => $batchOptions,
                 'selected_batch_id' => $selectedBatchId,
                 'batch_badge_class' => $batchBadge['class'],

@@ -66,12 +66,13 @@
                                     </button>
                                 @endcan
                             </label>
-                            <select name="payment_mode_id" id="salesPaymentMode" class="form-select js-select2" data-placeholder="Select mode" data-dropdown-alias="payment_mode" required>
+                            <select name="payment_mode_id" id="salesPaymentMode" class="form-select js-select2" data-placeholder="Select mode" data-dropdown-alias="payment_mode">
                                 <option value="">Select mode</option>
                                 @foreach ($paymentModes as $mode)
                                     <option value="{{ $mode->id }}">{{ $mode->name }}</option>
                                 @endforeach
                             </select>
+                            <small class="text-muted d-block mt-1" id="salesPaymentModeHelp">Required only when paid amount is more than zero.</small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label d-flex justify-content-between align-items-center">

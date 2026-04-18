@@ -92,11 +92,16 @@
                                 <th>Already Returned</th>
                                 <th>Max Returnable</th>
                                 <th>Return Qty</th>
+                                <th>Rate</th>
+                                <th>Discount %</th>
+                                <th>Discount Amt</th>
+                                <th>Net Rate</th>
+                                <th>Return Amt</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td colspan="6" class="text-center text-muted">Select purchase bill to load returnable items.</td>
+                                <td colspan="11" class="text-center text-muted">Select purchase bill to load returnable items.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -137,7 +142,40 @@
             }
 
             function resetItemsTable(message) {
-                $itemsTbody.html('<tr><td colspan="6" class="text-center text-muted">' + (message || 'Select purchase bill to load returnable items.') + '</td></tr>');
+                $itemsTbody.html('<tr><td colspan="11" class="text-center text-muted">' + (message || 'Select purchase bill to load returnable items.') + '</td></tr>');
+            }
+
+            function safeNumber(value) {
+                var parsed = parseFloat(value);
+                return Number.isFinite(parsed) ? parsed : 0;
+            }
+
+            function recalculateRow($row, source) {
+                var qty = safeNumber($row.find('.purchase-return-qty-input').val());
+                var rate = safeNumber($row.find('.purchase-return-rate-input').val());
+                var discountPercent = safeNumber($row.find('.purchase-return-discount-input').val());
+                var discountAmount = safeNumber($row.find('.purchase-return-discount-amount-input').val());
+                var netRate = safeNumber($row.find('.purchase-return-net-rate-input').val());
+
+                if (source === 'amount') {
+                    var amountDiscountPerUnit = qty > 0 ? discountAmount / qty : 0;
+                    netRate = Math.max(0, rate - amountDiscountPerUnit);
+                    discountPercent = rate > 0 ? ((rate - netRate) / rate) * 100 : 0;
+                } else if (source === 'net') {
+                    netRate = Math.max(0, Math.min(rate, netRate));
+                    discountAmount = Math.max(0, (rate - netRate) * qty);
+                    discountPercent = rate > 0 ? ((rate - netRate) / rate) * 100 : 0;
+                } else {
+                    discountPercent = Math.max(0, Math.min(100, discountPercent));
+                    netRate = Math.max(0, rate - ((rate * discountPercent) / 100));
+                    discountAmount = Math.max(0, (rate - netRate) * qty);
+                }
+
+                $row.find('.purchase-return-rate-input').val(rate.toFixed(2));
+                $row.find('.purchase-return-discount-input').val(discountPercent.toFixed(2));
+                $row.find('.purchase-return-discount-amount-input').val(discountAmount.toFixed(2));
+                $row.find('.purchase-return-net-rate-input').val(netRate.toFixed(2));
+                $row.find('.purchase-return-amount-input').val((qty * netRate).toFixed(2));
             }
 
             function buildBatchSelect(row, index) {
@@ -177,7 +215,7 @@
 
                 rows.forEach(function (row, index) {
                     $itemsTbody.append(
-                        '<tr>' +
+                        '<tr data-sync-mode="percent">' +
                             '<td>' + escapeHtml(row.product_name) +
                                 '<input type="hidden" name="items[' + index + '][purchase_item_id]" value="' + escapeHtml(row.purchase_item_id || '') + '">' +
                                 '<input type="hidden" name="items[' + index + '][product_id]" value="' + escapeHtml(row.product_id) + '">' +
@@ -187,8 +225,17 @@
                             '<td>' + escapeHtml(row.already_returned) + '</td>' +
                             '<td>' + escapeHtml(row.max_returnable) + '</td>' +
                             '<td><input type="number" name="items[' + index + '][return_qty]" class="form-control purchase-return-qty-input" min="0" max="' + escapeHtml(row.max_returnable) + '" value="0" ' + (!(row.batch_options || []).length ? 'disabled' : '') + '></td>' +
+                            '<td><input type="number" name="items[' + index + '][rate]" class="form-control purchase-return-rate-input" min="0" step="0.01" value="' + escapeHtml(row.rate || 0) + '"></td>' +
+                            '<td><input type="number" name="items[' + index + '][discount_percent]" class="form-control purchase-return-discount-input" min="0" max="100" step="0.01" value="' + escapeHtml(row.discount_percent || 0) + '"></td>' +
+                            '<td><input type="number" name="items[' + index + '][discount_amount]" class="form-control purchase-return-discount-amount-input" min="0" step="0.01" value="' + escapeHtml(row.discount_amount || 0) + '"></td>' +
+                            '<td><input type="number" name="items[' + index + '][net_rate]" class="form-control purchase-return-net-rate-input" min="0" step="0.01" value="' + escapeHtml(row.net_rate || row.rate || 0) + '"></td>' +
+                            '<td><input type="text" name="items[' + index + '][return_amount]" class="form-control purchase-return-amount-input" value="' + escapeHtml(row.return_amount || 0) + '" readonly></td>' +
                         '</tr>'
                     );
+                });
+
+                $itemsTbody.find('tr').each(function () {
+                    recalculateRow($(this), $(this).data('syncMode') || 'percent');
                 });
             }
 
@@ -223,7 +270,7 @@
                         return;
                     }
 
-                    $itemsTbody.html('<tr><td colspan="6" class="text-center text-muted">Loading supplier batch rows...</td></tr>');
+                    $itemsTbody.html('<tr><td colspan="11" class="text-center text-muted">Loading supplier batch rows...</td></tr>');
                     $.get('{{ route('admin.purchase-returns.get-batches') }}', { supplier_id: supplierId, product_id: productId }, function (response) {
                         renderRows(response || []);
                     });
@@ -235,7 +282,7 @@
                     return;
                 }
 
-                $itemsTbody.html('<tr><td colspan="6" class="text-center text-muted">Loading items...</td></tr>');
+                $itemsTbody.html('<tr><td colspan="11" class="text-center text-muted">Loading items...</td></tr>');
                 $.get('{{ route('admin.purchase-returns.get-items') }}', { purchase_id: purchaseId }, function (response) {
                     renderRows(response || []);
                 });
@@ -285,10 +332,22 @@
                 $badge.attr('class', 'badge purchase-return-batch-badge ' + badgeClass).text(badgeLabel);
             });
 
-            $(document).on('input', '.purchase-return-qty-input', function () {
+            $(document).on('input', '.purchase-return-qty-input, .purchase-return-rate-input, .purchase-return-discount-input, .purchase-return-discount-amount-input, .purchase-return-net-rate-input', function () {
                 var $row = $(this).closest('tr');
-                var qty = parseInt($(this).val() || '0', 10);
+                var qty = parseInt($row.find('.purchase-return-qty-input').val() || '0', 10);
                 var $select = $row.find('.purchase-return-batch-select');
+                var mode = $row.data('syncMode') || 'percent';
+
+                if ($(this).hasClass('purchase-return-discount-input')) {
+                    mode = 'percent';
+                } else if ($(this).hasClass('purchase-return-discount-amount-input')) {
+                    mode = 'amount';
+                } else if ($(this).hasClass('purchase-return-net-rate-input')) {
+                    mode = 'net';
+                }
+
+                $row.attr('data-sync-mode', mode);
+                recalculateRow($row, mode);
 
                 if ($select.length) {
                     if (qty > 0) {

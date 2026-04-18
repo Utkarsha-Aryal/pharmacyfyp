@@ -1056,8 +1056,28 @@
       return;
     }
 
+    function syncSalesPaymentModeState() {
+      var $paidAmountInput = $(form).find('input[name="paid_amount"]');
+      var $paymentModeSelect = $("#salesPaymentMode");
+      var $help = $("#salesPaymentModeHelp");
+      var paidAmount = parseFloat($paidAmountInput.val()) || 0;
+      var requiresPaymentMode = paidAmount > 0;
+
+      $paymentModeSelect.prop("disabled", !requiresPaymentMode);
+
+      if (!requiresPaymentMode) {
+        $paymentModeSelect.val("").trigger("change");
+        if ($help.length) {
+          $help.text("Optional while the invoice is unpaid or fully on credit.");
+        }
+      } else if ($help.length) {
+        $help.text("Required because some amount is being received now.");
+      }
+    }
+
     updateSalesRow($("#salesItemsTable tbody tr").first());
     updateSalesTotal();
+    syncSalesPaymentModeState();
 
     $(document).off("click.sales", "#addSalesRow");
     $(document).on("click.sales", "#addSalesRow", function () {
@@ -1106,6 +1126,11 @@
     $(document).off("change.sales", ".sales-product-select");
     $(document).on("change.sales", ".sales-product-select", function () {
       refreshSalesProductInfo(this);
+    });
+
+    $(document).off("input.salesPayment change.salesPayment", '#salesForm input[name="paid_amount"], #salesTypeSelect');
+    $(document).on("input.salesPayment change.salesPayment", '#salesForm input[name="paid_amount"], #salesTypeSelect', function () {
+      syncSalesPaymentModeState();
     });
 
     $(form).off("submit.sales");

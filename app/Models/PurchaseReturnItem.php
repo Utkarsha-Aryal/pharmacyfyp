@@ -31,4 +31,14 @@ class PurchaseReturnItem extends Model
     {
         return $this->belongsTo(Batch::class, 'batch_id');
     }
+
+    public function getEffectiveNetRateAttribute(): float
+    {
+        return round((float) ($this->net_rate ?? $this->rate ?? 0), 2);
+    }
+
+    public function getEffectiveReturnAmountAttribute(): float
+    {
+        return round((float) ($this->return_amount ?? ((float) $this->return_qty * (float) $this->effective_net_rate)), 2);
+    }
 }

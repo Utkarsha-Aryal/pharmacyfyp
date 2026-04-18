@@ -73,6 +73,22 @@
                 <input type="number" min="1" step="1" name="quantity" id="salesReturnQtyInput" class="form-control" value="{{ old('quantity', $salesReturn?->quantity ?? '') }}" required>
             </div>
             <div class="col-md-3">
+                <label class="form-label">Unit Price</label>
+                <input type="number" min="0" step="0.01" name="unit_price" id="salesReturnUnitPriceInput" class="form-control" value="{{ old('unit_price', $salesReturn?->unit_price ?? $selectedItemOption['unit_price'] ?? '') }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Discount %</label>
+                <input type="number" min="0" max="100" step="0.01" name="discount_percent" id="salesReturnDiscountPercentInput" class="form-control" value="{{ old('discount_percent', $salesReturn?->discount_percent ?? $selectedItemOption['discount_percent'] ?? '') }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Discount Amount</label>
+                <input type="number" min="0" step="0.01" name="discount_amount" id="salesReturnDiscountAmountInput" class="form-control" value="{{ old('discount_amount', $salesReturn?->discount_amount ?? '') }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Net Rate</label>
+                <input type="number" min="0" step="0.01" name="net_unit_price" id="salesReturnNetRateInput" class="form-control" value="{{ old('net_unit_price', $salesReturn?->net_unit_price ?? $selectedItemOption['net_rate'] ?? '') }}">
+            </div>
+            <div class="col-md-3">
                 <label class="form-label">Refund Amount</label>
                 <input type="number" min="0" step="0.01" name="refund_amount" id="salesReturnRefundInput" class="form-control" value="{{ old('refund_amount', $salesReturn?->refund_amount ?? '') }}">
             </div>
@@ -191,12 +207,22 @@
             var $invoiceSelect = $('#salesReturnInvoiceSelect');
             var $itemSelect = $('#salesReturnItemSelect');
             var $qtyInput = $('#salesReturnQtyInput');
+            var $unitPriceInput = $('#salesReturnUnitPriceInput');
+            var $discountPercentInput = $('#salesReturnDiscountPercentInput');
+            var $discountAmountInput = $('#salesReturnDiscountAmountInput');
+            var $netRateInput = $('#salesReturnNetRateInput');
             var $refundInput = $('#salesReturnRefundInput');
             var $itemHint = $('#salesReturnItemHint');
             var $statusSelect = $('#salesReturnStatusSelect');
             var $paymentModeSelect = $('#salesReturnPaymentModeSelect');
             var $settlementHelp = $('#salesReturnSettlementHelp');
             var editingReturnId = '{{ $salesReturn?->id ?? '' }}';
+            var pricingMode = 'net';
+
+            function safeNumber(value) {
+                var parsed = parseFloat(value);
+                return Number.isFinite(parsed) ? parsed : 0;
+            }
 
             function currentInvoiceData() {
                 var select2Data = $invoiceSelect.select2('data');
@@ -272,9 +298,9 @@
                 }
 
                 var remainingQty = parseFloat(data.remaining_qty || 0);
-                var discountPercent = parseFloat(data.discount_percent || 0);
-                var netRate = parseFloat(data.net_rate || 0);
-                var unitPrice = parseFloat(data.unit_price || 0);
+                var discountPercent = safeNumber($discountPercentInput.val());
+                var netRate = safeNumber($netRateInput.val());
+                var unitPrice = safeNumber($unitPriceInput.val());
 
                 $('#salesReturnItemSummary').text(data.product_name || data.text || 'Selected item');
                 $('#salesReturnItemMeta').text('Batch ' + (data.batch_number || '-') + ' | Remaining ' + remainingQty.toFixed(0));
@@ -309,7 +335,7 @@
                 $settlementHelp.text('Stock is restored to inventory as soon as the return is saved. Paid refund uses the selected payment mode only for the part that must actually go out as cash or bank.');
             }
 
-            function syncRefund(preserveExistingQty) {
+            function syncPricing(mode, preserveExistingQty) {
                 var data = currentItemData();
 
                 if (!data) {
@@ -317,10 +343,12 @@
                     return;
                 }
 
-                updateItemSummary(data);
-
                 var remainingQty = parseFloat(data.remaining_qty || 0);
                 var qty = parseFloat($qtyInput.val() || 0);
+                var unitPrice = safeNumber($unitPriceInput.val()) || safeNumber(data.unit_price || 0);
+                var discountPercent = safeNumber($discountPercentInput.val());
+                var discountAmount = safeNumber($discountAmountInput.val());
+                var netRate = safeNumber($netRateInput.val());
 
                 if (!preserveExistingQty) {
                     qty = remainingQty > 0 ? Math.min(1, remainingQty) : 0;
@@ -335,11 +363,28 @@
                     $qtyInput.val(remainingQty > 0 ? remainingQty : '');
                 }
 
-                if (qty > 0) {
-                    $refundInput.val((qty * parseFloat(data.net_rate || 0)).toFixed(2));
-                } else if (!$refundInput.val()) {
-                    $refundInput.val('');
+                pricingMode = mode || pricingMode || 'percent';
+
+                if (pricingMode === 'amount') {
+                    var amountDiscountPerUnit = qty > 0 ? discountAmount / qty : 0;
+                    netRate = Math.max(0, unitPrice - amountDiscountPerUnit);
+                    discountPercent = unitPrice > 0 ? ((unitPrice - netRate) / unitPrice) * 100 : 0;
+                } else if (pricingMode === 'net') {
+                    netRate = Math.max(0, Math.min(unitPrice, netRate || safeNumber(data.net_rate || 0)));
+                    discountAmount = Math.max(0, (unitPrice - netRate) * qty);
+                    discountPercent = unitPrice > 0 ? ((unitPrice - netRate) / unitPrice) * 100 : 0;
+                } else {
+                    discountPercent = Math.max(0, Math.min(100, discountPercent || safeNumber(data.discount_percent || 0)));
+                    netRate = Math.max(0, unitPrice - ((unitPrice * discountPercent) / 100));
+                    discountAmount = Math.max(0, (unitPrice - netRate) * qty);
                 }
+
+                $unitPriceInput.val(unitPrice.toFixed(2));
+                $discountPercentInput.val(discountPercent.toFixed(2));
+                $discountAmountInput.val(discountAmount.toFixed(2));
+                $netRateInput.val(netRate.toFixed(2));
+                $refundInput.val(qty > 0 ? (qty * netRate).toFixed(2) : '');
+                updateItemSummary(data);
             }
 
             function resetItemSelect() {
@@ -347,6 +392,10 @@
                 updateItemSummary(null);
                 $refundInput.val('');
                 $qtyInput.val('');
+                $unitPriceInput.val('');
+                $discountPercentInput.val('');
+                $discountAmountInput.val('');
+                $netRateInput.val('');
             }
 
             $itemSelect.select2({
@@ -390,7 +439,18 @@
             });
 
             $itemSelect.on('select2:select', function () {
-                syncRefund(false);
+                var data = currentItemData();
+
+                if (!data) {
+                    return;
+                }
+
+                $unitPriceInput.val(safeNumber(data.unit_price || 0).toFixed(2));
+                $discountPercentInput.val(safeNumber(data.discount_percent || 0).toFixed(2));
+                $discountAmountInput.val('0.00');
+                $netRateInput.val(safeNumber(data.net_rate || 0).toFixed(2));
+                pricingMode = 'percent';
+                syncPricing('percent', false);
             });
 
             $itemSelect.on('change', function () {
@@ -398,11 +458,31 @@
                     updateItemSummary(null);
                     $refundInput.val('');
                     $qtyInput.val('');
+                    $unitPriceInput.val('');
+                    $discountPercentInput.val('');
+                    $discountAmountInput.val('');
+                    $netRateInput.val('');
                 }
             });
 
             $qtyInput.on('input', function () {
-                syncRefund(true);
+                syncPricing(pricingMode, true);
+            });
+
+            $unitPriceInput.on('input', function () {
+                syncPricing(pricingMode, true);
+            });
+
+            $discountPercentInput.on('input', function () {
+                syncPricing('percent', true);
+            });
+
+            $discountAmountInput.on('input', function () {
+                syncPricing('amount', true);
+            });
+
+            $netRateInput.on('input', function () {
+                syncPricing('net', true);
             });
 
             $statusSelect.on('change', function () {
@@ -412,7 +492,7 @@
             updateInvoiceSummary(currentInvoiceData());
             syncItemSelectState();
             syncRefundStatusState(false);
-            syncRefund(true);
+            syncPricing('net', true);
         });
     </script>
 @endsection

@@ -242,6 +242,9 @@
                                 </li>
                             @endcan
                             @can('accounting.ledger')
+                                <li class="slide {{ request()->routeIs('admin.finance.vouchers.*') ? 'active' : '' }}">
+                                    <a href="{{ route('admin.finance.vouchers.index') }}" class="side-menu__item">Vouchers</a>
+                                </li>
                                 <li class="slide {{ request()->routeIs('admin.payments.index', 'admin.payments.show') ? 'active' : '' }}">
                                     <a href="{{ route('admin.payments.index') }}" class="side-menu__item">Payments</a>
                                 </li>

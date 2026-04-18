@@ -497,7 +497,11 @@ class SalesInvoiceController extends Controller
             ],
             'invoice_date' => ['required', 'date'],
             'sale_type_id' => ['required', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'sales_type'))],
-            'payment_mode_id' => ['required', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode'))],
+            'payment_mode_id' => [
+                'nullable',
+                Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode')),
+                Rule::requiredIf(fn () => (float) $request->input('paid_amount', 0) > 0),
+            ],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
@@ -516,8 +520,11 @@ class SalesInvoiceController extends Controller
                 $subtotal = 0;
                 $discountAmount = 0;
                 $invoiceTotal = 0;
-                $paymentMode = DropdownOption::query()->forAlias('payment_mode')->findOrFail($validated['payment_mode_id']);
                 $saleType = DropdownOption::query()->forAlias('sales_type')->findOrFail($validated['sale_type_id']);
+                $paidAmount = round((float) ($validated['paid_amount'] ?? 0), 2);
+                $paymentMode = $paidAmount > 0 && !empty($validated['payment_mode_id'])
+                    ? DropdownOption::query()->forAlias('payment_mode')->findOrFail($validated['payment_mode_id'])
+                    : null;
 
                 $invoice = SalesInvoice::create([
                     'reference' => next_sales_reference(),
@@ -530,13 +537,13 @@ class SalesInvoiceController extends Controller
                     'sale_type' => strtolower($saleType->name),
                     'status' => 'confirmed',
                     'payment_status' => 'unpaid',
-                    'payment_method' => $paymentMode->data ?: 'cash',
-                    'payment_mode_id' => $paymentMode->id,
+                    'payment_method' => $paidAmount > 0 ? ($paymentMode?->data ?: 'cash') : null,
+                    'payment_mode_id' => $paidAmount > 0 ? $paymentMode?->id : null,
                     'subtotal' => 0,
                     'discount_amount' => 0,
                     'total_discount' => 0,
                     'total_amount' => 0,
-                    'paid_amount' => (float) ($validated['paid_amount'] ?? 0),
+                    'paid_amount' => $paidAmount,
                     'notes' => $validated['notes'] ?? null,
                     'confirmed_at' => now(),
                 ]);
@@ -598,7 +605,6 @@ class SalesInvoiceController extends Controller
                     $invoiceTotal += $lineTotal;
                 }
 
-                $paidAmount = (float) ($validated['paid_amount'] ?? 0);
                 $paymentStatus = SalesInvoice::resolvePaymentStatus($invoiceTotal, $paidAmount);
 
                 $invoice->update([
@@ -617,9 +623,9 @@ class SalesInvoiceController extends Controller
                     $customer->save();
                 }
 
-                $cashAccount = $paymentMode->type === 'bank' ? 'bank' : 'cash';
-
                 if ($paidAmount > 0) {
+                    $cashAccount = $paymentMode?->data === 'bank' ? 'bank' : 'cash';
+
                     record_account_transaction([
                         'transaction_date' => $invoice->invoice_date,
                         'reference_type' => 'SalesInvoice',
@@ -998,6 +1004,10 @@ class SalesInvoiceController extends Controller
             ],
             'reason' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
+            'unit_price' => ['nullable', 'numeric', 'min:0'],
+            'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'net_unit_price' => ['nullable', 'numeric', 'min:0'],
             'refund_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
@@ -1032,16 +1042,44 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
-            $discountedUnitRate = (float) $invoiceItem->quantity > 0
+            $defaultDiscountedUnitRate = (float) $invoiceItem->quantity > 0
                 ? round((float) $invoiceItem->subtotal / (float) $invoiceItem->quantity, 2)
                 : round((float) $invoiceItem->unit_price, 2);
-            $perUnitDiscount = (float) $invoiceItem->quantity > 0
+            $defaultPerUnitDiscount = (float) $invoiceItem->quantity > 0
                 ? round((float) $invoiceItem->discount_amount / (float) $invoiceItem->quantity, 4)
                 : 0;
-            $discountAmount = round($returnQty * $perUnitDiscount, 2);
+            $unitPrice = round((float) ($validated['unit_price'] ?? $invoiceItem->unit_price ?? 0), 2);
+            $discountPercent = round((float) ($validated['discount_percent'] ?? $invoiceItem->discount_percent ?? 0), 2);
+            $discountAmount = round((float) ($validated['discount_amount'] ?? 0), 2);
+            $netUnitPrice = round((float) ($validated['net_unit_price'] ?? $defaultDiscountedUnitRate), 2);
+
+            if (array_key_exists('net_unit_price', $validated) && $validated['net_unit_price'] !== null && $validated['net_unit_price'] !== '') {
+                $netUnitPrice = round(max(0, min($unitPrice, (float) $validated['net_unit_price'])), 2);
+                $discountAmount = round(max(0, ($unitPrice - $netUnitPrice) * $returnQty), 2);
+                $discountPercent = $unitPrice > 0
+                    ? round((($unitPrice - $netUnitPrice) / $unitPrice) * 100, 2)
+                    : 0;
+            } elseif (array_key_exists('discount_amount', $validated) && $validated['discount_amount'] !== null && $validated['discount_amount'] !== '') {
+                $discountAmount = round((float) $validated['discount_amount'], 2);
+                $perUnitDiscount = $returnQty > 0 ? round($discountAmount / $returnQty, 4) : 0;
+                $netUnitPrice = round(max(0, $unitPrice - $perUnitDiscount), 2);
+                $discountPercent = $unitPrice > 0
+                    ? round((($unitPrice - $netUnitPrice) / $unitPrice) * 100, 2)
+                    : 0;
+                $discountAmount = round(max(0, ($unitPrice - $netUnitPrice) * $returnQty), 2);
+            } elseif (array_key_exists('discount_percent', $validated) && $validated['discount_percent'] !== null && $validated['discount_percent'] !== '') {
+                $discountPercent = round(max(0, min(100, (float) $validated['discount_percent'])), 2);
+                $netUnitPrice = round(max(0, $unitPrice - (($unitPrice * $discountPercent) / 100)), 2);
+                $discountAmount = round(max(0, ($unitPrice - $netUnitPrice) * $returnQty), 2);
+            } else {
+                $netUnitPrice = $defaultDiscountedUnitRate;
+                $discountAmount = round($returnQty * $defaultPerUnitDiscount, 2);
+                $discountPercent = round((float) ($invoiceItem->discount_percent ?? 0), 2);
+            }
+
             $refundAmount = isset($validated['refund_amount']) && $validated['refund_amount'] !== null && $validated['refund_amount'] !== ''
                 ? round((float) $validated['refund_amount'], 2)
-                : round($returnQty * $discountedUnitRate, 2);
+                : round($returnQty * $netUnitPrice, 2);
             $paymentMode = !empty($validated['payment_mode_id'])
                 ? DropdownOption::query()->forAlias('payment_mode')->findOrFail($validated['payment_mode_id'])
                 : null;
@@ -1077,10 +1115,10 @@ class SalesInvoiceController extends Controller
                 'created_by' => $existingReturn?->created_by ?: $request->user()->id,
                 'return_date' => $validated['return_date'],
                 'quantity' => $returnQty,
-                'unit_price' => round((float) $invoiceItem->unit_price, 2),
-                'discount_percent' => round((float) $invoiceItem->discount_percent, 2),
+                'unit_price' => $unitPrice,
+                'discount_percent' => $discountPercent,
                 'discount_amount' => $discountAmount,
-                'net_unit_price' => $discountedUnitRate,
+                'net_unit_price' => $netUnitPrice,
                 'refund_amount' => $refundAmount,
                 'refund_status' => $validated['refund_status'],
                 'payment_mode_id' => $validated['refund_status'] === 'paid' ? ($paymentMode?->id) : null,

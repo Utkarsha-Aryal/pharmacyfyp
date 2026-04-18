@@ -65,6 +65,8 @@
                 <th>Batch No</th>
                 <th class="text-end">Qty Returned</th>
                 <th class="text-end">Rate</th>
+                <th class="text-end">Discount</th>
+                <th class="text-end">Net Rate</th>
                 <th class="text-end">Amount</th>
             </tr>
         </thead>
@@ -72,7 +74,7 @@
             @php $totalReturnValue = 0; @endphp
             @foreach ($purchaseReturn->items as $index => $item)
                 @php
-                    $lineAmount = (float) $item->return_qty * (float) $item->rate;
+                    $lineAmount = (float) $item->effective_return_amount;
                     $totalReturnValue += $lineAmount;
                 @endphp
                 <tr>
@@ -81,6 +83,8 @@
                     <td>{{ $item->batch?->batch_number ?? '-' }}</td>
                     <td class="text-end">{{ $item->return_qty }}</td>
                     <td class="text-end">{{ money_value($item->rate) }}</td>
+                    <td class="text-end">{{ number_format((float) ($item->discount_percent ?? 0), 2) }}%</td>
+                    <td class="text-end">{{ money_value($item->effective_net_rate) }}</td>
                     <td class="text-end">{{ money_value($lineAmount) }}</td>
                 </tr>
             @endforeach

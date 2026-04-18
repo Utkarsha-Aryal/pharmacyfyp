@@ -186,10 +186,18 @@
                                 <div class="fw-semibold">Unallocated Amount: <span id="paymentInRemaining">{{ money_value(0) }}</span></div>
                             </div>
                             <div class="collapse show" id="paymentInAllocationWrap">
-                                <div class="table-responsive">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <div class="small text-muted">Tick one bill for a single allocation, or use allocate all to spread the amount across open bills.</div>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary js-allocate-all" data-prefix="paymentIn">Allocate All</button>
+                        <button type="button" class="btn btn-outline-secondary js-clear-allocation" data-prefix="paymentIn">Clear</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
                                     <table class="table table-bordered align-middle" id="paymentInBillTable">
                                         <thead>
                                             <tr>
+                                                <th style="width: 70px;">Pick</th>
                                                 <th>Bill Number</th>
                                                 <th>Date</th>
                                                 <th>Bill Amount</th>
@@ -200,11 +208,12 @@
                                         </thead>
                                         <tbody>
                                             <tr>
-                                                <td colspan="6" class="text-center text-muted">Select customer to load outstanding bills.</td>
+                                                <td colspan="7" class="text-center text-muted">Select customer to load outstanding bills.</td>
                                             </tr>
                                         </tbody>
                                     </table>
                                 </div>
+                                <div class="small text-muted mt-2">Leave rows unticked to keep the remaining amount as on-account money.</div>
                                 <div class="text-danger small d-none" id="paymentInAllocationError">Allocated total cannot be more than payment amount.</div>
                             </div>
                         </div>
@@ -291,10 +300,18 @@
                                 <div class="fw-semibold">Unallocated Amount: <span id="paymentOutRemaining">{{ money_value(0) }}</span></div>
                             </div>
                             <div class="collapse show" id="paymentOutAllocationWrap">
-                                <div class="table-responsive">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <div class="small text-muted">Tick one bill for a single allocation, or use allocate all to spread the amount across open bills.</div>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary js-allocate-all" data-prefix="paymentOut">Allocate All</button>
+                        <button type="button" class="btn btn-outline-secondary js-clear-allocation" data-prefix="paymentOut">Clear</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
                                     <table class="table table-bordered align-middle" id="paymentOutBillTable">
                                         <thead>
                                             <tr>
+                                                <th style="width: 70px;">Pick</th>
                                                 <th>Bill Number</th>
                                                 <th>Date</th>
                                                 <th>Bill Amount</th>
@@ -305,11 +322,12 @@
                                         </thead>
                                         <tbody>
                                             <tr>
-                                                <td colspan="6" class="text-center text-muted">Select supplier to load outstanding bills.</td>
+                                                <td colspan="7" class="text-center text-muted">Select supplier to load outstanding bills.</td>
                                             </tr>
                                         </tbody>
                                     </table>
                                 </div>
+                                <div class="small text-muted mt-2">Leave rows unticked to keep the remaining amount as on-account money.</div>
                                 <div class="text-danger small d-none" id="paymentOutAllocationError">Allocated total cannot be more than payment amount.</div>
                             </div>
                         </div>
@@ -373,7 +391,7 @@
                 $('#' + prefix + 'ModalTitle').text(defaultTitle);
                 $('#' + prefix + 'SubmitBtn').html(defaultButton);
                 $('#' + prefix + 'Remaining').text(moneyFormat(0));
-                $('#' + prefix + 'BillTable tbody').html('<tr><td colspan="6" class="text-center text-muted">Select ' + (prefix === 'paymentIn' ? 'customer' : 'supplier') + ' to load outstanding bills.</td></tr>');
+                $('#' + prefix + 'BillTable tbody').html('<tr><td colspan="7" class="text-center text-muted">Select ' + (prefix === 'paymentIn' ? 'customer' : 'supplier') + ' to load outstanding bills.</td></tr>');
                 $('#' + prefix + 'AllocationError').addClass('d-none');
                 $('#' + prefix + 'SubmitBtn').prop('disabled', false);
 
@@ -395,29 +413,80 @@
                 $('#' + prefix + 'SubmitBtn').prop('disabled', allocated > amount);
             }
 
+            function remainingAllocation(prefix, currentInput) {
+                var amount = parseFloat($('#' + prefix + 'Amount').val()) || 0;
+                var allocated = 0;
+
+                $('#' + prefix + 'BillTable .allocation-input').not(currentInput || null).each(function () {
+                    allocated += parseFloat($(this).val()) || 0;
+                });
+
+                return Math.max(0, amount - allocated);
+            }
+
+            function clampAllocationInput(prefix, $input, preferredValue) {
+                var outstanding = parseFloat($input.data('outstanding') || 0) || 0;
+                var remaining = remainingAllocation(prefix, $input);
+                var safeValue = Math.max(0, Math.min(outstanding, preferredValue, remaining));
+
+                $input.val(safeValue > 0 ? safeValue.toFixed(2) : '');
+                $input.closest('tr').find('.allocation-check').prop('checked', safeValue > 0);
+                updateAllocationState(prefix);
+            }
+
             function renderPaymentBills(prefix, rows) {
                 var tbody = $('#' + prefix + 'BillTable tbody');
                 tbody.empty();
 
                 if (!rows.length) {
-                    tbody.html('<tr><td colspan="6" class="text-center text-muted">No outstanding bills found.</td></tr>');
+                    tbody.html('<tr><td colspan="7" class="text-center text-muted">No outstanding bills found.</td></tr>');
                     updateAllocationState(prefix);
                     return;
                 }
 
                 rows.forEach(function (row, index) {
+                    var allocatedAmount = parseFloat(row.allocated_amount || 0) || 0;
                     tbody.append(
                         '<tr>' +
+                            '<td><div class="form-check d-flex justify-content-center mb-0"><input type="checkbox" class="form-check-input allocation-check"' + (allocatedAmount > 0 ? ' checked' : '') + '></div></td>' +
                             '<td>' + row.bill_number + '<input type="hidden" name="allocations[' + index + '][bill_id]" value="' + (row.bill_id || '') + '"><input type="hidden" name="allocations[' + index + '][bill_type]" value="' + (row.bill_type_value || row.bill_type || '') + '"></td>' +
                             '<td>' + row.bill_date + '</td>' +
                             '<td>' + moneyFormat(row.bill_amount || row.net_amount) + '</td>' +
                             '<td>' + moneyFormat(row.total_paid || 0) + '</td>' +
                             '<td>' + moneyFormat(row.outstanding || 0) + '</td>' +
-                            '<td><input type="number" step="0.01" min="0" max="' + (row.outstanding || 0) + '" name="allocations[' + index + '][allocated_amount]" class="form-control allocation-input" value="' + (row.allocated_amount || '') + '"></td>' +
+                            '<td><input type="number" step="0.01" min="0" max="' + (row.outstanding || 0) + '" data-outstanding="' + (row.outstanding || 0) + '" name="allocations[' + index + '][allocated_amount]" class="form-control allocation-input" value="' + (allocatedAmount > 0 ? allocatedAmount.toFixed(2) : '') + '"></td>' +
                         '</tr>'
                     );
                 });
 
+                updateAllocationState(prefix);
+            }
+
+            function autoAllocateAll(prefix) {
+                var remaining = parseFloat($('#' + prefix + 'Amount').val()) || 0;
+
+                $('#' + prefix + 'BillTable tbody tr').each(function () {
+                    var $row = $(this);
+                    var $input = $row.find('.allocation-input');
+
+                    if (!$input.length) {
+                        return;
+                    }
+
+                    var outstanding = parseFloat($input.data('outstanding') || 0) || 0;
+                    var allocate = Math.max(0, Math.min(outstanding, remaining));
+
+                    $input.val(allocate > 0 ? allocate.toFixed(2) : '');
+                    $row.find('.allocation-check').prop('checked', allocate > 0);
+                    remaining = Math.max(0, remaining - allocate);
+                });
+
+                updateAllocationState(prefix);
+            }
+
+            function clearAllocations(prefix) {
+                $('#' + prefix + 'BillTable .allocation-input').val('');
+                $('#' + prefix + 'BillTable .allocation-check').prop('checked', false);
                 updateAllocationState(prefix);
             }
 
@@ -478,11 +547,54 @@
             });
 
             $(document).on('input', '#paymentInAmount, #paymentInBillTable .allocation-input', function () {
+                if ($(this).hasClass('allocation-input')) {
+                    var $input = $(this);
+                    var outstanding = parseFloat($input.data('outstanding') || 0) || 0;
+                    var requested = parseFloat($input.val()) || 0;
+                    var safeValue = Math.max(0, Math.min(outstanding, requested));
+
+                    $input.val(safeValue > 0 ? safeValue.toFixed(2) : '');
+                    $input.closest('tr').find('.allocation-check').prop('checked', safeValue > 0);
+                }
+
                 updateAllocationState('paymentIn');
             });
 
             $(document).on('input', '#paymentOutAmount, #paymentOutBillTable .allocation-input', function () {
+                if ($(this).hasClass('allocation-input')) {
+                    var $input = $(this);
+                    var outstanding = parseFloat($input.data('outstanding') || 0) || 0;
+                    var requested = parseFloat($input.val()) || 0;
+                    var safeValue = Math.max(0, Math.min(outstanding, requested));
+
+                    $input.val(safeValue > 0 ? safeValue.toFixed(2) : '');
+                    $input.closest('tr').find('.allocation-check').prop('checked', safeValue > 0);
+                }
+
                 updateAllocationState('paymentOut');
+            });
+
+            $(document).on('change', '#paymentInBillTable .allocation-check, #paymentOutBillTable .allocation-check', function () {
+                var $row = $(this).closest('tr');
+                var $input = $row.find('.allocation-input');
+                var prefix = $(this).closest('table').attr('id') === 'paymentInBillTable' ? 'paymentIn' : 'paymentOut';
+                var outstanding = parseFloat($input.data('outstanding') || 0) || 0;
+
+                if ($(this).is(':checked')) {
+                    clampAllocationInput(prefix, $input, outstanding);
+                    return;
+                }
+
+                $input.val('');
+                updateAllocationState(prefix);
+            });
+
+            $(document).on('click', '.js-allocate-all', function () {
+                autoAllocateAll($(this).data('prefix'));
+            });
+
+            $(document).on('click', '.js-clear-allocation', function () {
+                clearAllocations($(this).data('prefix'));
             });
 
             $(document).on('click', '.editPaymentBtn', function () {

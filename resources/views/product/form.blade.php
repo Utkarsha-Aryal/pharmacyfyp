@@ -299,7 +299,7 @@
         <h6 class="border-bottom pb-2 mt-4 mb-3">Thumbnail Image</h6>
         <div class="row">
             <div class="col-md-6">
-                <label class="form-label">Upload Thumbnail</label>
+                <label class="form-label">Upload Thumbnail <span class="text-muted">(Optional)</span></label>
                 <div class="relative mb-2">
                     <label for="thumbnail_image" class="fe fe-camera profile-edit text-primary absolute"></label>
                     <input type="file" id="thumbnail_image" name="image" accept="image/*" class="d-none">
@@ -311,7 +311,7 @@
                         @endif
                     </div>
                 </div>
-                <small class="text-muted">Supported: jpg/jpeg/png | Suggested size: 300×475 px</small>
+                <small class="text-muted">Supported: jpg/jpeg/png | Suggested size: 300x475 px</small>
             </div>
         </div>
     </form>
@@ -400,11 +400,6 @@
                     number: true,
                     min: 0
                 },
-                image: {
-                    required: function() {
-                        return $('#id').val() === '';
-                    }
-                }
             },
             messages: {
                 company_id: {
@@ -418,9 +413,6 @@
                 },
                 product_name: {
                     required: "Product name is required."
-                },
-                image: {
-                    required: "Thumbnail image is required."
                 },
                 mrp: {
                     required: "MRP is required."
