@@ -181,7 +181,7 @@
                             @endcan
                             @can('sales.return')
                                 <li class="slide {{ request()->routeIs('admin.sales.returns.*') ? 'active' : '' }}">
-                                    <a href="{{ route('admin.sales.returns.index') }}" class="side-menu__item">Manage Sales Return</a>
+                                    <a href="{{ route('admin.sales.returns.index') }}" class="side-menu__item">Sales Return</a>
                                 </li>
                             @endcan
                         </ul>

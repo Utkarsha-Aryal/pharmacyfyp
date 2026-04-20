@@ -4,8 +4,6 @@
     Payments
 @endsection
 
-@section('body-class', 'workspace-form-page')
-
 @section('main-content')
     <div class="admin-page-wrap">
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
@@ -23,12 +21,12 @@
             </div>
         </div>
 
-        <form method="GET" class="card custom-card filter-card mb-4">
+        <form method="GET" class="card custom-card filter-card mb-4" id="paymentFilterForm">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-3">
                         <label class="form-label">Payment Direction</label>
-                        <select name="type" class="form-select js-select2" data-placeholder="All directions" data-allow-clear="1">
+                        <select name="type" id="paymentTypeFilter" class="form-select js-select2" data-placeholder="All directions" data-allow-clear="1">
                             <option value="">All</option>
                             <option value="in" @selected(($filters['type'] ?? '') === 'in')>Payment In</option>
                             <option value="out" @selected(($filters['type'] ?? '') === 'out')>Payment Out</option>
@@ -36,7 +34,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Party Type</label>
-                        <select name="party_type" class="form-select js-select2" data-placeholder="All party" data-allow-clear="1">
+                        <select name="party_type" id="paymentPartyTypeFilter" class="form-select js-select2" data-placeholder="All party" data-allow-clear="1">
                             <option value="">All</option>
                             <option value="customer" @selected(($filters['party_type'] ?? '') === 'customer')>Customer</option>
                             <option value="supplier" @selected(($filters['party_type'] ?? '') === 'supplier')>Supplier</option>
@@ -60,7 +58,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered align-middle">
+                    <table id="paymentTable" class="table table-bordered align-middle w-100" data-list-url="{{ route('admin.payments.list') }}">
                         <thead>
                             <tr>
                                 <th>S.No</th>
@@ -73,44 +71,9 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse ($payments as $index => $payment)
-                                <tr>
-                                    <td>{{ $payments->firstItem() + $index }}</td>
-                                    <td>{{ $payment->payment_date_show }}</td>
-                                    <td>
-                                        <span class="report-badge {{ $payment->type === 'in' ? 'report-badge-success' : 'report-badge-warning' }}">
-                                            {{ $payment->type === 'in' ? 'Payment In' : 'Payment Out' }}
-                                        </span>
-                                    </td>
-                                    <td>{{ $payment->party_name }}</td>
-                                    <td>{{ $payment->paymentMode?->name ?? '-' }}</td>
-                                    <td>{{ money_value($payment->amount) }}</td>
-                                    <td>{{ $payment->allocations->count() }}</td>
-                                    <td>
-                                        <div class="table-action-group">
-                                            <a href="{{ route('admin.payments.show', $payment) }}" class="btn btn-sm btn-outline-primary table-action-btn" title="View">
-                                                <i class="fa-solid fa-eye"></i>
-                                            </a>
-                                            <button type="button" class="btn btn-sm btn-outline-warning table-action-btn editPaymentBtn" title="Edit" data-url="{{ route('admin.payments.edit', $payment) }}">
-                                                <i class="fa-solid fa-pen-to-square"></i>
-                                            </button>
-                                            <a href="{{ route('admin.payments.print', $payment) }}" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF">
-                                                <i class="fa-solid fa-print"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="8" class="text-center text-muted">No payment records found yet.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
-
-                {{ $payments->links() }}
             </div>
         </div>
     </div>
@@ -364,6 +327,41 @@
             $('#paymentOutForm').data('default-title', $('#paymentOutModalTitle').text());
             $('#paymentOutForm').data('default-button', $('#paymentOutSubmitBtn').html());
             var editPaymentId = @json($editPaymentId ?? null);
+            window.paymentTable = window.initServerSideDataTable({
+                selector: '#paymentTable',
+                pageLength: 15,
+                sort: false,
+                searchable: true,
+                columns: [
+                    { data: 'sno' },
+                    { data: 'date' },
+                    { data: 'direction' },
+                    { data: 'party' },
+                    { data: 'mode' },
+                    { data: 'amount' },
+                    { data: 'linked_bills' },
+                    { data: 'action' },
+                ],
+                ajaxUrl: '{{ route('admin.payments.list') }}',
+                ajaxData: function (request) {
+                    request.type = $('#paymentTypeFilter').val() || '';
+                    request.party_type = $('#paymentPartyTypeFilter').val() || '';
+                }
+            });
+
+            $(document).on('submit', '#paymentFilterForm', function (event) {
+                event.preventDefault();
+
+                if (window.paymentTable) {
+                    window.paymentTable.draw();
+                }
+            });
+
+            $(document).on('change', '#paymentTypeFilter, #paymentPartyTypeFilter', function () {
+                if (window.paymentTable) {
+                    window.paymentTable.draw();
+                }
+            });
 
             function moneyFormat(value) {
                 return '{{ currency_symbol() }} ' + parseFloat(value || 0).toFixed(2);

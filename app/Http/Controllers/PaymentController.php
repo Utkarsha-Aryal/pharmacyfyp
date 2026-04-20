@@ -23,10 +23,28 @@ class PaymentController extends Controller
     // Show one combined payment list for both incoming and outgoing vouchers.
     public function index(Request $request)
     {
+        return view('payment.index', [
+            'filters' => $request->only(['type', 'party_type']),
+            'openModal' => $request->input('open'),
+            'editPaymentId' => $request->input('edit'),
+            'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
+            'partyTypes' => PartyType::query()->orderBy('name')->get(),
+            'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
+            'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
+        ]);
+    }
+
+    // Return payment rows for the server-side payment list.
+    public function list(Request $request)
+    {
+        $keyword = trim((string) $request->input('search.value', ''));
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 15);
         $query = Payment::query()
             ->with(['paymentMode', 'customer', 'supplier', 'allocations'])
             ->latest('payment_date')
             ->latest('id');
+        $recordsTotal = (clone $query)->count();
 
         if ($request->filled('type')) {
             $query->where('type', $request->input('type'));
@@ -36,15 +54,73 @@ class PaymentController extends Controller
             $query->where('party_type', $request->input('party_type'));
         }
 
-        return view('payment.index', [
-            'payments' => $query->paginate(15)->withQueryString(),
-            'filters' => $request->only(['type', 'party_type']),
-            'openModal' => $request->input('open'),
-            'editPaymentId' => $request->input('edit'),
-            'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
-            'partyTypes' => PartyType::query()->orderBy('name')->get(),
-            'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
-            'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
+        if ($keyword !== '') {
+            $query->where(function ($builder) use ($keyword) {
+                $builder->where('type', 'like', '%' . $keyword . '%')
+                    ->orWhere('party_type', 'like', '%' . $keyword . '%')
+                    ->orWhere('payment_date', 'like', '%' . $keyword . '%')
+                    ->orWhere('amount', 'like', '%' . $keyword . '%')
+                    ->orWhere('reference_number', 'like', '%' . $keyword . '%')
+                    ->orWhere('notes', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('paymentMode', function ($modeQuery) use ($keyword) {
+                        $modeQuery->where('name', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhere(function ($partyQuery) use ($keyword) {
+                        $partyQuery->where('party_type', 'customer')
+                            ->whereHas('customer', function ($customerQuery) use ($keyword) {
+                                $customerQuery->where('name', 'like', '%' . $keyword . '%')
+                                    ->orWhere('contact_person', 'like', '%' . $keyword . '%')
+                                    ->orWhere('phone', 'like', '%' . $keyword . '%');
+                            });
+                    })
+                    ->orWhere(function ($partyQuery) use ($keyword) {
+                        $partyQuery->where('party_type', 'supplier')
+                            ->whereHas('supplier', function ($supplierQuery) use ($keyword) {
+                                $supplierQuery->where('supplier_name', 'like', '%' . $keyword . '%')
+                                    ->orWhere('contact_person', 'like', '%' . $keyword . '%')
+                                    ->orWhere('phone_number', 'like', '%' . $keyword . '%');
+                            });
+                    });
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        if ($length > -1) {
+            $query->skip($start)->take(max($length, 1));
+        }
+
+        $payments = $query->get();
+        $data = [];
+
+        foreach ($payments as $index => $payment) {
+            $directionClass = $payment->type === 'in' ? 'report-badge-success' : 'report-badge-warning';
+            $directionLabel = $payment->type === 'in' ? 'Payment In' : 'Payment Out';
+            $linkedBills = $payment->allocations->count();
+            $linkedClass = $linkedBills > 0 ? 'report-badge-info' : 'report-badge-secondary';
+            $action = '<div class="table-action-group">';
+            $action .= '<a href="' . route('admin.payments.show', $payment) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View" aria-label="View Payment"><i class="fa-solid fa-eye"></i></a>';
+            $action .= '<button type="button" class="btn btn-sm btn-outline-warning table-action-btn editPaymentBtn" title="Edit" aria-label="Edit Payment" data-url="' . route('admin.payments.edit', $payment) . '"><i class="fa-solid fa-pen-to-square"></i></button>';
+            $action .= '<a href="' . route('admin.payments.print', $payment) . '" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF" aria-label="Print Payment"><i class="fa-solid fa-print"></i></a>';
+            $action .= '</div>';
+
+            $data[] = [
+                'sno' => $start + $index + 1,
+                'date' => e($payment->payment_date_show),
+                'direction' => '<span class="report-badge ' . $directionClass . '">' . e($directionLabel) . '</span>',
+                'party' => e($payment->party_name),
+                'mode' => e($payment->paymentMode?->name ?? '-'),
+                'amount' => money_value($payment->amount),
+                'linked_bills' => '<span class="report-badge ' . $linkedClass . '">' . $linkedBills . '</span>',
+                'action' => $action,
+            ];
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw', 0),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
         ]);
     }
 

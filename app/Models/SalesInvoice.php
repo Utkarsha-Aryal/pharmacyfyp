@@ -107,6 +107,10 @@ class SalesInvoice extends Model
             return $this->paymentMode->name;
         }
 
+        if (empty($this->payment_method) || $this->payment_method === 'none') {
+            return 'Not collected';
+        }
+
         return ucfirst((string) $this->payment_method);
     }
 

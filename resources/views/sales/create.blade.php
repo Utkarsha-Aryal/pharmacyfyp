@@ -72,7 +72,7 @@
                                     <option value="{{ $mode->id }}">{{ $mode->name }}</option>
                                 @endforeach
                             </select>
-                            <small class="text-muted d-block mt-1" id="salesPaymentModeHelp">Required only when paid amount is more than zero.</small>
+                            <small class="text-muted d-block mt-1" id="salesPaymentModeHelp">Optional until money is received. Leave blank for credit or unpaid invoices.</small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label d-flex justify-content-between align-items-center">

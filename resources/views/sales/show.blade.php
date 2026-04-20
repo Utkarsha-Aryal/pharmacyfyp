@@ -187,10 +187,12 @@
                                 <div class="col-md-6">
                                     <label class="form-label">Payment Mode</label>
                                     <select name="payment_mode_id" class="form-select">
+                                        <option value="">Select mode</option>
                                         @foreach ($paymentModes as $mode)
                                             <option value="{{ $mode->id }}" @selected((int) $invoice->payment_mode_id === (int) $mode->id)>{{ $mode->name }}</option>
                                         @endforeach
                                     </select>
+                                    <small class="text-muted d-block mt-1">Required only when paid amount is more than zero.</small>
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label">Paid Amount</label>

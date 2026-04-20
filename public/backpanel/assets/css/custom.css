@@ -440,8 +440,6 @@ body.workspace-form-page .admin-page-wrap {
     padding-right: 0.25rem;
 }
 
-body.workspace-form-page .app-content,
-body.workspace-form-page .main-content,
 body.workspace-form-page .container-fluid,
 body.workspace-form-page .admin-page-wrap,
 body.workspace-form-page .card,
@@ -449,6 +447,12 @@ body.workspace-form-page .card-body {
     min-width: 0;
     width: 100%;
     max-width: 100%;
+}
+
+body.workspace-form-page .main-content.app-content {
+    min-width: 0;
+    width: auto;
+    max-width: none;
 }
 
 body.workspace-form-page .main-content.app-content,

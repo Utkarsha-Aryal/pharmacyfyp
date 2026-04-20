@@ -91,7 +91,7 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Paid Amount</label>
-                            <input type="number" name="paid_amount" class="form-control" step="0.01" min="0" value="0">
+                            <input type="number" name="paid_amount" id="purchasePaidAmount" class="form-control" step="0.01" min="0" value="0">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label d-flex justify-content-between align-items-center">
@@ -108,6 +108,7 @@
                                     <option value="{{ $mode->id }}">{{ $mode->name }}</option>
                                 @endforeach
                             </select>
+                            <small class="text-muted d-block mt-1" id="purchasePaymentModeHelp">Optional until money is paid to the supplier.</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Remarks</label>

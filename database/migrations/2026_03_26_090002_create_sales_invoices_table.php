@@ -20,7 +20,7 @@ return new class extends Migration
             $table->unsignedBigInteger('sale_type_id')->nullable();
             $table->enum('status', ['draft', 'confirmed', 'cancelled'])->default('confirmed');
             $table->enum('payment_status', ['unpaid', 'partial', 'paid'])->default('unpaid');
-            $table->enum('payment_method', ['cash', 'bank', 'digital', 'mixed', 'none'])->default('cash');
+            $table->enum('payment_method', ['cash', 'bank', 'digital', 'mixed', 'none'])->default('none');
             $table->unsignedBigInteger('payment_mode_id')->nullable();
             $table->decimal('subtotal', 10, 2)->default(0);
             $table->decimal('discount_amount', 10, 2)->default(0);

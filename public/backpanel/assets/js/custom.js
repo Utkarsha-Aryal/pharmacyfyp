@@ -839,8 +839,24 @@
       return;
     }
 
+    function syncPurchasePaymentModeState() {
+      var paidAmount = parseFloat($("#purchasePaidAmount").val()) || 0;
+      var requiresPaymentMode = paidAmount > 0;
+      var $paymentModeSelect = $("#purchasePaymentMode");
+      var $help = $("#purchasePaymentModeHelp");
+
+      $paymentModeSelect.prop("disabled", false).prop("required", false);
+
+      if (!requiresPaymentMode && $help.length) {
+        $help.text("Optional until money is paid to the supplier.");
+      } else if ($help.length) {
+        $help.text("Select a mode only when the payment method is known.");
+      }
+    }
+
     updatePurchaseRow($("#purchaseItemsTable tbody tr").first());
     updatePurchaseTotal();
+    syncPurchasePaymentModeState();
 
     $(document).off("click.purchase", "#addPurchaseRow");
     $(document).on("click.purchase", "#addPurchaseRow", function () {
@@ -919,6 +935,11 @@
         updatePurchaseRow($row);
         updatePurchaseTotal();
       });
+    });
+
+    $(document).off("input.purchasePayment change.purchasePayment", "#purchasePaidAmount");
+    $(document).on("input.purchasePayment change.purchasePayment", "#purchasePaidAmount", function () {
+      syncPurchasePaymentModeState();
     });
 
     $(form).off("submit.purchase");
@@ -1063,16 +1084,15 @@
       var paidAmount = parseFloat($paidAmountInput.val()) || 0;
       var requiresPaymentMode = paidAmount > 0;
 
-      $paymentModeSelect.prop("disabled", !requiresPaymentMode);
+      $paymentModeSelect.prop("disabled", false);
 
-      if (!requiresPaymentMode) {
-        $paymentModeSelect.val("").trigger("change");
-        if ($help.length) {
-          $help.text("Optional while the invoice is unpaid or fully on credit.");
-        }
+      if (!requiresPaymentMode && $help.length) {
+        $help.text("Optional until money is received. Leave blank for credit or unpaid invoices.");
       } else if ($help.length) {
-        $help.text("Required because some amount is being received now.");
+        $help.text("Select a mode only when the payment method is known.");
       }
+
+      $paymentModeSelect.prop("required", false);
     }
 
     updateSalesRow($("#salesItemsTable tbody tr").first());

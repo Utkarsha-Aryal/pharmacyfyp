@@ -208,6 +208,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     Route::prefix('payments')->name('payments.')->middleware('permission:accounting.ledger')->group(function () {
         Route::get('/', [PaymentController::class, 'index'])->name('index');
+        Route::post('/list', [PaymentController::class, 'list'])->name('list');
         Route::get('/in/create', [PaymentController::class, 'createIn'])->name('in.create');
         Route::post('/in', [PaymentController::class, 'storeIn'])->name('in.store');
         Route::get('/out/create', [PaymentController::class, 'createOut'])->name('out.create');

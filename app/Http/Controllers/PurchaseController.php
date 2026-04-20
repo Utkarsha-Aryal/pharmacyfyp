@@ -228,6 +228,13 @@ class PurchaseController extends Controller
                 $discountTotal += $lineDiscount;
             }
             $grandTotal = round($subtotal - $discountTotal, 2);
+            $paidAmount = round((float) ($post['paid_amount'] ?? 0), 2);
+
+            if ($paidAmount > $grandTotal) {
+                throw ValidationException::withMessages([
+                    'paid_amount' => 'Paid amount cannot be greater than purchase bill total.',
+                ]);
+            }
 
             $purchase = Purchase::create([
                 'supplier_id' => $post['supplier_id'],
@@ -237,9 +244,9 @@ class PurchaseController extends Controller
                 'order_status' => 'received',
                 'grand_total' => $grandTotal,
                 'total_discount' => round($discountTotal, 2),
-                'paid_amount' => $post['paid_amount'] ?? 0,
-                'payment_status' => Purchase::resolvePaymentStatus($grandTotal, (float) ($post['paid_amount'] ?? 0)),
-                'payment_mode_id' => $post['payment_mode_id'] ?? null,
+                'paid_amount' => $paidAmount,
+                'payment_status' => Purchase::resolvePaymentStatus($grandTotal, $paidAmount),
+                'payment_mode_id' => $paidAmount > 0 ? ($post['payment_mode_id'] ?? null) : null,
                 'remarks' => $post['remarks'] ?? null,
             ]);
 

@@ -643,7 +643,7 @@ class SalesInvoiceController extends Controller
                     'sale_type' => strtolower($saleType->name),
                     'status' => 'confirmed',
                     'payment_status' => 'unpaid',
-                    'payment_method' => $paidAmount > 0 ? ($paymentMode?->data ?: 'cash') : null,
+                    'payment_method' => $paidAmount > 0 ? ($paymentMode?->data ?: 'cash') : 'none',
                     'payment_mode_id' => $paidAmount > 0 ? $paymentMode?->id : null,
                     'subtotal' => 0,
                     'discount_amount' => 0,
@@ -709,6 +709,12 @@ class SalesInvoiceController extends Controller
                     $subtotal += $lineBase;
                     $discountAmount += $lineDiscount;
                     $invoiceTotal += $lineTotal;
+                }
+
+                if ($paidAmount > round($invoiceTotal, 2)) {
+                    throw ValidationException::withMessages([
+                        'paid_amount' => 'Paid amount cannot be greater than invoice total.',
+                    ]);
                 }
 
                 $paymentStatus = SalesInvoice::resolvePaymentStatus($invoiceTotal, $paidAmount);
@@ -968,23 +974,30 @@ class SalesInvoiceController extends Controller
     {
         $validated = $request->validate([
             'payment_status' => ['required', Rule::in(['unpaid', 'partial', 'paid'])],
-            'paid_amount' => ['required', 'numeric', 'min:0'],
-            'payment_mode_id' => ['required', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode'))],
+            'paid_amount' => ['required', 'numeric', 'min:0', 'max:' . (float) $salesInvoice->total_amount],
+            'payment_mode_id' => [
+                Rule::requiredIf(fn () => (float) $request->input('paid_amount', 0) > 0),
+                'nullable',
+                Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode')),
+            ],
         ]);
 
         DB::transaction(function () use ($salesInvoice, $validated, $request) {
             $salesInvoice->loadMissing('customer');
-            $paymentMode = DropdownOption::query()->forAlias('payment_mode')->findOrFail($validated['payment_mode_id']);
+            $paymentMode = !empty($validated['payment_mode_id'])
+                ? DropdownOption::query()->forAlias('payment_mode')->findOrFail($validated['payment_mode_id'])
+                : null;
             $oldPaid = (float) $salesInvoice->paid_amount;
             $oldDue = $salesInvoice->due_amount;
             $newPaid = round((float) $validated['paid_amount'], 2);
             $newDue = round((float) $salesInvoice->total_amount - $newPaid, 2);
             $paidDelta = round($newPaid - $oldPaid, 2);
+            $paymentStatus = SalesInvoice::resolvePaymentStatus((float) $salesInvoice->total_amount, $newPaid);
 
             $salesInvoice->update([
-                'payment_status' => $validated['payment_status'],
-                'payment_method' => $paymentMode->data ?: 'cash',
-                'payment_mode_id' => $paymentMode->id,
+                'payment_status' => $paymentStatus,
+                'payment_method' => $newPaid > 0 ? ($paymentMode?->data ?: 'cash') : 'none',
+                'payment_mode_id' => $newPaid > 0 ? $paymentMode?->id : null,
                 'paid_amount' => $newPaid,
                 'updated_by' => $request->user()->id,
             ]);
@@ -995,7 +1008,7 @@ class SalesInvoiceController extends Controller
                 $customer->save();
             }
 
-            if ($paidDelta > 0) {
+            if ($paidDelta > 0 && $paymentMode) {
                 $cashAccount = $paymentMode->data === 'cash' ? 'cash' : 'bank';
 
                 record_account_transaction([

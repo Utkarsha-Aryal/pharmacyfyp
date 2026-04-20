@@ -8,7 +8,7 @@
     <div class="admin-page-wrap">
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
-                <h5 class="page-title fs-21 mb-1">Manage Sales Return</h5>
+                <h5 class="page-title  mb-1">Manage Sales Return</h5>
                 <p class="mb-0 text-muted">Review, create, edit, and remove sales return entries from one place.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
