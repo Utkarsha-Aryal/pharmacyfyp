@@ -100,6 +100,9 @@
                 </div>
             </div>
             <div class="card-body">
+                <div class="alert alert-light border return-pricing-note mb-3">
+                    <strong>Row pricing:</strong> Edit discount percent, discount amount, or net rate. Return amount updates automatically for each row.
+                </div>
                 <div class="table-responsive">
                     <table class="table table-bordered align-middle purchase-item-table" id="purchaseReturnItemsTable">
                         <thead>
@@ -131,6 +134,7 @@
                                         @if ($isBillRow)
                                             <div class="fw-semibold">{{ $row['product_name'] }}</div>
                                             <small class="text-muted d-block">Loaded from the selected purchase bill.</small>
+                                            <small class="text-muted d-block purchase-return-pricing-note">{{ $row['original_pricing_note'] ?? 'Original bill pricing will appear here.' }}</small>
                                             <input type="hidden" name="items[{{ $index }}][purchase_item_id]" value="{{ $row['purchase_item_id'] }}">
                                             <input type="hidden" name="items[{{ $index }}][product_id]" value="{{ $row['product_id'] }}">
                                         @else
@@ -139,6 +143,7 @@
                                                 <option value="{{ $row['product_id'] }}">{{ $row['product_name'] }}</option>
                                             </select>
                                             <small class="text-muted d-block mt-1 purchase-return-product-note">Change product to refresh supplier batches for this row.</small>
+                                            <small class="text-muted d-block purchase-return-pricing-note">{{ $row['original_pricing_note'] ?? 'Original bill discount is unavailable in product mode. Set the return pricing manually.' }}</small>
                                         @endif
                                     </td>
                                     <td>
@@ -217,6 +222,7 @@
                                 <option value=""></option>
                             </select>
                             <small class="text-muted d-block mt-1 purchase-return-product-note">Choose product to load supplier batches for this row.</small>
+                            <small class="text-muted d-block purchase-return-pricing-note">Original bill discount is unavailable in product mode. Set the return pricing manually.</small>
                         </td>
                         <td>
                             <div class="d-flex flex-column gap-1">

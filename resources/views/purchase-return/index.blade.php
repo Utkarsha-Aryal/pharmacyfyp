@@ -57,7 +57,18 @@
             </div>
         </div>
 
-        <form action="{{ route('admin.purchase-returns.index') }}" method="GET" class="card custom-card mb-4 purchase-return-filter">
+        <form action="{{ route('admin.purchase-returns.index') }}" method="GET" class="card custom-card filter-card purchase-return-filter mb-4">
+            <div class="card-header justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                    <div class="card-title mb-1">Filters</div>
+                    <small class="filter-summary">The table refreshes automatically when supplier, mode, or date changes.</small>
+                </div>
+                <div class="filter-actions">
+                    <a href="{{ route('admin.purchase-returns.index') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fa-solid fa-rotate-right"></i> Reset
+                    </a>
+                </div>
+            </div>
             <div class="card-body">
                 <div class="row g-3 align-items-end">
                     <div class="col-xl-3 col-md-6">
@@ -84,12 +95,6 @@
                     <div class="col-xl-2 col-md-6">
                         <label class="form-label">Date To</label>
                         <input type="date" name="date_to" class="form-control" value="{{ $filters['date_to'] ?? '' }}">
-                    </div>
-                    <div class="col-xl-2">
-                        <div class="d-flex gap-2 justify-content-end flex-wrap">
-                            <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
-                            <a href="{{ route('admin.purchase-returns.index') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
-                        </div>
                     </div>
                 </div>
             </div>

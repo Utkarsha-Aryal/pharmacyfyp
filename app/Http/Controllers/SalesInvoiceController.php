@@ -1537,6 +1537,7 @@ class SalesInvoiceController extends Controller
                     'unit_price' => round((float) $item->unit_price, 2),
                     'net_rate' => $netRate,
                     'per_unit_discount' => round($perUnitDiscount, 2),
+                    'original_pricing_note' => 'Original invoice: ' . number_format((float) $item->discount_percent, 2) . '% | Disc/unit ' . money_value((float) round($perUnitDiscount, 2)) . ' | Net ' . money_value($netRate),
                     'invoice_reference' => $invoice->reference,
                     'customer_name' => $invoice->customer?->name ?: 'Walk-in Customer',
                     'invoice_date' => $invoice->invoice_date_show,

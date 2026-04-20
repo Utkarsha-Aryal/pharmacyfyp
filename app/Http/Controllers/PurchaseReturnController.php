@@ -192,6 +192,13 @@ class PurchaseReturnController extends Controller
                 $returnedQty = (int) $item->returns->sum('return_qty');
                 $originalQty = (int) $item->quantity + (int) $item->free_qty;
                 $maxReturnable = max(0, $originalQty - $returnedQty);
+                $defaultReturnQty = $maxReturnable > 0 ? 1 : 0;
+                $discountPercent = round((float) $item->discount_percent, 2);
+                $netRate = (float) $item->quantity > 0
+                    ? round((float) $item->amount / (float) $item->quantity, 2)
+                    : round((float) $item->rate, 2);
+                $unitDiscount = round(max(0, (float) $item->rate - $netRate), 2);
+                $discountAmount = round(max(0, ((float) $item->rate - $netRate) * $defaultReturnQty), 2);
                 $batchOptions = $this->buildReturnBatchOptions($purchase, $item);
                 $selectedBatchId = $this->selectedReturnBatchId($item->batch_id, $batchOptions);
                 if (!$selectedBatchId && count($batchOptions) === 1) {
@@ -208,13 +215,13 @@ class PurchaseReturnController extends Controller
                     'original_qty' => $originalQty,
                     'already_returned' => $returnedQty,
                     'max_returnable' => $maxReturnable,
+                    'return_qty' => $defaultReturnQty,
                     'rate' => round((float) $item->rate, 2),
-                    'discount_percent' => round((float) $item->discount_percent, 2),
-                    'discount_amount' => 0,
-                    'net_rate' => (float) $item->quantity > 0
-                        ? round((float) $item->amount / (float) $item->quantity, 2)
-                        : round((float) $item->rate, 2),
-                    'return_amount' => 0,
+                    'discount_percent' => $discountPercent,
+                    'discount_amount' => $discountAmount,
+                    'net_rate' => $netRate,
+                    'return_amount' => round($defaultReturnQty * $netRate, 2),
+                    'original_pricing_note' => 'Original bill: ' . number_format($discountPercent, 2) . '% | Disc/unit ' . money_value($unitDiscount) . ' | Net ' . money_value($netRate),
                     'batch_options' => $batchOptions,
                     'selected_batch_id' => $selectedBatchId,
                     'batch_badge_class' => $batchBadge['class'],
@@ -575,6 +582,17 @@ class PurchaseReturnController extends Controller
                 $selectedBatchId = (int) $batchOptions[0]['id'];
             }
             $batchBadge = $this->selectedReturnBatchBadge($selectedBatchId, $batchOptions);
+            $originalDiscountPercent = $isLinkedToPurchase
+                ? round((float) ($purchaseItem->discount_percent ?? 0), 2)
+                : null;
+            $originalNetRate = $isLinkedToPurchase
+                ? ((float) $purchaseItem->quantity > 0
+                    ? round((float) $purchaseItem->amount / (float) $purchaseItem->quantity, 2)
+                    : round((float) $purchaseItem->rate, 2))
+                : null;
+            $originalUnitDiscount = $isLinkedToPurchase && $originalNetRate !== null
+                ? round(max(0, (float) $purchaseItem->rate - $originalNetRate), 2)
+                : null;
 
             return [
                 'purchase_item_id' => $item->purchase_item_id,
@@ -591,6 +609,9 @@ class PurchaseReturnController extends Controller
                 'discount_amount' => round((float) ($item->discount_amount ?? 0), 2),
                 'net_rate' => round((float) ($item->net_rate ?? $item->rate ?? 0), 2),
                 'return_amount' => round((float) ($item->return_amount ?? 0), 2),
+                'original_pricing_note' => $isLinkedToPurchase
+                    ? ('Original bill: ' . number_format((float) $originalDiscountPercent, 2) . '% | Disc/unit ' . money_value((float) $originalUnitDiscount) . ' | Net ' . money_value((float) $originalNetRate))
+                    : 'Original bill discount is unavailable in product mode. Set the return pricing manually.',
                 'batch_options' => $batchOptions,
                 'selected_batch_id' => $selectedBatchId,
                 'batch_badge_class' => $batchBadge['class'],

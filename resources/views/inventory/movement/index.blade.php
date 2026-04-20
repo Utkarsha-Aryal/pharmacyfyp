@@ -92,8 +92,10 @@
                     </div>
                     <div class="col-xl-12">
                         <div class="d-flex gap-2 justify-content-end flex-wrap">
-                            <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
-                            <a href="{{ route('admin.inventory.movements.index') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+                            <button type="submit" class="btn btn-primary btn-sm d-none">Apply Filter</button>
+                            <a href="{{ route('admin.inventory.movements.index') }}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </a>
                         </div>
                     </div>
                 </div>

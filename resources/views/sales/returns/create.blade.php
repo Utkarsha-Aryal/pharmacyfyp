@@ -144,6 +144,9 @@
                     </div>
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-light border return-pricing-note mb-3">
+                        <strong>Row pricing:</strong> Edit discount percent, discount amount, net rate, or refund amount. The rest of the row recalculates automatically.
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-bordered align-middle purchase-item-table" id="salesReturnItemsTable">
                             <thead>
@@ -169,6 +172,7 @@
                                             <option value=""></option>
                                         </select>
                                         <small class="text-muted d-block mt-1 sales-return-item-note">Search invoice item to fill batch, rate, discount and remaining quantity.</small>
+                                        <small class="text-muted d-block sales-return-pricing-note">Original invoice discount will appear here after item selection.</small>
                                     </td>
                                     <td><span class="badge bg-light text-dark border sales-return-batch-label">-</span></td>
                                     <td><span class="badge bg-secondary sales-return-remaining-label">0</span></td>
@@ -213,6 +217,7 @@
                                     <option value=""></option>
                                 </select>
                                 <small class="text-muted d-block mt-1 sales-return-item-note">Search invoice item to fill batch, rate, discount and remaining quantity.</small>
+                                <small class="text-muted d-block sales-return-pricing-note">Original invoice discount will appear here after item selection.</small>
                             </td>
                             <td><span class="badge bg-light text-dark border sales-return-batch-label">-</span></td>
                             <td><span class="badge bg-secondary sales-return-remaining-label">0</span></td>
@@ -342,24 +347,53 @@
                 $row.find('.sales-return-batch-label').text('-');
                 $row.find('.sales-return-remaining-label').text('0');
                 $row.find('.sales-return-item-note').text('Search invoice item to fill batch, rate, discount and remaining quantity.');
+                $row.find('.sales-return-pricing-note').text('Original invoice discount will appear here after item selection.');
                 $row.find('.sales-return-qty-input, .sales-return-unit-price-input, .sales-return-discount-input, .sales-return-discount-amount-input, .sales-return-net-rate-input, .sales-return-refund-input').val('');
                 updateTotals();
             }
 
-            function recalculateRow($row, mode) {
+            function setRowInputValue($row, selector, value, decimals, preserveEditing) {
+                var $input = $row.find(selector);
+
+                if (!$input.length) {
+                    return;
+                }
+
+                if (preserveEditing && document.activeElement === $input.get(0)) {
+                    return;
+                }
+
+                $input.val(Number(value || 0).toFixed(decimals));
+            }
+
+            function recalculateRow($row, mode, options) {
+                options = options || {};
                 var remainingQty = safeNumber($row.attr('data-remaining-qty'));
                 var qty = safeNumber($row.find('.sales-return-qty-input').val());
                 var unitPrice = safeNumber($row.find('.sales-return-unit-price-input').val());
                 var discountPercent = safeNumber($row.find('.sales-return-discount-input').val());
                 var discountAmount = safeNumber($row.find('.sales-return-discount-amount-input').val());
                 var netRate = safeNumber($row.find('.sales-return-net-rate-input').val());
+                var refundAmount = safeNumber($row.find('.sales-return-refund-input').val());
 
                 if (remainingQty > 0 && qty > remainingQty) {
                     qty = remainingQty;
                     $row.find('.sales-return-qty-input').val(qty.toFixed(0));
                 }
 
-                if (mode === 'amount') {
+                if (qty < 0) {
+                    qty = 0;
+                    $row.find('.sales-return-qty-input').val('0');
+                }
+
+                if (mode === 'refund') {
+                    refundAmount = Math.max(0, Math.min(qty * unitPrice, refundAmount));
+                    netRate = qty > 0 ? refundAmount / qty : 0;
+                    netRate = Math.max(0, Math.min(unitPrice, netRate));
+                    discountAmount = Math.max(0, (unitPrice - netRate) * qty);
+                    discountPercent = unitPrice > 0 ? ((unitPrice - netRate) / unitPrice) * 100 : 0;
+                    refundAmount = qty * netRate;
+                } else if (mode === 'amount') {
                     var perUnitDiscount = qty > 0 ? discountAmount / qty : 0;
                     netRate = Math.max(0, unitPrice - perUnitDiscount);
                     discountPercent = unitPrice > 0 ? ((unitPrice - netRate) / unitPrice) * 100 : 0;
@@ -374,11 +408,12 @@
                 }
 
                 $row.attr('data-pricing-mode', mode);
-                $row.find('.sales-return-unit-price-input').val(unitPrice.toFixed(2));
-                $row.find('.sales-return-discount-input').val(discountPercent.toFixed(2));
-                $row.find('.sales-return-discount-amount-input').val(discountAmount.toFixed(2));
-                $row.find('.sales-return-net-rate-input').val(netRate.toFixed(2));
-                $row.find('.sales-return-refund-input').val((qty * netRate).toFixed(2));
+                setRowInputValue($row, '.sales-return-qty-input', qty, 0, options.preserveEditing);
+                setRowInputValue($row, '.sales-return-unit-price-input', unitPrice, 2, options.preserveEditing);
+                setRowInputValue($row, '.sales-return-discount-input', discountPercent, 2, options.preserveEditing);
+                setRowInputValue($row, '.sales-return-discount-amount-input', discountAmount, 2, options.preserveEditing);
+                setRowInputValue($row, '.sales-return-net-rate-input', netRate, 2, options.preserveEditing);
+                setRowInputValue($row, '.sales-return-refund-input', qty * netRate, 2, options.preserveEditing);
                 updateTotals();
             }
 
@@ -417,6 +452,7 @@
                 $row.find('.sales-return-batch-label').text(data.batch_number || '-');
                 $row.find('.sales-return-remaining-label').text(remainingQty.toFixed(0));
                 $row.find('.sales-return-item-note').text((data.product_name || 'Selected item') + ' | Batch ' + (data.batch_number || '-') + ' | Remaining ' + remainingQty.toFixed(0));
+                $row.find('.sales-return-pricing-note').text(data.original_pricing_note || 'Original invoice discount will appear here after item selection.');
                 $row.find('.sales-return-qty-input').attr('max', remainingQty).val(remainingQty > 0 ? Math.min(1, remainingQty) : '');
                 $row.find('.sales-return-unit-price-input').val(safeNumber(data.unit_price || 0).toFixed(2));
                 $row.find('.sales-return-discount-input').val(safeNumber(data.discount_percent || 0).toFixed(2));
@@ -433,6 +469,7 @@
                     .attr('data-batch-number', data.batch_number || '')
                     .attr('data-remaining-qty', data.remaining_qty || 0)
                     .attr('data-discount-percent', data.discount_percent || 0)
+                    .attr('data-pricing-note', data.original_pricing_note || '')
                     .attr('data-net-rate', data.net_rate || 0)
                     .attr('data-unit-price', data.unit_price || 0);
 
@@ -528,20 +565,32 @@
                 resetRow($(this).closest('tr'));
             });
 
-            $(document).on('input', '.sales-return-qty-input, .sales-return-unit-price-input, .sales-return-discount-input, .sales-return-discount-amount-input, .sales-return-net-rate-input, .sales-return-refund-input', function () {
-                var $row = $(this).closest('tr');
+            function salesReturnPricingMode($input, $row) {
                 var mode = $row.attr('data-pricing-mode') || 'percent';
 
-                if ($(this).hasClass('sales-return-discount-input')) {
+                if ($input.hasClass('sales-return-discount-input')) {
                     mode = 'percent';
-                } else if ($(this).hasClass('sales-return-discount-amount-input')) {
+                } else if ($input.hasClass('sales-return-discount-amount-input')) {
                     mode = 'amount';
-                } else if ($(this).hasClass('sales-return-net-rate-input')) {
+                } else if ($input.hasClass('sales-return-net-rate-input')) {
                     mode = 'net';
-                } else if ($(this).hasClass('sales-return-refund-input')) {
-                    updateTotals();
-                    return;
+                } else if ($input.hasClass('sales-return-refund-input')) {
+                    mode = 'refund';
                 }
+
+                return mode;
+            }
+
+            $(document).on('input', '.sales-return-qty-input, .sales-return-unit-price-input, .sales-return-discount-input, .sales-return-discount-amount-input, .sales-return-net-rate-input, .sales-return-refund-input', function () {
+                var $row = $(this).closest('tr');
+                var mode = salesReturnPricingMode($(this), $row);
+
+                recalculateRow($row, mode, { preserveEditing: true });
+            });
+
+            $(document).on('change blur', '.sales-return-qty-input, .sales-return-unit-price-input, .sales-return-discount-input, .sales-return-discount-amount-input, .sales-return-net-rate-input, .sales-return-refund-input', function () {
+                var $row = $(this).closest('tr');
+                var mode = salesReturnPricingMode($(this), $row);
 
                 recalculateRow($row, mode);
             });

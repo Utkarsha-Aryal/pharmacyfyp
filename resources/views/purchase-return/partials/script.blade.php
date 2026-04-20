@@ -9,6 +9,7 @@
         var $addManualButton = $('#purchaseReturnAddManualItem');
         var $manualRowTemplate = $('#purchaseReturnManualRowTemplate');
         var initialSelectedPurchaseId = '{{ (string) old('purchase_id', $purchaseReturn?->purchase_id ?? '') }}';
+        var preserveInitialBillRows = !!initialSelectedPurchaseId && $itemsTbody.find('tr').not('.purchase-return-empty-row').length > 0;
 
         function escapeHtml(value) {
             return String(value == null ? '' : value)
@@ -26,6 +27,12 @@
 
         function emptyMessage(message) {
             return '<tr class="purchase-return-empty-row"><td colspan="13" class="text-center text-muted">' + escapeHtml(message) + '</td></tr>';
+        }
+
+        function purchaseReturnPricingNote(row) {
+            return row && row.original_pricing_note
+                ? row.original_pricing_note
+                : 'Original bill discount is unavailable in product mode. Set the return pricing manually.';
         }
 
         function hasDataRows() {
@@ -88,7 +95,22 @@
             }
         }
 
-        function recalculateRow($row, source) {
+        function setRowInputValue($row, selector, value, decimals, preserveEditing) {
+            var $input = $row.find(selector);
+
+            if (!$input.length) {
+                return;
+            }
+
+            if (preserveEditing && document.activeElement === $input.get(0)) {
+                return;
+            }
+
+            $input.val(Number(value || 0).toFixed(decimals));
+        }
+
+        function recalculateRow($row, source, options) {
+            options = options || {};
             var qty = safeNumber($row.find('.purchase-return-qty-input').val());
             var maxAllowed = safeNumber($row.find('.purchase-return-qty-input').attr('max'));
             var rate = safeNumber($row.find('.purchase-return-rate-input').val());
@@ -103,8 +125,6 @@
             if (qty < 0) {
                 qty = 0;
             }
-
-            $row.find('.purchase-return-qty-input').val(qty.toFixed(0));
 
             if (source === 'amount') {
                 var amountDiscountPerUnit = qty > 0 ? discountAmount / qty : 0;
@@ -121,11 +141,12 @@
             }
 
             $row.attr('data-pricing-mode', source);
-            $row.find('.purchase-return-rate-input').val(rate.toFixed(2));
-            $row.find('.purchase-return-discount-input').val(discountPercent.toFixed(2));
-            $row.find('.purchase-return-discount-amount-input').val(discountAmount.toFixed(2));
-            $row.find('.purchase-return-net-rate-input').val(netRate.toFixed(2));
-            $row.find('.purchase-return-amount-input').val((qty * netRate).toFixed(2));
+            setRowInputValue($row, '.purchase-return-qty-input', qty, 0, options.preserveEditing);
+            setRowInputValue($row, '.purchase-return-rate-input', rate, 2, options.preserveEditing);
+            setRowInputValue($row, '.purchase-return-discount-input', discountPercent, 2, options.preserveEditing);
+            setRowInputValue($row, '.purchase-return-discount-amount-input', discountAmount, 2, options.preserveEditing);
+            setRowInputValue($row, '.purchase-return-net-rate-input', netRate, 2, options.preserveEditing);
+            setRowInputValue($row, '.purchase-return-amount-input', qty * netRate, 2, options.preserveEditing);
             updateTotals();
         }
 
@@ -204,6 +225,7 @@
                     '<td>' +
                         '<div class="fw-semibold">' + escapeHtml(row.product_name || '-') + '</div>' +
                         '<small class="text-muted d-block">Loaded from the selected purchase bill.</small>' +
+                        '<small class="text-muted d-block purchase-return-pricing-note">' + escapeHtml(purchaseReturnPricingNote(row)) + '</small>' +
                         '<input type="hidden" name="items[' + rowIndex + '][purchase_item_id]" value="' + escapeHtml(row.purchase_item_id || '') + '">' +
                         '<input type="hidden" name="items[' + rowIndex + '][product_id]" value="' + escapeHtml(row.product_id || '') + '">' +
                     '</td>' +
@@ -274,11 +296,12 @@
             }
 
             $row.find('.purchase-return-product-note').text((productName || 'Selected product') + ' loaded with supplier batch options.');
+            $row.find('.purchase-return-pricing-note').text(purchaseReturnPricingNote((rows || [])[0] || null));
             applyBatchState($row);
         }
 
-        function loadSupplierPurchases(supplierId, selectedPurchaseId) {
-            $purchaseSelect.empty().append('<option value="">Select purchase</option>').trigger('change');
+        function loadSupplierPurchases(supplierId, selectedPurchaseId, preserveLoadedRows) {
+            $purchaseSelect.empty().append('<option value="">Select purchase</option>').trigger('change.select2');
 
             if (!supplierId) {
                 return;
@@ -291,7 +314,7 @@
                 });
 
                 if (selectedPurchaseId) {
-                    $purchaseSelect.val(String(selectedPurchaseId)).trigger('change');
+                    $purchaseSelect.val(String(selectedPurchaseId)).trigger(preserveLoadedRows ? 'change.select2' : 'change');
                 }
             });
         }
@@ -373,7 +396,7 @@
         });
 
         $(document).on('change', '#purchaseReturnSupplier', function () {
-            loadSupplierPurchases($(this).val(), null);
+            loadSupplierPurchases($(this).val(), null, false);
 
             if ($modeInputs.filter(':checked').val() === 'product') {
                 resetItemsTable('Add return rows for this supplier.');
@@ -445,23 +468,36 @@
             updateTotals();
         });
 
-        $(document).on('input', '.purchase-return-qty-input, .purchase-return-rate-input, .purchase-return-discount-input, .purchase-return-discount-amount-input, .purchase-return-net-rate-input', function () {
-            var $row = $(this).closest('tr');
+        function purchaseReturnPricingMode($input, $row) {
             var mode = $row.attr('data-pricing-mode') || 'percent';
 
-            if ($(this).hasClass('purchase-return-discount-input')) {
+            if ($input.hasClass('purchase-return-discount-input')) {
                 mode = 'percent';
-            } else if ($(this).hasClass('purchase-return-discount-amount-input')) {
+            } else if ($input.hasClass('purchase-return-discount-amount-input')) {
                 mode = 'amount';
-            } else if ($(this).hasClass('purchase-return-net-rate-input')) {
+            } else if ($input.hasClass('purchase-return-net-rate-input')) {
                 mode = 'net';
             }
+
+            return mode;
+        }
+
+        $(document).on('input', '.purchase-return-qty-input, .purchase-return-rate-input, .purchase-return-discount-input, .purchase-return-discount-amount-input, .purchase-return-net-rate-input', function () {
+            var $row = $(this).closest('tr');
+            var mode = purchaseReturnPricingMode($(this), $row);
+
+            recalculateRow($row, mode, { preserveEditing: true });
+        });
+
+        $(document).on('change blur', '.purchase-return-qty-input, .purchase-return-rate-input, .purchase-return-discount-input, .purchase-return-discount-amount-input, .purchase-return-net-rate-input', function () {
+            var $row = $(this).closest('tr');
+            var mode = purchaseReturnPricingMode($(this), $row);
 
             recalculateRow($row, mode);
         });
 
         if ($supplierSelect.val()) {
-            loadSupplierPurchases($supplierSelect.val(), initialSelectedPurchaseId || null);
+            loadSupplierPurchases($supplierSelect.val(), initialSelectedPurchaseId || null, preserveInitialBillRows);
         }
 
         updateRowNumbers();
