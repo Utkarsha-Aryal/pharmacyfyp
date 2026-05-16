@@ -190,6 +190,10 @@ class ProductBatch extends Model
             return null;
         }
 
+        set_error_handler(static function ($severity, $message, $file, $line) {
+            throw new \ErrorException($message, 0, $severity, $file, $line);
+        });
+
         try {
             if (preg_match('/^\d{4}-\d{2}$/', $value)) {
                 return Carbon::createFromFormat('Y-m', $value)->endOfMonth();
@@ -198,6 +202,8 @@ class ProductBatch extends Model
             return Carbon::parse($value);
         } catch (Exception $e) {
             return null;
+        } finally {
+            restore_error_handler();
         }
     }
 }

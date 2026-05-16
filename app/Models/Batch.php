@@ -42,10 +42,16 @@ class Batch extends Model
             return null;
         }
 
+        set_error_handler(static function ($severity, $message, $file, $line) {
+            throw new \ErrorException($message, 0, $severity, $file, $line);
+        });
+
         try {
             return Carbon::parse($value);
         } catch (\Throwable $th) {
             return null;
+        } finally {
+            restore_error_handler();
         }
     }
 
