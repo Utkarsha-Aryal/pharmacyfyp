@@ -27,7 +27,6 @@
     $isSalesMenu = request()->routeIs('admin.sales.*');
     $isFinanceMenu = request()->routeIs('admin.finance.*', 'admin.expenses.*', 'admin.payments.*');
     $isReportMenu = request()->routeIs('admin.report.*');
-    $isOcrMenu = request()->routeIs('admin.ocr.*');
     $isUsersMenu = request()->routeIs('admin.user.*');
     $isRoleMenu = request()->routeIs('admin.role-permission.*');
     $isSettingsMenu = request()->routeIs('admin.settings.*');

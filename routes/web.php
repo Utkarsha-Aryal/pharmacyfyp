@@ -11,7 +11,6 @@ use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InventoryBatchController;
 use App\Http\Controllers\InventoryMovementController;
 use App\Http\Controllers\ImportController;
-use App\Http\Controllers\OcrController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PartyTypeController;
 use App\Http\Controllers\ProductBatchesController;
@@ -318,12 +317,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::post('/products', [ImportController::class, 'importProducts'])->name('products');
             Route::post('/customers', [ImportController::class, 'importCustomers'])->name('customers');
             Route::post('/suppliers', [ImportController::class, 'importSuppliers'])->name('suppliers');
-        });
-
-        Route::prefix('ocr')->name('ocr.')->middleware('permission:purchase.entry')->group(function () {
-            Route::get('/', [OcrController::class, 'index'])->name('index');
-            Route::post('/extract', [OcrController::class, 'extract'])->name('extract');
-            Route::post('/draft-purchase', [OcrController::class, 'draftPurchase'])->name('draft-purchase');
         });
 
         Route::prefix('export')->name('export.')->group(function () {

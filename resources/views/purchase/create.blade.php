@@ -7,11 +7,6 @@
 @section('body-class', 'workspace-form-page')
 
 @section('main-content')
-    @php
-        $ocrDraft = session('ocr_draft', []);
-        $ocrSummary = $ocrDraft['summary'] ?? [];
-    @endphp
-
     <div class="admin-page-wrap">
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
@@ -24,26 +19,6 @@
                 </a>
             </div>
         </div>
-
-        @if (!empty($ocrDraft) || session('ocr_text'))
-            <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
-                <strong>OCR draft loaded.</strong>
-                @if (!empty($ocrSummary['supplier_name']) || !empty($ocrSummary['invoice_no']))
-                    I found {{ $ocrSummary['supplier_name'] ?? 'a supplier' }} and invoice {{ $ocrSummary['invoice_no'] ?? 'number' }}.
-                    @if (!empty($ocrSummary['matches']))
-                        There are {{ count($ocrSummary['matches']) }} matching bill(s) already in the system.
-                        @if (!empty($ocrDraft['selected_purchase_id']))
-                            Selected bill id: {{ $ocrDraft['selected_purchase_id'] }}.
-                        @endif
-                    @else
-                        No matching bill was found, so I can create a fresh draft.
-                    @endif
-                @else
-                    The scan did not clearly identify the supplier or invoice number, so I loaded the raw text for manual review.
-                @endif
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
 
         <form id="purchaseForm" action="{{ route('admin.purchase.save') }}" method="POST">
             @csrf
@@ -73,9 +48,6 @@
                                 data-placeholder="Search supplier"
                                 data-allow-clear="1" required>
                                 <option value="">Select Supplier</option>
-                                @if (!empty($ocrSummary['supplier_id']) && !empty($ocrSummary['supplier_name']))
-                                    <option value="{{ $ocrSummary['supplier_id'] }}" selected>{{ $ocrSummary['supplier_name'] }}</option>
-                                @endif
                                 @foreach ($supplier as $supplierItem)
                                     <option value="{{ $supplierItem->id }}">{{ $supplierItem->supplier_name }}</option>
                                 @endforeach
@@ -83,11 +55,11 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Invoice No</label>
-                            <input type="text" name="invoice_no" class="form-control" placeholder="Invoice no if available" value="{{ old('invoice_no', $ocrSummary['invoice_no'] ?? '') }}">
+                            <input type="text" name="invoice_no" class="form-control" placeholder="Invoice no if available" value="{{ old('invoice_no') }}">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Purchase Date <span class="required-field">*</span></label>
-                            <input type="date" name="purchase_date" class="form-control" value="{{ old('purchase_date', $ocrSummary['invoice_date'] ?? now()->toDateString()) }}" required>
+                            <input type="date" name="purchase_date" class="form-control" value="{{ old('purchase_date', now()->toDateString()) }}" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Paid Amount</label>
@@ -112,7 +84,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Remarks</label>
-                            <input type="text" name="remarks" class="form-control" placeholder="Small note if needed" value="{{ old('remarks', session('ocr_text')) }}">
+                            <input type="text" name="remarks" class="form-control" placeholder="Small note if needed" value="{{ old('remarks') }}">
                         </div>
                     </div>
                 </div>
