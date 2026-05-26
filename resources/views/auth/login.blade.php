@@ -86,29 +86,6 @@
 
           <button type="submit" class="btn-login">Login to Dashboard</button>
         </form>
-
-        <div class="login-demo-box">
-          <div class="login-demo-head">
-            <i class="fa-solid fa-circle-info"></i>
-            <strong>Demo Accounts</strong>
-          </div>
-
-          <button type="button" class="demo-fill-btn" data-fill-email="admin@email.com" data-fill-password="password">
-            <span>
-              <strong>Admin Login</strong>
-              <small>admin@email.com / password</small>
-            </span>
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </button>
-
-          <button type="button" class="demo-fill-btn" data-fill-email="staff@email.com" data-fill-password="password">
-            <span>
-              <strong>Staff Login</strong>
-              <small>staff@email.com / password</small>
-            </span>
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </button>
-        </div>
       </div>
     </main>
   </div>
