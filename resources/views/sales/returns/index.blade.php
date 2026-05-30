@@ -39,18 +39,18 @@
             <div class="col-xl-3 col-md-6">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
-                        <p class="text-muted text-uppercase small mb-2">Paid Out</p>
-                        <h3 class="mb-1">{{ money_value($summary['paid_out_total']) }}</h3>
-                        <span class="text-muted small">Cash or bank refund already settled.</span>
+                        <p class="text-muted text-uppercase small mb-2">Adjusted</p>
+                        <h3 class="mb-1">{{ money_value($summary['adjusted_total']) }}</h3>
+                        <span class="text-muted small">Amount adjusted against party balance.</span>
                     </div>
                 </div>
             </div>
             <div class="col-xl-3 col-md-6">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
-                        <p class="text-muted text-uppercase small mb-2">Pending Credit</p>
+                        <p class="text-muted text-uppercase small mb-2">Customer Credit</p>
                         <h3 class="mb-1">{{ money_value($summary['pending_credit_total']) }}</h3>
-                        <span class="text-muted small">Refund still owed back to the customer.</span>
+                        <span class="text-muted small">Extra return value kept as credit.</span>
                     </div>
                 </div>
             </div>
@@ -79,27 +79,18 @@
                         </select>
                     </div>
                     <div class="col-xl-3 col-md-6">
-                        <label class="form-label">Product</label>
-                        <select name="product_id" class="form-select js-select2" data-placeholder="All product" data-allow-clear="1">
-                            <option value="">All Product</option>
-                            @foreach ($products as $product)
-                                <option value="{{ $product->id }}" @selected(($filters['product_id'] ?? '') == $product->id)>{{ $product->display_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-xl-2 col-md-6">
-                        <label class="form-label">Refund Status</label>
+                        <label class="form-label">Settlement</label>
                         <select name="refund_status" class="form-select js-select2" data-placeholder="All status" data-allow-clear="1">
                             <option value="">All Status</option>
-                            <option value="paid" @selected(($filters['refund_status'] ?? '') === 'paid')>Paid</option>
-                            <option value="pending" @selected(($filters['refund_status'] ?? '') === 'pending')>Pending Credit</option>
+                            <option value="adjusted" @selected(($filters['refund_status'] ?? '') === 'adjusted')>Balance Adjusted</option>
+                            <option value="credit" @selected(($filters['refund_status'] ?? '') === 'credit')>Customer Credit</option>
                         </select>
                     </div>
-                    <div class="col-xl-2 col-md-6">
+                    <div class="col-xl-3 col-md-6">
                         <label class="form-label">Date From</label>
                         <input type="date" name="date_from" class="form-control" value="{{ $filters['date_from'] ?? '' }}">
                     </div>
-                    <div class="col-xl-2 col-md-6">
+                    <div class="col-xl-3 col-md-6">
                         <label class="form-label">Date To</label>
                         <input type="date" name="date_to" class="form-control" value="{{ $filters['date_to'] ?? '' }}">
                     </div>
@@ -120,7 +111,7 @@
                                 <th>Date</th>
                                 <th>Invoice</th>
                                 <th>Party</th>
-                                <th>Product</th>
+                                <th>Items</th>
                                 <th>Qty</th>
                                 <th>Discount</th>
                                 <th>Net Rate</th>
@@ -163,7 +154,6 @@
                 ajaxUrl: '{{ route('admin.sales.returns.list') }}',
                 ajaxData: function (request) {
                     request.customer_id = $('[name="customer_id"]').val() || '';
-                    request.product_id = $('[name="product_id"]').val() || '';
                     request.refund_status = $('[name="refund_status"]').val() || '';
                     request.date_from = $('[name="date_from"]').val() || '';
                     request.date_to = $('[name="date_to"]').val() || '';

@@ -112,12 +112,12 @@
                     <tr>
                         <td>{{ $index + 1 }}</td>
                         <td>{{ $returnItem->return_date_show }}</td>
-                        <td>{{ $returnItem->product?->display_name ?? '-' }}</td>
+                        <td>{{ $returnItem->product_summary }}</td>
                         <td class="text-end">{{ $returnItem->quantity }}</td>
                         <td class="text-end">{{ number_format((float) $returnItem->effective_discount_percent, 2) }}% / {{ money_value($returnItem->effective_discount_amount) }}</td>
                         <td class="text-end">{{ money_value($returnItem->effective_net_unit_price) }}</td>
-                        <td class="text-end">{{ money_value($returnItem->refund_amount) }} / Adj {{ money_value($returnItem->receivable_adjusted_amount) }} / Cash {{ money_value($returnItem->cash_refund_amount) }}</td>
-                        <td>{{ $returnItem->refund_status_label }}{{ $returnItem->cash_refund_amount > 0 ? ' - ' . ($returnItem->payment_mode_label ?: 'Paid out') : ($returnItem->pending_credit_amount > 0 ? ' - Pending customer credit' : ' - Adjusted against balance') }}</td>
+                        <td class="text-end">{{ money_value($returnItem->refund_amount) }} / Adj {{ money_value($returnItem->receivable_adjusted_amount) }} / Credit {{ money_value($returnItem->pending_credit_amount) }}</td>
+                        <td>{{ $returnItem->refund_status_label }}{{ $returnItem->pending_credit_amount > 0 ? ' - Customer credit' : ' - Adjusted against balance' }}</td>
                         <td>{{ $returnItem->reason ?: '-' }}</td>
                     </tr>
                 @endforeach

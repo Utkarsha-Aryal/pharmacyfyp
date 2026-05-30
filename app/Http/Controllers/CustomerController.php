@@ -272,7 +272,7 @@ class CustomerController extends Controller
         $length = (int) $request->input('length', 10);
 
         $query = $customer->salesReturns()
-            ->with(['product', 'paymentMode'])
+            ->with(['items.product'])
             ->latest('return_date')
             ->latest('id');
 
@@ -283,12 +283,9 @@ class CustomerController extends Controller
                 $builder->where('reason', 'like', '%' . $keyword . '%')
                     ->orWhere('notes', 'like', '%' . $keyword . '%')
                     ->orWhere('refund_status', 'like', '%' . $keyword . '%')
-                    ->orWhereHas('product', function (Builder $productQuery) use ($keyword) {
+                    ->orWhereHas('items.product', function (Builder $productQuery) use ($keyword) {
                         $productQuery->where('product_name', 'like', '%' . $keyword . '%')
                             ->orWhere('generic_name', 'like', '%' . $keyword . '%');
-                    })
-                    ->orWhereHas('paymentMode', function (Builder $modeQuery) use ($keyword) {
-                        $modeQuery->where('name', 'like', '%' . $keyword . '%');
                     });
             });
         }
@@ -303,18 +300,18 @@ class CustomerController extends Controller
         $data = [];
 
         foreach ($returns as $index => $returnItem) {
-            $settlementLabel = $returnItem->cash_refund_amount > 0
-                ? ($returnItem->payment_mode_label ?: 'Paid out')
-                : ($returnItem->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance');
+            $settlementLabel = $returnItem->pending_credit_amount > 0
+                ? 'Kept as customer credit'
+                : 'Adjusted against customer balance';
 
             $data[] = [
                 'sno' => $start + $index + 1,
                 'date' => e($returnItem->return_date_show),
-                'product' => e($returnItem->product?->display_name ?? '-'),
+                'product' => e($returnItem->product_summary),
                 'quantity' => '<span class="badge bg-secondary">' . (float) $returnItem->quantity . '</span>',
                 'discount' => e(number_format((float) $returnItem->effective_discount_percent, 2)) . '% / ' . e(money_value($returnItem->effective_discount_amount)),
                 'net_rate' => money_value($returnItem->effective_net_unit_price),
-                'refund' => '<div>' . e(money_value($returnItem->refund_amount)) . '</div><small class="text-muted d-block">Adj ' . e(money_value($returnItem->receivable_adjusted_amount)) . ' | Cash ' . e(money_value($returnItem->cash_refund_amount)) . '</small>',
+                'refund' => '<div>' . e(money_value($returnItem->refund_amount)) . '</div><small class="text-muted d-block">Adjusted ' . e(money_value($returnItem->receivable_adjusted_amount)) . ' | Credit ' . e(money_value($returnItem->pending_credit_amount)) . '</small>',
                 'settlement' => '<div>' . e($returnItem->refund_status_label) . '</div><small class="text-muted d-block">' . e($settlementLabel) . '</small>',
                 'reason' => e($returnItem->reason ?: '-'),
             ];
@@ -331,10 +328,10 @@ class CustomerController extends Controller
     // Stream the party ledger as PDF so ledger print follows the same pdf-only flow.
     public function ledgerPdf(Customer $customer)
     {
-        $customer->load(['salesInvoices.items.product', 'salesReturns.product', 'salesReturns.paymentMode']);
+        $customer->load(['salesInvoices.items.product', 'salesReturns.items.product']);
 
         $invoices = $customer->salesInvoices()->with('items.product')->latest('invoice_date')->get();
-        $returns = $customer->salesReturns()->with(['product', 'paymentMode'])->latest('return_date')->take(20)->get();
+        $returns = $customer->salesReturns()->with(['items.product'])->latest('return_date')->take(20)->get();
 
         return Pdf::loadView('pdf.customer-ledger', [
             'customer' => $customer,

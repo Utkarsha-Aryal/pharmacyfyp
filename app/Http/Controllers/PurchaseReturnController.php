@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Batch;
+use App\Models\AccountTransaction;
 use App\Models\ProductBatch;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
@@ -369,6 +370,7 @@ class PurchaseReturnController extends Controller
             if ($existingReturn) {
                 $existingReturn->load(['purchase.reference', 'items.purchaseItem.returns', 'items.batch']);
                 $this->restoreReturnStock($existingReturn);
+                $this->deletePurchaseReturnRecords($existingReturn);
                 PurchaseReturnItem::query()->where('purchase_return_id', $existingReturn->id)->delete();
                 $existingReturn->update([
                     'purchase_id' => $validated['purchase_id'] ?? null,
@@ -387,6 +389,8 @@ class PurchaseReturnController extends Controller
                     'returned_by' => $request->user()->id,
                 ]);
             }
+
+            $returnTotal = 0;
 
             foreach ($rows as $row) {
                 $batch = Batch::query()->lockForUpdate()->findOrFail($row['batch_id']);
@@ -421,7 +425,9 @@ class PurchaseReturnController extends Controller
                         ]);
                     }
 
-                    $alreadyReturned = (int) $purchaseItem->returns->sum('return_qty');
+                    $alreadyReturned = (int) $purchaseItem->returns
+                        ->when($existingReturn, fn ($returns) => $returns->where('purchase_return_id', '!=', $existingReturn->id))
+                        ->sum('return_qty');
                     $maxReturnable = max(0, ((int) $purchaseItem->quantity + (int) $purchaseItem->free_qty) - $alreadyReturned);
 
                     if ($returnQty > $maxReturnable) {
@@ -468,6 +474,7 @@ class PurchaseReturnController extends Controller
                 }
 
                 $returnAmount = round($returnQty * $netRate, 2);
+                $returnTotal += $returnAmount;
 
                 PurchaseReturnItem::query()->create([
                     'purchase_return_id' => $purchaseReturn->id,
@@ -509,10 +516,63 @@ class PurchaseReturnController extends Controller
                 ]);
             }
 
+            $this->syncPurchaseReturnAccounts($purchaseReturn, $returnTotal, (int) $request->user()->id);
+
             return $purchaseReturn->load(['supplier', 'purchase.reference', 'items.product', 'items.batch']);
         });
 
         return redirect()->route('admin.purchase-returns.show', $purchaseReturn)->with('success', 'Purchase return saved successfully.');
+    }
+
+    private function syncPurchaseReturnAccounts(PurchaseReturn $purchaseReturn, float $returnTotal, int $userId): void
+    {
+        AccountTransaction::query()
+            ->where('reference_type', 'PurchaseReturn')
+            ->where('reference_id', $purchaseReturn->id)
+            ->delete();
+
+        if ($returnTotal <= 0) {
+            return;
+        }
+
+        record_account_transaction([
+            'transaction_date' => $purchaseReturn->return_date,
+            'reference_type' => 'PurchaseReturn',
+            'reference_id' => $purchaseReturn->id,
+            'party_type' => 'supplier',
+            'party_id' => $purchaseReturn->supplier_id,
+            'entry_type' => 'debit',
+            'account_type' => 'payable',
+            'amount' => round($returnTotal, 2),
+            'notes' => 'Purchase return reduced supplier payable.',
+            'created_by' => $userId,
+        ]);
+
+        record_account_transaction([
+            'transaction_date' => $purchaseReturn->return_date,
+            'reference_type' => 'PurchaseReturn',
+            'reference_id' => $purchaseReturn->id,
+            'party_type' => 'supplier',
+            'party_id' => $purchaseReturn->supplier_id,
+            'entry_type' => 'credit',
+            'account_type' => 'inventory',
+            'amount' => round($returnTotal, 2),
+            'notes' => 'Inventory sent back to supplier.',
+            'created_by' => $userId,
+        ]);
+    }
+
+    private function deletePurchaseReturnRecords(PurchaseReturn $purchaseReturn): void
+    {
+        \App\Models\StockMovement::query()
+            ->where('reference_type', 'PurchaseReturn')
+            ->where('reference_id', $purchaseReturn->id)
+            ->delete();
+
+        AccountTransaction::query()
+            ->where('reference_type', 'PurchaseReturn')
+            ->where('reference_id', $purchaseReturn->id)
+            ->delete();
     }
 
     // Put the returned quantities back before an update so we can recalculate the new return cleanly.
@@ -777,6 +837,7 @@ class PurchaseReturnController extends Controller
             DB::transaction(function () use ($purchaseReturn) {
                 $purchaseReturn->load(['purchase.reference', 'items.purchaseItem.returns', 'items.batch']);
                 $this->restoreReturnStock($purchaseReturn);
+                $this->deletePurchaseReturnRecords($purchaseReturn);
                 PurchaseReturnItem::query()->where('purchase_return_id', $purchaseReturn->id)->delete();
                 $purchaseReturn->delete();
             });

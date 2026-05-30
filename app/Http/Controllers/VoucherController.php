@@ -25,9 +25,13 @@ class VoucherController extends Controller
         'cash' => 'Cash',
         'bank' => 'Bank',
         'receivable' => 'Receivable',
+        'inventory' => 'Inventory Stock',
         'payable' => 'Payable',
+        'capital' => 'Capital',
         'expense' => 'Expense',
+        'purchase_return' => 'Purchase Return / Adjustment',
         'income' => 'Income',
+        'other_income' => 'Other Income',
     ];
 
     public function index(Request $request)

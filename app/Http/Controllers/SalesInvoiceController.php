@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
 use App\Models\SalesReturn;
+use App\Models\SalesReturnItem;
 use App\Models\StockMovement;
 use App\Models\Unit;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -57,17 +58,16 @@ class SalesInvoiceController extends Controller
     // Show the sales return manager with summary cards and filters.
     public function returnsIndex(Request $request)
     {
-        $filters = $request->only(['customer_id', 'product_id', 'refund_status', 'date_from', 'date_to']);
+        $filters = $request->only(['customer_id', 'refund_status', 'date_from', 'date_to']);
         $summaryQuery = $this->applySalesReturnFilters(SalesReturn::query(), $filters);
 
         return view('sales.returns.index', [
             'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
-            'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
             'filters' => $filters,
             'summary' => [
                 'count' => (clone $summaryQuery)->count(),
                 'refund_total' => round((float) (clone $summaryQuery)->sum('refund_amount'), 2),
-                'paid_out_total' => round((float) (clone $summaryQuery)->sum('cash_refund_amount'), 2),
+                'adjusted_total' => round((float) (clone $summaryQuery)->sum('receivable_adjusted_amount'), 2),
                 'pending_credit_total' => round((float) (clone $summaryQuery)->sum('pending_credit_amount'), 2),
             ],
         ]);
@@ -76,13 +76,13 @@ class SalesInvoiceController extends Controller
     // Return sales return rows for the manager table.
     public function returnsList(Request $request)
     {
-        $filters = $request->only(['customer_id', 'product_id', 'refund_status', 'date_from', 'date_to']);
+        $filters = $request->only(['customer_id', 'refund_status', 'date_from', 'date_to']);
         $keyword = trim((string) $request->input('search.value', ''));
         $start = max((int) $request->input('start', 0), 0);
         $length = (int) $request->input('length', 10);
 
         $query = SalesReturn::query()
-            ->with(['invoice.customer', 'product', 'batch', 'creator', 'paymentMode'])
+            ->with(['invoice.customer', 'customer', 'items.product', 'items.batch', 'creator'])
             ->orderByDesc('return_date')
             ->orderByDesc('id');
 
@@ -100,15 +100,12 @@ class SalesInvoiceController extends Controller
                                 $customerQuery->where('name', 'like', '%' . $keyword . '%');
                             });
                     })
-                    ->orWhereHas('product', function (Builder $productQuery) use ($keyword) {
+                    ->orWhereHas('items.product', function (Builder $productQuery) use ($keyword) {
                         $productQuery->where('product_name', 'like', '%' . $keyword . '%')
                             ->orWhere('generic_name', 'like', '%' . $keyword . '%');
                     })
-                    ->orWhereHas('batch', function (Builder $batchQuery) use ($keyword) {
+                    ->orWhereHas('items.batch', function (Builder $batchQuery) use ($keyword) {
                         $batchQuery->where('batch_number', 'like', '%' . $keyword . '%');
-                    })
-                    ->orWhereHas('paymentMode', function (Builder $paymentModeQuery) use ($keyword) {
-                        $paymentModeQuery->where('name', 'like', '%' . $keyword . '%');
                     });
             });
         }
@@ -123,13 +120,13 @@ class SalesInvoiceController extends Controller
         $data = [];
 
         foreach ($returns as $index => $return) {
-            $invoiceLabel = $return->invoice?->reference ?: ('Invoice #' . $return->sales_invoice_id);
-            $customerName = $return->invoice?->customer?->name ?: 'Walk-in Customer';
-            $productLabel = $return->product?->display_name ?? '-';
-            $batchLabel = $return->batch?->batch_number ?: '-';
-            $settlementLabel = $return->cash_refund_amount > 0
-                ? ($return->paymentMode?->name ?: 'Paid out')
-                : ($return->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance');
+            $invoiceLabel = $return->invoice?->reference ?: ($return->sales_invoice_id ? ('Invoice #' . $return->sales_invoice_id) : 'Multiple / customer return');
+            $customerName = $return->customer?->name ?: $return->invoice?->customer?->name ?: 'Walk-in Customer';
+            $productLabel = $return->product_summary;
+            $batchLabel = $return->items->pluck('batch.batch_number')->filter()->unique()->take(2)->implode(', ') ?: '-';
+            $settlementLabel = $return->pending_credit_amount > 0
+                ? 'Kept as customer credit'
+                : 'Adjusted against customer balance';
             $action = '<div class="table-action-group">';
 
             $action .= '<a href="' . route('admin.sales.returns.show', $return) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Return" aria-label="View Return"><i class="fa-solid fa-eye"></i></a>';
@@ -146,9 +143,9 @@ class SalesInvoiceController extends Controller
                 'customer' => '<div class="text-wrap">' . e($customerName) . '</div>',
                 'product' => '<div class="fw-semibold text-wrap">' . e($productLabel) . '</div><div class="small text-muted">Batch: ' . e($batchLabel) . '</div>',
                 'qty' => '<span class="badge bg-info text-dark">' . e(number_format((float) $return->quantity, 0)) . '</span>',
-                'discount' => '<div class="text-wrap"><span class="badge bg-warning text-dark">' . e(number_format((float) $return->effective_discount_percent, 2)) . '%</span><div class="small text-muted mt-1">' . e(money_value($return->effective_discount_amount)) . '</div></div>',
+                'discount' => '<div class="text-wrap"><span class="badge bg-warning text-dark">' . e(money_value($return->effective_discount_amount)) . '</span><div class="small text-muted mt-1">Across ' . (int) $return->items->count() . ' item(s)</div></div>',
                 'net_rate' => money_value($return->effective_net_unit_price),
-                'refund' => '<div class="fw-semibold">' . e(money_value($return->refund_amount)) . '</div><div class="small text-muted">Adj ' . e(money_value($return->receivable_adjusted_amount)) . ' | Cash ' . e(money_value($return->cash_refund_amount)) . ' | Credit ' . e(money_value($return->pending_credit_amount)) . '</div>',
+                'refund' => '<div class="fw-semibold">' . e(money_value($return->refund_amount)) . '</div><div class="small text-muted">Adjusted ' . e(money_value($return->receivable_adjusted_amount)) . ' | Credit ' . e(money_value($return->pending_credit_amount)) . '</div>',
                 'settlement' => '<div class="text-wrap"><span class="badge ' . e($return->refund_status_badge_class) . '">' . e($return->refund_status_label) . '</span><div class="small text-muted mt-1">' . e($settlementLabel) . '</div></div>',
                 'reason' => '<div class="text-wrap small">' . e(Str::limit((string) ($return->reason ?: $return->notes ?: '-'), 90)) . '</div>',
                 'action' => $action,
@@ -192,13 +189,7 @@ class SalesInvoiceController extends Controller
                 'exists:customers,id',
                 Rule::requiredIf(fn () => $returnMode === 'customer_product'),
             ],
-            'product_id' => ['nullable', 'exists:products,id'],
             'return_date' => ['required', 'date'],
-            'refund_status' => ['required', Rule::in(['pending', 'paid'])],
-            'payment_mode_id' => [
-                'nullable',
-                Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode')),
-            ],
             'reason' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
@@ -221,27 +212,7 @@ class SalesInvoiceController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($rows, $validated, $request) {
-            foreach ($rows as $row) {
-                $this->saveSalesReturnValidated([
-                    'return_mode' => $validated['return_mode'] ?? 'invoice',
-                    'sales_invoice_id' => $validated['sales_invoice_id'] ?? null,
-                    'customer_id' => $validated['customer_id'] ?? null,
-                    'sales_invoice_item_id' => $row['sales_invoice_item_id'],
-                    'return_date' => $validated['return_date'],
-                    'quantity' => $row['quantity'],
-                    'refund_status' => $validated['refund_status'],
-                    'payment_mode_id' => $validated['payment_mode_id'] ?? null,
-                    'reason' => $validated['reason'] ?? null,
-                    'notes' => $validated['notes'] ?? null,
-                    'unit_price' => $row['unit_price'] ?? null,
-                    'discount_percent' => $row['discount_percent'] ?? null,
-                    'discount_amount' => $row['discount_amount'] ?? null,
-                    'net_unit_price' => $row['net_unit_price'] ?? null,
-                    'refund_amount' => $row['refund_amount'] ?? null,
-                ], $request);
-            }
-        });
+        $this->persistSalesReturnGroup($validated, $rows, $request);
 
         return redirect()->route('admin.sales.returns.index')->with('success', 'Sales return saved successfully.');
     }
@@ -249,7 +220,7 @@ class SalesInvoiceController extends Controller
     // Show one sales return with the same plain detail layout as purchase returns.
     public function returnsShow(SalesReturn $salesReturn)
     {
-        $salesReturn->load(['invoice.customer', 'invoiceItem', 'product', 'batch', 'creator', 'paymentMode']);
+        $salesReturn->load(['invoice.customer', 'customer', 'items.invoice', 'items.invoiceItem', 'items.product', 'items.batch', 'creator']);
 
         return view('sales.returns.show', [
             'salesReturn' => $salesReturn,
@@ -259,7 +230,7 @@ class SalesInvoiceController extends Controller
     // Open the edit screen with the current return already selected.
     public function returnsEdit(SalesReturn $salesReturn)
     {
-        $salesReturn->load(['invoice.customer', 'invoiceItem.product', 'invoiceItem.batch', 'product', 'batch']);
+        $salesReturn->load(['invoice.customer', 'customer', 'items.invoice.customer', 'items.invoiceItem.product', 'items.invoiceItem.batch', 'items.product', 'items.batch']);
 
         return view('sales.returns.edit', $this->salesReturnFormData($salesReturn, $salesReturn->invoice));
     }
@@ -282,13 +253,7 @@ class SalesInvoiceController extends Controller
                     'exists:customers,id',
                     Rule::requiredIf(fn () => $returnMode === 'customer_product'),
                 ],
-                'product_id' => ['nullable', 'exists:products,id'],
                 'return_date' => ['required', 'date'],
-                'refund_status' => ['required', Rule::in(['pending', 'paid'])],
-                'payment_mode_id' => [
-                    'nullable',
-                    Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode')),
-                ],
                 'reason' => ['nullable', 'string', 'max:255'],
                 'notes' => ['nullable', 'string'],
                 'items' => ['required', 'array', 'min:1'],
@@ -311,31 +276,7 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
-            DB::transaction(function () use ($rows, $validated, $request, $salesReturn) {
-                $existingRow = $salesReturn;
-
-                foreach ($rows as $row) {
-                    $this->saveSalesReturnValidated([
-                        'return_mode' => $validated['return_mode'] ?? 'invoice',
-                        'sales_invoice_id' => $validated['sales_invoice_id'] ?? null,
-                        'customer_id' => $validated['customer_id'] ?? null,
-                        'sales_invoice_item_id' => $row['sales_invoice_item_id'],
-                        'return_date' => $validated['return_date'],
-                        'quantity' => $row['quantity'],
-                        'refund_status' => $validated['refund_status'],
-                        'payment_mode_id' => $validated['payment_mode_id'] ?? null,
-                        'reason' => $validated['reason'] ?? null,
-                        'notes' => $validated['notes'] ?? null,
-                        'unit_price' => $row['unit_price'] ?? null,
-                        'discount_percent' => $row['discount_percent'] ?? null,
-                        'discount_amount' => $row['discount_amount'] ?? null,
-                        'net_unit_price' => $row['net_unit_price'] ?? null,
-                        'refund_amount' => $row['refund_amount'] ?? null,
-                    ], $request, $existingRow);
-
-                    $existingRow = null;
-                }
-            });
+            $this->persistSalesReturnGroup($validated, $rows, $request, $salesReturn);
 
             return redirect()->route('admin.sales.returns.index')->with('success', 'Sales return updated successfully.');
         }
@@ -350,9 +291,10 @@ class SalesInvoiceController extends Controller
     {
         try {
             DB::transaction(function () use ($salesReturn) {
-                $salesReturn->load(['invoice.customer', 'invoiceItem.batch']);
+                $salesReturn->load(['invoice.customer', 'customer', 'items.batch']);
                 $this->rollbackSalesReturnEffects($salesReturn);
                 $this->deleteSalesReturnRecords($salesReturn);
+                $salesReturn->items()->delete();
                 $salesReturn->delete();
             });
 
@@ -397,7 +339,6 @@ class SalesInvoiceController extends Controller
         $validated = $request->validate([
             'sales_invoice_id' => ['nullable', 'exists:sales_invoices,id'],
             'customer_id' => ['nullable', 'exists:customers,id'],
-            'product_id' => ['nullable', 'exists:products,id'],
             'sales_return_id' => ['nullable', 'exists:sales_returns,id'],
         ]);
 
@@ -410,7 +351,7 @@ class SalesInvoiceController extends Controller
         if (!empty($validated['sales_invoice_id'])) {
             $invoice = SalesInvoice::query()->findOrFail($validated['sales_invoice_id']);
 
-            if ($editingReturn && (int) $editingReturn->sales_invoice_id !== (int) $invoice->id) {
+            if ($editingReturn && !$editingReturn->items()->where('sales_invoice_id', $invoice->id)->exists() && (int) $editingReturn->sales_invoice_id !== (int) $invoice->id) {
                 $editingReturn = null;
             }
 
@@ -418,7 +359,6 @@ class SalesInvoiceController extends Controller
         } elseif (!empty($validated['customer_id'])) {
             $options = $this->buildSalesReturnCustomerItemOptions(
                 (int) $validated['customer_id'],
-                !empty($validated['product_id']) ? (int) $validated['product_id'] : null,
                 $editingReturn
             );
         } else {
@@ -509,9 +449,14 @@ class SalesInvoiceController extends Controller
 
             $action = '<div class="table-action-group">';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Invoice" aria-label="View Invoice"><i class="fa-solid fa-eye"></i></a>';
+            $action .= '<a href="' . route('admin.sales.edit', $invoice) . '" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Invoice" aria-label="Edit Invoice"><i class="fa-solid fa-pen-to-square"></i></a>';
             $action .= '<a href="' . route('admin.sales-invoices.print', $invoice) . '" target="_blank" class="btn btn-sm btn-outline-dark table-action-btn" title="Print / PDF" aria-label="Print / PDF"><i class="fa-solid fa-print"></i></a>';
             $action .= '<a href="' . route('admin.sales.show', $invoice) . '#paymentModal" class="btn btn-sm btn-outline-success table-action-btn" title="Payment" aria-label="Payment"><i class="fa-solid fa-wallet"></i></a>';
             $action .= '<a href="' . route('admin.sales.returns.create', ['sales_invoice_id' => $invoice->id]) . '" class="btn btn-sm btn-outline-danger table-action-btn" title="Return" aria-label="Return"><i class="fa-solid fa-rotate-left"></i></a>';
+            $action .= '<form action="' . route('admin.sales.delete', $invoice) . '" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete sales invoice?" data-confirm-text="This will restore invoice stock and remove ledger rows if no returns/payments are linked." data-confirm-button="Yes, delete it">';
+            $action .= '<input type="hidden" name="_token" value="' . csrf_token() . '">';
+            $action .= '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Invoice" aria-label="Delete Invoice"><i class="fa-solid fa-trash"></i></button>';
+            $action .= '</form>';
             $action .= '</div>';
 
             $data[] = [
@@ -541,6 +486,25 @@ class SalesInvoiceController extends Controller
     {
         return view('sales.create', [
             'reference' => next_sales_reference(),
+            'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
+            'partyTypes' => PartyType::query()->orderBy('name')->get(),
+            'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
+            'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
+            'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
+            'companies' => Company::query()->orderBy('name')->get(),
+            'units' => Unit::query()->orderBy('unit_name')->get(),
+            'saleTypes' => DropdownOption::query()->forAlias('sales_type')->active()->orderBy('name')->get(),
+        ]);
+    }
+
+    public function edit(SalesInvoice $salesInvoice)
+    {
+        $salesInvoice->load(['customer', 'paymentMode', 'saleTypeOption', 'items.product', 'items.batch']);
+
+        return view('sales.create', [
+            'invoice' => $salesInvoice,
+            'itemRows' => $this->salesInvoiceFormRows($salesInvoice),
+            'reference' => $salesInvoice->reference,
             'customers' => Customer::query()->where('is_active', true)->orderBy('name')->get(),
             'partyTypes' => PartyType::query()->orderBy('name')->get(),
             'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
@@ -854,6 +818,54 @@ class SalesInvoiceController extends Controller
         }
     }
 
+    public function update(Request $request, SalesInvoice $salesInvoice)
+    {
+        $validated = $this->validateSalesInvoicePayload($request);
+
+        try {
+            DB::transaction(function () use ($salesInvoice, $validated, $request) {
+                $salesInvoice = SalesInvoice::query()->with(['items.batch', 'customer'])->lockForUpdate()->findOrFail($salesInvoice->id);
+                $this->assertSalesInvoiceCanBeRebuilt($salesInvoice);
+                $this->rollbackSalesInvoice($salesInvoice);
+                $this->rebuildSalesInvoice($salesInvoice, $validated, $request);
+            });
+
+            return response()->json([
+                'type' => 'success',
+                'message' => 'Sales invoice updated successfully.',
+                'redirect' => route('admin.sales.show', $salesInvoice),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'type' => 'error',
+                'message' => collect($e->errors())->flatten()->first() ?: $e->getMessage(),
+            ], 422);
+        } catch (QueryException|Exception $e) {
+            return response()->json([
+                'type' => 'error',
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function destroy(SalesInvoice $salesInvoice)
+    {
+        try {
+            DB::transaction(function () use ($salesInvoice) {
+                $salesInvoice = SalesInvoice::query()->with(['items.batch', 'customer'])->lockForUpdate()->findOrFail($salesInvoice->id);
+                $this->assertSalesInvoiceCanBeRebuilt($salesInvoice);
+                $this->rollbackSalesInvoice($salesInvoice);
+                $salesInvoice->delete();
+            });
+
+            return redirect()->route('admin.sales.index')->with('success', 'Sales invoice deleted successfully.');
+        } catch (ValidationException $exception) {
+            return back()->with('error', collect($exception->errors())->flatten()->first() ?: 'Could not delete sales invoice.');
+        } catch (\Throwable $throwable) {
+            return back()->with('error', $throwable->getMessage() ?: 'Could not delete sales invoice.');
+        }
+    }
+
     // Show one invoice with items, payment and return history.
     public function show(SalesInvoice $salesInvoice)
     {
@@ -929,8 +941,13 @@ class SalesInvoiceController extends Controller
         $length = (int) $request->input('length', 10);
 
         $query = SalesReturn::query()
-            ->with(['product', 'batch', 'paymentMode'])
-            ->where('sales_invoice_id', $salesInvoice->id)
+            ->with(['items.product', 'items.batch'])
+            ->where(function (Builder $builder) use ($salesInvoice) {
+                $builder->where('sales_invoice_id', $salesInvoice->id)
+                    ->orWhereHas('items', function (Builder $itemQuery) use ($salesInvoice) {
+                        $itemQuery->where('sales_invoice_id', $salesInvoice->id);
+                    });
+            })
             ->latest('return_date')
             ->latest('id');
 
@@ -941,15 +958,12 @@ class SalesInvoiceController extends Controller
                 $builder->where('reason', 'like', '%' . $keyword . '%')
                     ->orWhere('notes', 'like', '%' . $keyword . '%')
                     ->orWhere('refund_status', 'like', '%' . $keyword . '%')
-                    ->orWhereHas('product', function (Builder $productQuery) use ($keyword) {
+                    ->orWhereHas('items.product', function (Builder $productQuery) use ($keyword) {
                         $productQuery->where('product_name', 'like', '%' . $keyword . '%')
                             ->orWhere('generic_name', 'like', '%' . $keyword . '%');
                     })
-                    ->orWhereHas('batch', function (Builder $batchQuery) use ($keyword) {
+                    ->orWhereHas('items.batch', function (Builder $batchQuery) use ($keyword) {
                         $batchQuery->where('batch_number', 'like', '%' . $keyword . '%');
-                    })
-                    ->orWhereHas('paymentMode', function (Builder $modeQuery) use ($keyword) {
-                        $modeQuery->where('name', 'like', '%' . $keyword . '%');
                     });
             });
         }
@@ -964,9 +978,9 @@ class SalesInvoiceController extends Controller
         $data = [];
 
         foreach ($returns as $index => $returnItem) {
-            $settlementLabel = $returnItem->cash_refund_amount > 0
-                ? ($returnItem->payment_mode_label ?: 'Paid out')
-                : ($returnItem->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance');
+            $settlementLabel = $returnItem->pending_credit_amount > 0
+                ? 'Kept as customer credit'
+                : 'Adjusted against customer balance';
             $action = '<div class="table-action-group">';
             $action .= '<a href="' . route('admin.sales.returns.show', $returnItem) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Return"><i class="fa-solid fa-eye"></i></a>';
             $action .= '<a href="' . route('admin.sales.returns.edit', $returnItem) . '" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Return"><i class="fa-solid fa-pen-to-square"></i></a>';
@@ -975,16 +989,24 @@ class SalesInvoiceController extends Controller
             $action .= '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Return"><i class="fa-solid fa-trash"></i></button>';
             $action .= '</form></div>';
 
+            $invoiceItems = $returnItem->items->where('sales_invoice_id', $salesInvoice->id);
+            $displayItems = $invoiceItems->isNotEmpty() ? $invoiceItems : $returnItem->items;
+            $productLabel = $displayItems->map(fn ($item) => $item->product?->display_name)->filter()->unique()->implode(', ') ?: '-';
+            $batchLabel = $displayItems->map(fn ($item) => $item->batch?->batch_number)->filter()->unique()->implode(', ') ?: '-';
+            $qty = $displayItems->sum('quantity');
+            $discount = $displayItems->sum('discount_amount');
+            $refund = $displayItems->sum('refund_amount');
+
             $data[] = [
                 'sno' => $start + $index + 1,
                 'date' => e($returnItem->return_date_show),
-                'product' => e($returnItem->product?->display_name ?? '-'),
-                'batch' => '<span class="badge bg-light text-dark border">' . e($returnItem->batch?->batch_number ?? '-') . '</span>',
-                'qty' => '<span class="badge bg-secondary">' . (float) $returnItem->quantity . '</span>',
+                'product' => e($productLabel),
+                'batch' => '<span class="badge bg-light text-dark border">' . e($batchLabel) . '</span>',
+                'qty' => '<span class="badge bg-secondary">' . (float) $qty . '</span>',
                 'discount_percent' => e(number_format((float) $returnItem->effective_discount_percent, 2)) . '%',
-                'discount_amount' => money_value($returnItem->effective_discount_amount),
+                'discount_amount' => money_value($discount),
                 'net_rate' => money_value($returnItem->effective_net_unit_price),
-                'refund' => '<div>' . e(money_value($returnItem->refund_amount)) . '</div><small class="text-muted d-block">Adj ' . e(money_value($returnItem->receivable_adjusted_amount)) . '</small><small class="text-muted d-block">Cash ' . e(money_value($returnItem->cash_refund_amount)) . ' | Credit ' . e(money_value($returnItem->pending_credit_amount)) . '</small>',
+                'refund' => '<div>' . e(money_value($refund)) . '</div><small class="text-muted d-block">Adjusted ' . e(money_value($returnItem->receivable_adjusted_amount)) . '</small><small class="text-muted d-block">Credit ' . e(money_value($returnItem->pending_credit_amount)) . '</small>',
                 'settlement' => '<span class="badge ' . e($returnItem->refund_status_badge_class) . '">' . e($returnItem->refund_status_label) . '</span><small class="text-muted d-block mt-1">' . e($settlementLabel) . '</small>',
                 'reason' => e($returnItem->reason ?: '-'),
                 'action' => $action,
@@ -1089,13 +1111,268 @@ class SalesInvoiceController extends Controller
         $request->merge([
             'sales_invoice_id' => $salesInvoice->id,
             'return_date' => $request->input('return_date', now()->toDateString()),
-            'refund_status' => $request->input('refund_status', 'paid'),
-            'payment_mode_id' => $request->input('payment_mode_id', $salesInvoice->payment_mode_id),
         ]);
 
         $this->persistSalesReturn($request);
 
         return back()->with('success', 'Sales return saved successfully.');
+    }
+
+    private function validateSalesInvoicePayload(Request $request): array
+    {
+        return $request->validate([
+            'customer_id' => [
+                'nullable',
+                'exists:customers,id',
+                Rule::requiredIf(function () use ($request) {
+                    $saleType = DropdownOption::query()
+                        ->forAlias('sales_type')
+                        ->find($request->input('sale_type_id'));
+
+                    return in_array(strtolower((string) $saleType?->name), ['wholesale', 'credit'], true);
+                }),
+            ],
+            'invoice_date' => ['required', 'date'],
+            'sale_type_id' => ['required', Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'sales_type'))],
+            'payment_mode_id' => [
+                'nullable',
+                Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode')),
+                Rule::requiredIf(fn () => (float) $request->input('paid_amount', 0) > 0),
+            ],
+            'paid_amount' => ['nullable', 'numeric', 'min:0'],
+            'notes' => ['nullable', 'string'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.batch_id' => ['required', 'exists:batches,id'],
+            'items.*.quantity' => ['required', 'numeric', 'min:1'],
+            'items.*.free_qty' => ['nullable', 'integer', 'min:0'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.mrp' => ['required', 'numeric', 'min:0'],
+            'items.*.cc_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+        ]);
+    }
+
+    private function assertSalesInvoiceCanBeRebuilt(SalesInvoice $salesInvoice): void
+    {
+        if ($salesInvoice->returns()->exists() || $salesInvoice->returnItems()->exists()) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Delete linked sales returns before changing this invoice.',
+            ]);
+        }
+
+        if ($salesInvoice->paymentAllocations()->exists()) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Remove linked payment allocations before changing this invoice.',
+            ]);
+        }
+    }
+
+    private function rollbackSalesInvoice(SalesInvoice $salesInvoice): void
+    {
+        $salesInvoice->loadMissing(['items.batch', 'customer']);
+
+        foreach ($salesInvoice->items as $item) {
+            if (!$item->batch_id) {
+                continue;
+            }
+
+            $batch = Batch::query()->lockForUpdate()->find($item->batch_id);
+            if (!$batch) {
+                throw ValidationException::withMessages([
+                    'invoice' => 'One batch from this invoice no longer exists.',
+                ]);
+            }
+
+            $batch->quantity_available = round((float) $batch->quantity_available + (float) $item->quantity + (float) ($item->free_qty ?? 0), 2);
+            $batch->save();
+        }
+
+        if ($salesInvoice->customer_id && $salesInvoice->due_amount > 0) {
+            $customer = Customer::query()->lockForUpdate()->find($salesInvoice->customer_id);
+            if ($customer) {
+                $customer->current_balance = round(max(0, (float) $customer->current_balance - $salesInvoice->due_amount), 2);
+                $customer->save();
+            }
+        }
+
+        StockMovement::query()
+            ->where('reference_type', 'SalesInvoice')
+            ->where('reference_id', $salesInvoice->id)
+            ->delete();
+
+        AccountTransaction::query()
+            ->where('reference_type', 'SalesInvoice')
+            ->where('reference_id', $salesInvoice->id)
+            ->delete();
+
+        $salesInvoice->items()->delete();
+    }
+
+    private function rebuildSalesInvoice(SalesInvoice $invoice, array $validated, Request $request): void
+    {
+        $subtotal = 0;
+        $discountAmount = 0;
+        $invoiceTotal = 0;
+        $saleType = DropdownOption::query()->forAlias('sales_type')->findOrFail($validated['sale_type_id']);
+        $paidAmount = round((float) ($validated['paid_amount'] ?? 0), 2);
+        $paymentMode = $paidAmount > 0 && !empty($validated['payment_mode_id'])
+            ? DropdownOption::query()->forAlias('payment_mode')->findOrFail($validated['payment_mode_id'])
+            : null;
+
+        $invoice->update([
+            'customer_id' => $validated['customer_id'] ?? null,
+            'updated_by' => $request->user()->id,
+            'invoice_date' => $validated['invoice_date'],
+            'sale_type_id' => $saleType->id,
+            'sale_type' => strtolower($saleType->name),
+            'status' => 'confirmed',
+            'payment_status' => 'unpaid',
+            'payment_method' => $paidAmount > 0 ? ($paymentMode?->data ?: 'cash') : 'none',
+            'payment_mode_id' => $paidAmount > 0 ? $paymentMode?->id : null,
+            'subtotal' => 0,
+            'discount_amount' => 0,
+            'total_discount' => 0,
+            'total_amount' => 0,
+            'paid_amount' => $paidAmount,
+            'notes' => $validated['notes'] ?? null,
+            'confirmed_at' => $invoice->confirmed_at ?: now(),
+        ]);
+
+        foreach ($validated['items'] as $row) {
+            $product = Product::query()->findOrFail($row['product_id']);
+            $quantity = (float) $row['quantity'];
+            $freeQuantity = (float) ($row['free_qty'] ?? 0);
+            $unitPrice = (float) $row['unit_price'];
+            $mrp = (float) ($row['mrp'] ?? 0);
+            $ccRate = (float) ($row['cc_rate'] ?? $product->effective_cc_rate ?? 0);
+            $discountPercent = (float) ($row['discount_percent'] ?? 0);
+            $stockQuantity = $quantity + $freeQuantity;
+            $batch = $this->selectedBatchForSale((int) $product->id, (int) $row['batch_id'], $stockQuantity);
+
+            $lineBase = round($quantity * $unitPrice, 2);
+            $lineDiscount = round(($lineBase * $discountPercent) / 100, 2);
+            $lineTotal = round($lineBase - $lineDiscount, 2);
+            $freeGoodsValue = round($freeQuantity * ($mrp * $ccRate / 100), 2);
+
+            $batch->quantity_available = max(0, (float) $batch->quantity_available - $stockQuantity);
+            $batch->save();
+
+            SalesInvoiceItem::create([
+                'sales_invoice_id' => $invoice->id,
+                'product_id' => $product->id,
+                'batch_id' => $batch->id,
+                'quantity' => $quantity,
+                'free_qty' => $freeQuantity,
+                'unit_price' => $unitPrice,
+                'mrp' => $mrp,
+                'cc_rate' => $ccRate,
+                'discount_percent' => $discountPercent,
+                'discount_amount' => $lineDiscount,
+                'free_goods_value' => $freeGoodsValue,
+                'subtotal' => $lineTotal,
+            ]);
+
+            record_stock_movement([
+                'movement_date' => $validated['invoice_date'],
+                'product_id' => $product->id,
+                'batch_id' => $batch->id,
+                'movement_type' => 'sales_out',
+                'quantity_out' => (int) $stockQuantity,
+                'source_type' => 'Inventory',
+                'destination_type' => 'Customer',
+                'destination_id' => $validated['customer_id'] ?? null,
+                'reference_type' => 'SalesInvoice',
+                'reference_id' => $invoice->id,
+                'notes' => 'Stock issued from sales invoice.',
+                'created_by' => $request->user()->id,
+            ]);
+
+            $subtotal += $lineBase;
+            $discountAmount += $lineDiscount;
+            $invoiceTotal += $lineTotal;
+        }
+
+        if ($paidAmount > round($invoiceTotal, 2)) {
+            throw ValidationException::withMessages([
+                'paid_amount' => 'Paid amount cannot be greater than invoice total.',
+            ]);
+        }
+
+        $invoice->update([
+            'subtotal' => round($subtotal, 2),
+            'discount_amount' => round($discountAmount, 2),
+            'total_discount' => round($discountAmount, 2),
+            'total_amount' => round($invoiceTotal, 2),
+            'paid_amount' => round($paidAmount, 2),
+            'payment_status' => SalesInvoice::resolvePaymentStatus($invoiceTotal, $paidAmount),
+        ]);
+
+        if ($invoice->customer_id && $invoice->due_amount > 0) {
+            $customer = Customer::query()->lockForUpdate()->findOrFail($invoice->customer_id);
+            $customer->current_balance = round((float) $customer->current_balance + $invoice->due_amount, 2);
+            $customer->save();
+        }
+
+        if ($paidAmount > 0) {
+            $cashAccount = $paymentMode?->data === 'bank' ? 'bank' : 'cash';
+
+            record_account_transaction([
+                'transaction_date' => $invoice->invoice_date,
+                'reference_type' => 'SalesInvoice',
+                'reference_id' => $invoice->id,
+                'party_type' => $invoice->customer_id ? 'customer' : null,
+                'party_id' => $invoice->customer_id,
+                'entry_type' => 'debit',
+                'account_type' => $cashAccount,
+                'amount' => $paidAmount,
+                'notes' => 'Sale payment received for ' . $invoice->reference,
+                'created_by' => $request->user()->id,
+            ]);
+        }
+
+        if ($invoice->due_amount > 0) {
+            record_account_transaction([
+                'transaction_date' => $invoice->invoice_date,
+                'reference_type' => 'SalesInvoice',
+                'reference_id' => $invoice->id,
+                'party_type' => $invoice->customer_id ? 'customer' : null,
+                'party_id' => $invoice->customer_id,
+                'entry_type' => 'debit',
+                'account_type' => 'receivable',
+                'amount' => $invoice->due_amount,
+                'notes' => 'Sale due amount for ' . $invoice->reference,
+                'created_by' => $request->user()->id,
+            ]);
+        }
+
+        record_account_transaction([
+            'transaction_date' => $invoice->invoice_date,
+            'reference_type' => 'SalesInvoice',
+            'reference_id' => $invoice->id,
+            'party_type' => $invoice->customer_id ? 'customer' : null,
+            'party_id' => $invoice->customer_id,
+            'entry_type' => 'credit',
+            'account_type' => 'income',
+            'amount' => $invoice->total_amount,
+            'notes' => 'Sales income for ' . $invoice->reference,
+            'created_by' => $request->user()->id,
+        ]);
+    }
+
+    private function salesInvoiceFormRows(SalesInvoice $invoice): array
+    {
+        return $invoice->items->map(fn (SalesInvoiceItem $item) => [
+            'product_id' => $item->product_id,
+            'batch_id' => $item->batch_id,
+            'batch_label' => $item->batch?->batch_number,
+            'quantity' => $item->quantity,
+            'free_qty' => $item->free_qty,
+            'mrp' => $item->mrp,
+            'unit_price' => $item->unit_price,
+            'cc_rate' => $item->cc_rate,
+            'discount_percent' => $item->discount_percent,
+        ])->values()->all();
     }
 
     // Pick one active batch in expiry order and keep the stock rule simple.
@@ -1170,11 +1447,6 @@ class SalesInvoiceController extends Controller
             'sales_invoice_item_id' => ['required', 'exists:sales_invoice_items,id'],
             'return_date' => ['required', 'date'],
             'quantity' => ['required', 'numeric', 'min:1'],
-            'refund_status' => ['required', Rule::in(['pending', 'paid'])],
-            'payment_mode_id' => [
-                'nullable',
-                Rule::exists('dropdown_options', 'id')->where(fn ($query) => $query->where('alias', 'payment_mode')),
-            ],
             'reason' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'unit_price' => ['nullable', 'numeric', 'min:0'],
@@ -1184,159 +1456,183 @@ class SalesInvoiceController extends Controller
             'refund_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        return DB::transaction(function () use ($validated, $request, $existingReturn) {
-            return $this->saveSalesReturnValidated($validated, $request, $existingReturn);
-        });
+        $rows = collect([[
+            'sales_invoice_item_id' => $validated['sales_invoice_item_id'],
+            'quantity' => $validated['quantity'],
+            'unit_price' => $validated['unit_price'] ?? null,
+            'discount_percent' => $validated['discount_percent'] ?? null,
+            'discount_amount' => $validated['discount_amount'] ?? null,
+            'net_unit_price' => $validated['net_unit_price'] ?? null,
+            'refund_amount' => $validated['refund_amount'] ?? null,
+        ]]);
+
+        return $this->persistSalesReturnGroup([
+            'return_mode' => 'invoice',
+            'sales_invoice_id' => $validated['sales_invoice_id'],
+            'return_date' => $validated['return_date'],
+            'reason' => $validated['reason'] ?? null,
+            'notes' => $validated['notes'] ?? null,
+        ], $rows, $request, $existingReturn);
     }
 
-    private function saveSalesReturnValidated(array $validated, Request $request, ?SalesReturn $existingReturn = null): SalesReturn
+    private function persistSalesReturnGroup(array $validated, $rows, Request $request, ?SalesReturn $existingReturn = null): SalesReturn
     {
+        return DB::transaction(function () use ($validated, $rows, $request, $existingReturn) {
             if ($existingReturn) {
-                $existingReturn->load(['invoice.customer', 'invoiceItem.batch']);
+                $existingReturn->load(['invoice.customer', 'customer', 'items.batch']);
                 $this->rollbackSalesReturnEffects($existingReturn);
                 $this->deleteSalesReturnRecords($existingReturn);
+                $existingReturn->items()->delete();
             }
 
-            $invoiceItem = SalesInvoiceItem::query()
-                ->with(['invoice.customer', 'product', 'batch'])
-                ->findOrFail($validated['sales_invoice_item_id']);
-            $salesInvoice = $invoiceItem->invoice;
+            $returnMode = ($validated['return_mode'] ?? 'invoice') === 'customer_product' ? 'customer_product' : 'invoice';
+            $selectedItemIds = collect($rows)->pluck('sales_invoice_item_id')->filter()->map(fn ($id) => (int) $id);
 
-            if (!empty($validated['sales_invoice_id']) && (int) $validated['sales_invoice_id'] !== (int) $salesInvoice->id) {
+            if ($selectedItemIds->duplicates()->isNotEmpty()) {
                 throw ValidationException::withMessages([
-                    'sales_invoice_id' => 'Selected return item does not belong to the selected invoice.',
+                    'items' => 'Each invoice item can be selected only once in one sales return.',
                 ]);
             }
 
-            if (!empty($validated['customer_id']) && (int) $validated['customer_id'] !== (int) $salesInvoice->customer_id) {
+            $preparedRows = collect($rows)->map(function (array $row) use ($validated, $existingReturn, $returnMode) {
+                $invoiceItem = SalesInvoiceItem::query()
+                    ->with(['invoice.customer', 'product', 'batch'])
+                    ->findOrFail($row['sales_invoice_item_id']);
+                $salesInvoice = $invoiceItem->invoice;
+
+                if ($returnMode === 'invoice' && !empty($validated['sales_invoice_id']) && (int) $validated['sales_invoice_id'] !== (int) $salesInvoice->id) {
+                    throw ValidationException::withMessages([
+                        'sales_invoice_id' => 'Selected return item does not belong to the selected invoice.',
+                    ]);
+                }
+
+                if ($returnMode === 'customer_product' && !empty($validated['customer_id']) && (int) $validated['customer_id'] !== (int) $salesInvoice->customer_id) {
+                    throw ValidationException::withMessages([
+                        'customer_id' => 'Selected return item does not belong to the selected customer.',
+                    ]);
+                }
+
+                $returnQty = round((float) $row['quantity'], 2);
+                $alreadyReturnedQty = (float) SalesReturnItem::query()
+                    ->where('sales_invoice_item_id', $invoiceItem->id)
+                    ->when($existingReturn, function (Builder $query) use ($existingReturn) {
+                        $query->where('sales_return_id', '!=', $existingReturn->id);
+                    })
+                    ->sum('quantity');
+                $maxReturnableQty = max(0, round((float) $invoiceItem->quantity - $alreadyReturnedQty, 2));
+
+                if ($returnQty > $maxReturnableQty) {
+                    throw ValidationException::withMessages([
+                        'quantity' => 'Return quantity cannot be more than the remaining returnable quantity.',
+                    ]);
+                }
+
+                $pricing = $this->calculateSalesReturnRowPricing($row, $invoiceItem, $returnQty);
+
+                return array_merge($pricing, [
+                    'invoice_item' => $invoiceItem,
+                    'sales_invoice' => $salesInvoice,
+                    'quantity' => $returnQty,
+                ]);
+            })->values();
+
+            $invoiceIds = $preparedRows->pluck('sales_invoice.id')->unique()->values();
+            $customerIds = $preparedRows->pluck('sales_invoice.customer_id')->filter()->unique()->values();
+            $customerId = $returnMode === 'customer_product'
+                ? (int) ($validated['customer_id'] ?? 0)
+                : (int) ($preparedRows->first()['sales_invoice']->customer_id ?? 0);
+
+            if ($customerIds->count() > 1) {
                 throw ValidationException::withMessages([
-                    'customer_id' => 'Selected return item does not belong to the selected customer.',
+                    'items' => 'All selected return rows must belong to the same customer.',
                 ]);
             }
 
-            $returnQty = round((float) $validated['quantity'], 2);
-            $alreadyReturnedQty = (float) SalesReturn::query()
-                ->where('sales_invoice_item_id', $invoiceItem->id)
-                ->when($existingReturn, function (Builder $query) use ($existingReturn) {
-                    $query->where('id', '!=', $existingReturn->id);
-                })
-                ->sum('quantity');
-            $maxReturnableQty = max(0, round((float) $invoiceItem->quantity - $alreadyReturnedQty, 2));
-
-            if ($returnQty > $maxReturnableQty) {
-                throw ValidationException::withMessages([
-                    'quantity' => 'Return quantity cannot be more than the remaining returnable quantity.',
-                ]);
-            }
-
-            $defaultDiscountedUnitRate = (float) $invoiceItem->quantity > 0
-                ? round((float) $invoiceItem->subtotal / (float) $invoiceItem->quantity, 2)
-                : round((float) $invoiceItem->unit_price, 2);
-            $defaultPerUnitDiscount = (float) $invoiceItem->quantity > 0
-                ? round((float) $invoiceItem->discount_amount / (float) $invoiceItem->quantity, 4)
-                : 0;
-            $unitPrice = round((float) ($validated['unit_price'] ?? $invoiceItem->unit_price ?? 0), 2);
-            $discountPercent = round((float) ($validated['discount_percent'] ?? $invoiceItem->discount_percent ?? 0), 2);
-            $discountAmount = round((float) ($validated['discount_amount'] ?? 0), 2);
-            $netUnitPrice = round((float) ($validated['net_unit_price'] ?? $defaultDiscountedUnitRate), 2);
-
-            if (array_key_exists('net_unit_price', $validated) && $validated['net_unit_price'] !== null && $validated['net_unit_price'] !== '') {
-                $netUnitPrice = round(max(0, min($unitPrice, (float) $validated['net_unit_price'])), 2);
-                $discountAmount = round(max(0, ($unitPrice - $netUnitPrice) * $returnQty), 2);
-                $discountPercent = $unitPrice > 0
-                    ? round((($unitPrice - $netUnitPrice) / $unitPrice) * 100, 2)
-                    : 0;
-            } elseif (array_key_exists('discount_amount', $validated) && $validated['discount_amount'] !== null && $validated['discount_amount'] !== '') {
-                $discountAmount = round((float) $validated['discount_amount'], 2);
-                $perUnitDiscount = $returnQty > 0 ? round($discountAmount / $returnQty, 4) : 0;
-                $netUnitPrice = round(max(0, $unitPrice - $perUnitDiscount), 2);
-                $discountPercent = $unitPrice > 0
-                    ? round((($unitPrice - $netUnitPrice) / $unitPrice) * 100, 2)
-                    : 0;
-                $discountAmount = round(max(0, ($unitPrice - $netUnitPrice) * $returnQty), 2);
-            } elseif (array_key_exists('discount_percent', $validated) && $validated['discount_percent'] !== null && $validated['discount_percent'] !== '') {
-                $discountPercent = round(max(0, min(100, (float) $validated['discount_percent'])), 2);
-                $netUnitPrice = round(max(0, $unitPrice - (($unitPrice * $discountPercent) / 100)), 2);
-                $discountAmount = round(max(0, ($unitPrice - $netUnitPrice) * $returnQty), 2);
-            } else {
-                $netUnitPrice = $defaultDiscountedUnitRate;
-                $discountAmount = round($returnQty * $defaultPerUnitDiscount, 2);
-                $discountPercent = round((float) ($invoiceItem->discount_percent ?? 0), 2);
-            }
-
-            $refundAmount = isset($validated['refund_amount']) && $validated['refund_amount'] !== null && $validated['refund_amount'] !== ''
-                ? round((float) $validated['refund_amount'], 2)
-                : round($returnQty * $netUnitPrice, 2);
-            $paymentMode = !empty($validated['payment_mode_id'])
-                ? DropdownOption::query()->forAlias('payment_mode')->findOrFail($validated['payment_mode_id'])
-                : null;
-
-            if ($invoiceItem->batch) {
-                $lockedBatch = Batch::query()->lockForUpdate()->findOrFail($invoiceItem->batch_id);
-                $lockedBatch->quantity_available = round((float) $lockedBatch->quantity_available + $returnQty, 2);
-                $lockedBatch->save();
-            }
-
-            if (!$salesInvoice->customer_id && $validated['refund_status'] === 'pending') {
-                throw ValidationException::withMessages([
-                    'refund_status' => 'Pending refund needs a customer-linked invoice so the credit can be tracked.',
-                ]);
-            }
-
-            $customer = $salesInvoice->customer_id
-                ? Customer::query()->lockForUpdate()->findOrFail($salesInvoice->customer_id)
-                : null;
-            $settlement = $this->buildSalesReturnSettlement($customer, $refundAmount, (string) $validated['refund_status']);
-
-            if ($settlement['cash_refund_amount'] > 0 && !$paymentMode) {
-                throw ValidationException::withMessages([
-                    'payment_mode_id' => 'Please choose a payment mode for the cash or bank refund.',
-                ]);
-            }
-
-            $payload = [
-                'return_mode' => ($validated['return_mode'] ?? 'invoice') === 'customer_product' ? 'customer_product' : 'invoice',
-                'sales_invoice_id' => $salesInvoice->id,
-                'sales_invoice_item_id' => $invoiceItem->id,
-                'product_id' => $invoiceItem->product_id,
-                'batch_id' => $invoiceItem->batch_id,
+            $headerPayload = [
+                'return_mode' => $returnMode,
+                'sales_invoice_id' => $returnMode === 'invoice' ? (int) ($validated['sales_invoice_id'] ?? $invoiceIds->first()) : ($invoiceIds->count() === 1 ? $invoiceIds->first() : null),
+                'customer_id' => $customerId ?: null,
                 'created_by' => $existingReturn?->created_by ?: $request->user()->id,
                 'return_date' => $validated['return_date'],
-                'quantity' => $returnQty,
-                'unit_price' => $unitPrice,
-                'discount_percent' => $discountPercent,
-                'discount_amount' => $discountAmount,
-                'net_unit_price' => $netUnitPrice,
-                'refund_amount' => $refundAmount,
-                'refund_status' => $validated['refund_status'],
-                'payment_mode_id' => $validated['refund_status'] === 'paid' ? ($paymentMode?->id) : null,
-                'receivable_adjusted_amount' => $settlement['receivable_adjusted_amount'],
-                'cash_refund_amount' => $settlement['cash_refund_amount'],
-                'pending_credit_amount' => $settlement['pending_credit_amount'],
+                'total_quantity' => 0,
+                'gross_amount' => 0,
+                'discount_amount' => 0,
+                'refund_amount' => 0,
+                'refund_status' => 'adjusted',
+                'receivable_adjusted_amount' => 0,
+                'pending_credit_amount' => 0,
                 'reason' => $validated['reason'] ?? null,
                 'notes' => $validated['notes'] ?? null,
             ];
 
             if ($existingReturn) {
-                $existingReturn->update($payload);
+                $existingReturn->update($headerPayload);
                 $salesReturn = $existingReturn->fresh();
             } else {
-                $salesReturn = SalesReturn::query()->create($payload);
+                $salesReturn = SalesReturn::query()->create($headerPayload);
             }
 
-            record_stock_movement([
-                'movement_date' => $validated['return_date'],
-                'product_id' => $invoiceItem->product_id,
-                'batch_id' => $invoiceItem->batch_id,
-                'movement_type' => 'sales_return_in',
-                'quantity_in' => (int) $returnQty,
-                'source_type' => 'Customer',
-                'source_id' => $salesInvoice->customer_id,
-                'destination_type' => 'Inventory',
-                'reference_type' => 'SalesReturn',
-                'reference_id' => $salesReturn->id,
-                'notes' => 'Stock returned from sales invoice.',
-                'created_by' => $request->user()->id,
+            $totalQuantity = 0;
+            $grossAmount = 0;
+            $discountAmount = 0;
+            $refundAmount = 0;
+
+            foreach ($preparedRows as $row) {
+                $invoiceItem = $row['invoice_item'];
+                $salesInvoice = $row['sales_invoice'];
+
+                if ($invoiceItem->batch) {
+                    $lockedBatch = Batch::query()->lockForUpdate()->findOrFail($invoiceItem->batch_id);
+                    $lockedBatch->quantity_available = round((float) $lockedBatch->quantity_available + (float) $row['quantity'], 2);
+                    $lockedBatch->save();
+                }
+
+                SalesReturnItem::query()->create([
+                    'sales_return_id' => $salesReturn->id,
+                    'sales_invoice_id' => $salesInvoice->id,
+                    'sales_invoice_item_id' => $invoiceItem->id,
+                    'product_id' => $invoiceItem->product_id,
+                    'batch_id' => $invoiceItem->batch_id,
+                    'quantity' => $row['quantity'],
+                    'unit_price' => $row['unit_price'],
+                    'discount_percent' => $row['discount_percent'],
+                    'discount_amount' => $row['discount_amount'],
+                    'net_unit_price' => $row['net_unit_price'],
+                    'refund_amount' => $row['refund_amount'],
+                ]);
+
+                record_stock_movement([
+                    'movement_date' => $validated['return_date'],
+                    'product_id' => $invoiceItem->product_id,
+                    'batch_id' => $invoiceItem->batch_id,
+                    'movement_type' => 'sales_return_in',
+                    'quantity_in' => (int) $row['quantity'],
+                    'source_type' => 'Customer',
+                    'source_id' => $salesInvoice->customer_id,
+                    'destination_type' => 'Inventory',
+                    'reference_type' => 'SalesReturn',
+                    'reference_id' => $salesReturn->id,
+                    'notes' => 'Stock returned from sales invoice.',
+                    'created_by' => $request->user()->id,
+                ]);
+
+                $totalQuantity += (float) $row['quantity'];
+                $grossAmount += (float) $row['quantity'] * (float) $row['unit_price'];
+                $discountAmount += (float) $row['discount_amount'];
+                $refundAmount += (float) $row['refund_amount'];
+            }
+
+            $customer = $customerId ? Customer::query()->lockForUpdate()->find($customerId) : null;
+            $settlement = $this->buildSalesReturnSettlement($customer, $refundAmount);
+
+            $salesReturn->update([
+                'total_quantity' => round($totalQuantity, 2),
+                'gross_amount' => round($grossAmount, 2),
+                'discount_amount' => round($discountAmount, 2),
+                'refund_amount' => round($refundAmount, 2),
+                'refund_status' => $settlement['refund_status'],
+                'receivable_adjusted_amount' => $settlement['receivable_adjusted_amount'],
+                'pending_credit_amount' => $settlement['pending_credit_amount'],
             ]);
 
             if ($customer && $settlement['balance_impact_amount'] > 0) {
@@ -1348,12 +1644,12 @@ class SalesInvoiceController extends Controller
                 'transaction_date' => $validated['return_date'],
                 'reference_type' => 'SalesReturn',
                 'reference_id' => $salesReturn->id,
-                'party_type' => $salesInvoice->customer_id ? 'customer' : null,
-                'party_id' => $salesInvoice->customer_id,
+                'party_type' => $customerId ? 'customer' : null,
+                'party_id' => $customerId ?: null,
                 'entry_type' => 'debit',
                 'account_type' => 'income',
                 'amount' => $refundAmount,
-                'notes' => 'Sales return on ' . $salesInvoice->reference,
+                'notes' => 'Sales return #' . $salesReturn->id,
                 'created_by' => $request->user()->id,
             ]);
 
@@ -1362,12 +1658,12 @@ class SalesInvoiceController extends Controller
                     'transaction_date' => $validated['return_date'],
                     'reference_type' => 'SalesReturn',
                     'reference_id' => $salesReturn->id,
-                    'party_type' => $salesInvoice->customer_id ? 'customer' : null,
-                    'party_id' => $salesInvoice->customer_id,
+                    'party_type' => $customerId ? 'customer' : null,
+                    'party_id' => $customerId ?: null,
                     'entry_type' => 'credit',
                     'account_type' => 'receivable',
                     'amount' => $settlement['receivable_adjusted_amount'],
-                    'notes' => 'Sales return adjusted against customer due for ' . $salesInvoice->reference,
+                    'notes' => 'Sales return adjusted against customer due.',
                     'created_by' => $request->user()->id,
                 ]);
             }
@@ -1377,60 +1673,97 @@ class SalesInvoiceController extends Controller
                     'transaction_date' => $validated['return_date'],
                     'reference_type' => 'SalesReturn',
                     'reference_id' => $salesReturn->id,
-                    'party_type' => $salesInvoice->customer_id ? 'customer' : null,
-                    'party_id' => $salesInvoice->customer_id,
+                    'party_type' => $customerId ? 'customer' : null,
+                    'party_id' => $customerId ?: null,
                     'entry_type' => 'credit',
                     'account_type' => 'payable',
                     'amount' => $settlement['pending_credit_amount'],
-                    'notes' => 'Pending customer refund credit for ' . $salesInvoice->reference,
+                    'notes' => 'Pending customer refund credit.',
                     'created_by' => $request->user()->id,
                 ]);
             }
 
-            if ($settlement['cash_refund_amount'] > 0) {
-                $cashAccount = $paymentMode?->data === 'bank' ? 'bank' : 'cash';
-
-                record_account_transaction([
-                    'transaction_date' => $validated['return_date'],
-                    'reference_type' => 'SalesReturn',
-                    'reference_id' => $salesReturn->id,
-                    'party_type' => $salesInvoice->customer_id ? 'customer' : null,
-                    'party_id' => $salesInvoice->customer_id,
-                    'entry_type' => 'credit',
-                    'account_type' => $cashAccount,
-                    'amount' => $settlement['cash_refund_amount'],
-                    'notes' => 'Refund paid for ' . $salesInvoice->reference,
-                    'created_by' => $request->user()->id,
-                ]);
-            }
-
-            return $salesReturn->load(['invoice.customer', 'invoiceItem.product', 'invoiceItem.batch', 'product', 'batch', 'paymentMode']);
+            return $salesReturn->fresh()->load(['invoice.customer', 'customer', 'items.invoice', 'items.invoiceItem.product', 'items.invoiceItem.batch', 'items.product', 'items.batch']);
+        });
     }
 
-    // Split a return into balance adjustment, pending credit, and actual cash or bank payout.
-    private function buildSalesReturnSettlement(?Customer $customer, float $refundAmount, string $refundStatus): array
+    private function calculateSalesReturnRowPricing(array $row, SalesInvoiceItem $invoiceItem, float $returnQty): array
+    {
+        $defaultDiscountedUnitRate = (float) $invoiceItem->quantity > 0
+            ? round((float) $invoiceItem->subtotal / (float) $invoiceItem->quantity, 2)
+            : round((float) $invoiceItem->unit_price, 2);
+        $defaultPerUnitDiscount = (float) $invoiceItem->quantity > 0
+            ? round((float) $invoiceItem->discount_amount / (float) $invoiceItem->quantity, 4)
+            : 0;
+        $unitPrice = round((float) ($row['unit_price'] ?? $invoiceItem->unit_price ?? 0), 2);
+        $discountPercent = round((float) ($row['discount_percent'] ?? $invoiceItem->discount_percent ?? 0), 2);
+        $discountAmount = round((float) ($row['discount_amount'] ?? 0), 2);
+        $netUnitPrice = round((float) ($row['net_unit_price'] ?? $defaultDiscountedUnitRate), 2);
+
+        if (array_key_exists('net_unit_price', $row) && $row['net_unit_price'] !== null && $row['net_unit_price'] !== '') {
+            $netUnitPrice = round(max(0, min($unitPrice, (float) $row['net_unit_price'])), 2);
+            $discountAmount = round(max(0, ($unitPrice - $netUnitPrice) * $returnQty), 2);
+            $discountPercent = $unitPrice > 0
+                ? round((($unitPrice - $netUnitPrice) / $unitPrice) * 100, 2)
+                : 0;
+        } elseif (array_key_exists('discount_amount', $row) && $row['discount_amount'] !== null && $row['discount_amount'] !== '') {
+            $discountAmount = round((float) $row['discount_amount'], 2);
+            $perUnitDiscount = $returnQty > 0 ? round($discountAmount / $returnQty, 4) : 0;
+            $netUnitPrice = round(max(0, $unitPrice - $perUnitDiscount), 2);
+            $discountPercent = $unitPrice > 0
+                ? round((($unitPrice - $netUnitPrice) / $unitPrice) * 100, 2)
+                : 0;
+            $discountAmount = round(max(0, ($unitPrice - $netUnitPrice) * $returnQty), 2);
+        } elseif (array_key_exists('discount_percent', $row) && $row['discount_percent'] !== null && $row['discount_percent'] !== '') {
+            $discountPercent = round(max(0, min(100, (float) $row['discount_percent'])), 2);
+            $netUnitPrice = round(max(0, $unitPrice - (($unitPrice * $discountPercent) / 100)), 2);
+            $discountAmount = round(max(0, ($unitPrice - $netUnitPrice) * $returnQty), 2);
+        } else {
+            $netUnitPrice = $defaultDiscountedUnitRate;
+            $discountAmount = round($returnQty * $defaultPerUnitDiscount, 2);
+            $discountPercent = round((float) ($invoiceItem->discount_percent ?? 0), 2);
+        }
+
+        $refundAmount = isset($row['refund_amount']) && $row['refund_amount'] !== null && $row['refund_amount'] !== ''
+            ? round((float) $row['refund_amount'], 2)
+            : round($returnQty * $netUnitPrice, 2);
+
+        return [
+            'unit_price' => $unitPrice,
+            'discount_percent' => $discountPercent,
+            'discount_amount' => $discountAmount,
+            'net_unit_price' => $netUnitPrice,
+            'refund_amount' => $refundAmount,
+        ];
+    }
+
+    // Sales returns only adjust the customer ledger or keep excess as customer credit.
+    private function buildSalesReturnSettlement(?Customer $customer, float $refundAmount): array
     {
         $customerBalance = round((float) ($customer?->current_balance ?? 0), 2);
         $receivableAdjustedAmount = round(max(0, min($customerBalance, $refundAmount)), 2);
         $remainingRefund = round(max(0, $refundAmount - $receivableAdjustedAmount), 2);
-        $cashRefundAmount = $refundStatus === 'paid' ? $remainingRefund : 0.0;
-        $pendingCreditAmount = $refundStatus === 'pending' ? $remainingRefund : 0.0;
+        $pendingCreditAmount = $remainingRefund;
 
         return [
             'receivable_adjusted_amount' => $receivableAdjustedAmount,
-            'cash_refund_amount' => round($cashRefundAmount, 2),
             'pending_credit_amount' => round($pendingCreditAmount, 2),
             'balance_impact_amount' => round($receivableAdjustedAmount + $pendingCreditAmount, 2),
+            'refund_status' => $pendingCreditAmount > 0 ? 'credit' : 'adjusted',
         ];
     }
 
     // Reverse stock and balance impact before an edit or delete.
     private function rollbackSalesReturnEffects(SalesReturn $salesReturn): void
     {
-        $salesReturn->loadMissing(['invoice.customer', 'invoiceItem.batch']);
+        $salesReturn->loadMissing(['invoice.customer', 'customer', 'items.batch']);
 
-        if ($salesReturn->batch_id) {
-            $batch = Batch::query()->lockForUpdate()->find($salesReturn->batch_id);
+        foreach ($salesReturn->items as $item) {
+            if (!$item->batch_id) {
+                continue;
+            }
+
+            $batch = Batch::query()->lockForUpdate()->find($item->batch_id);
 
             if (!$batch) {
                 throw ValidationException::withMessages([
@@ -1438,18 +1771,18 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
-            if ((float) $batch->quantity_available < (float) $salesReturn->quantity) {
+            if ((float) $batch->quantity_available < (float) $item->quantity) {
                 throw ValidationException::withMessages([
                     'sales_return' => 'This sales return cannot be changed because the returned stock has already been used from inventory.',
                 ]);
             }
 
-            $batch->quantity_available = round((float) $batch->quantity_available - (float) $salesReturn->quantity, 2);
+            $batch->quantity_available = round((float) $batch->quantity_available - (float) $item->quantity, 2);
             $batch->save();
         }
 
-        if ($salesReturn->invoice?->customer_id) {
-            $customer = Customer::query()->lockForUpdate()->findOrFail($salesReturn->invoice->customer_id);
+        if ($salesReturn->customer_id) {
+            $customer = Customer::query()->lockForUpdate()->findOrFail($salesReturn->customer_id);
             $balanceImpactAmount = round((float) $salesReturn->receivable_adjusted_amount + (float) $salesReturn->pending_credit_amount, 2);
             $customer->current_balance = round((float) $customer->current_balance + $balanceImpactAmount, 2);
             $customer->save();
@@ -1474,12 +1807,7 @@ class SalesInvoiceController extends Controller
     {
         return $query
             ->when(!empty($filters['customer_id']), function (Builder $builder) use ($filters) {
-                $builder->whereHas('invoice', function (Builder $invoiceQuery) use ($filters) {
-                    $invoiceQuery->where('customer_id', $filters['customer_id']);
-                });
-            })
-            ->when(!empty($filters['product_id']), function (Builder $builder) use ($filters) {
-                $builder->where('product_id', $filters['product_id']);
+                $builder->where('customer_id', $filters['customer_id']);
             })
             ->when(!empty($filters['refund_status']), function (Builder $builder) use ($filters) {
                 $builder->where('refund_status', $filters['refund_status']);
@@ -1506,10 +1834,10 @@ class SalesInvoiceController extends Controller
             $relations = array_merge($relations, [
                 'items.product',
                 'items.batch',
-                'returns.product',
-                'returns.batch',
-                'returns.invoiceItem',
-                'returns.paymentMode',
+                'returns.items.product',
+                'returns.items.batch',
+                'returns.items.invoiceItem',
+                'returnItems',
             ]);
         }
 
@@ -1536,17 +1864,27 @@ class SalesInvoiceController extends Controller
         $selectedReturnMode = $selectedReturnMode === 'customer_product' ? 'customer_product' : 'invoice';
         $selectedInvoiceId = old('sales_invoice_id', $prefillInvoice?->id ?: $request->input('sales_invoice_id'));
         $selectedInvoice = null;
+        $selectedCustomer = $salesReturn?->customer;
 
         if ($selectedInvoiceId) {
             $selectedInvoice = $this->loadInvoiceRelations(
                 SalesInvoice::query()->findOrFail($selectedInvoiceId)
             );
+            $selectedCustomer = $selectedInvoice->customer ?: $selectedCustomer;
+        } elseif ($request->filled('customer_id')) {
+            $selectedCustomer = Customer::query()->find($request->input('customer_id'));
         }
 
         $selectedInvoiceOption = $selectedInvoice ? $this->formatSalesReturnInvoiceOption($selectedInvoice) : null;
-        $selectedItemId = old('sales_invoice_item_id', $salesReturn?->sales_invoice_item_id ?: $request->input('sales_invoice_item_id'));
+        $selectedItemId = old('sales_invoice_item_id', $salesReturn?->items->first()?->sales_invoice_item_id ?: $request->input('sales_invoice_item_id'));
         $selectedItemOption = null;
-        $salesReturnItemOptions = $selectedInvoice ? $this->buildSalesReturnItemOptions($selectedInvoice, $salesReturn) : [];
+        $salesReturnItemOptions = [];
+
+        if ($selectedReturnMode === 'invoice' && $selectedInvoice) {
+            $salesReturnItemOptions = $this->buildSalesReturnItemOptions($selectedInvoice, $salesReturn);
+        } elseif ($selectedReturnMode === 'customer_product' && $selectedCustomer) {
+            $salesReturnItemOptions = $this->buildSalesReturnCustomerItemOptions((int) $selectedCustomer->id, $salesReturn);
+        }
 
         if ($selectedInvoice && $selectedItemId) {
             $selectedItemOption = collect($salesReturnItemOptions)
@@ -1556,11 +1894,11 @@ class SalesInvoiceController extends Controller
         return [
             'salesReturn' => $salesReturn,
             'selectedInvoice' => $selectedInvoice,
+            'selectedCustomer' => $selectedCustomer,
             'selectedInvoiceOption' => $selectedInvoiceOption,
             'selectedItemOption' => $selectedItemOption,
             'selectedReturnMode' => $selectedReturnMode,
             'salesReturnItemOptions' => $salesReturnItemOptions,
-            'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
         ];
     }
 
@@ -1576,8 +1914,6 @@ class SalesInvoiceController extends Controller
             'customer_name' => $customerName,
             'invoice_date' => $invoice->invoice_date_show,
             'total_amount' => round((float) $invoice->total_amount, 2),
-            'payment_mode_id' => $invoice->payment_mode_id,
-            'payment_mode_name' => $invoice->paymentMode?->name,
         ];
     }
 
@@ -1585,28 +1921,28 @@ class SalesInvoiceController extends Controller
     private function buildSalesReturnItemOptions(SalesInvoice $invoice, ?SalesReturn $editingReturn = null): array
     {
         $invoice->loadMissing(['customer', 'items.product', 'items.batch']);
+        $editingReturn?->loadMissing('items');
 
         return $invoice->items
             ->map(fn (SalesInvoiceItem $item) => $this->formatSalesReturnItemOption($item, $item->invoice ?: $invoice, $editingReturn))
             ->filter(function (array $row) use ($editingReturn) {
                 return $row['remaining_qty'] > 0
-                    || ($editingReturn && (int) $editingReturn->sales_invoice_item_id === (int) $row['id']);
+                    || ($editingReturn && $editingReturn->items->contains('sales_invoice_item_id', (int) $row['id']));
             })
             ->values()
             ->all();
     }
 
-    // Let staff find returnable rows by customer/product when the invoice number is unknown.
-    private function buildSalesReturnCustomerItemOptions(int $customerId, ?int $productId = null, ?SalesReturn $editingReturn = null): array
+    // Let staff find returnable rows by customer when the invoice number is unknown.
+    private function buildSalesReturnCustomerItemOptions(int $customerId, ?SalesReturn $editingReturn = null): array
     {
+        $editingReturn?->loadMissing('items');
+
         return SalesInvoiceItem::query()
             ->with(['invoice.customer', 'product', 'batch'])
             ->whereHas('invoice', function (Builder $query) use ($customerId) {
                 $query->where('customer_id', $customerId)
                     ->where('status', 'confirmed');
-            })
-            ->when($productId, function (Builder $query) use ($productId) {
-                $query->where('product_id', $productId);
             })
             ->latest('id')
             ->limit(50)
@@ -1614,7 +1950,7 @@ class SalesInvoiceController extends Controller
             ->map(fn (SalesInvoiceItem $item) => $this->formatSalesReturnItemOption($item, $item->invoice, $editingReturn, true))
             ->filter(function (array $row) use ($editingReturn) {
                 return $row['remaining_qty'] > 0
-                    || ($editingReturn && (int) $editingReturn->sales_invoice_item_id === (int) $row['id']);
+                    || ($editingReturn && $editingReturn->items->contains('sales_invoice_item_id', (int) $row['id']));
             })
             ->values()
             ->all();
@@ -1622,10 +1958,10 @@ class SalesInvoiceController extends Controller
 
     private function formatSalesReturnItemOption(SalesInvoiceItem $item, SalesInvoice $invoice, ?SalesReturn $editingReturn = null, bool $includeInvoiceInText = false): array
     {
-        $alreadyReturnedQty = (float) SalesReturn::query()
+        $alreadyReturnedQty = (float) SalesReturnItem::query()
             ->where('sales_invoice_item_id', $item->id)
             ->when($editingReturn, function (Builder $query) use ($editingReturn) {
-                $query->where('id', '!=', $editingReturn->id);
+                $query->where('sales_return_id', '!=', $editingReturn->id);
             })
             ->sum('quantity');
         $remainingQty = max(0, round((float) $item->quantity - $alreadyReturnedQty, 2));
@@ -1635,10 +1971,12 @@ class SalesInvoiceController extends Controller
         $perUnitDiscount = (float) $item->quantity > 0
             ? round((float) $item->discount_amount / (float) $item->quantity, 4)
             : 0;
-        $isSelectedItem = $editingReturn && (int) $editingReturn->sales_invoice_item_id === (int) $item->id;
+        $selectedReturnItem = $editingReturn
+            ? $editingReturn->items->firstWhere('sales_invoice_item_id', $item->id)
+            : null;
 
-        if ($isSelectedItem) {
-            $remainingQty = round($remainingQty + (float) $editingReturn->quantity, 2);
+        if ($selectedReturnItem) {
+            $remainingQty = round($remainingQty + (float) $selectedReturnItem->quantity, 2);
         }
 
         $productName = $item->product?->display_name ?? '-';

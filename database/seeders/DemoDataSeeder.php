@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceItem;
 use App\Models\SalesReturn;
+use App\Models\SalesReturnItem;
 use App\Models\ProductBatch;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
@@ -233,6 +234,17 @@ class DemoDataSeeder extends Seeder
             ],
         ];
 
+        $admin = User::updateOrCreate(
+            ['email' => 'admin@pharmacy.com'],
+            [
+                'name' => 'Admin User',
+                'password' => 'admin12345',
+                'is_active' => true,
+            ]
+        );
+        $admin->syncRoles(['admin']);
+        $adminId = $admin->id;
+
         foreach ($legacyPurchaseRows as $index => $purchaseRow) {
             $reference = PurchaseReference::query()->create([
                 'reference_no' => 'PUR-DEMO-' . str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
@@ -294,6 +306,78 @@ class DemoDataSeeder extends Seeder
                     'free_goods_value' => 0,
                     'amount' => $lineAmount,
                 ]);
+
+                record_stock_movement([
+                    'movement_date' => $purchase->purchase_date,
+                    'product_id' => $item['product_id'],
+                    'batch_id' => null,
+                    'movement_type' => 'purchase_in',
+                    'quantity_in' => (int) $item['quantity'],
+                    'source_type' => 'Supplier',
+                    'source_id' => $purchaseRow['supplier_id'],
+                    'destination_type' => 'Inventory',
+                    'reference_type' => 'Purchase',
+                    'reference_id' => $purchase->id,
+                    'notes' => 'Demo stock received from purchase bill.',
+                    'created_by' => $adminId,
+                ]);
+            }
+
+            record_account_transaction([
+                'transaction_date' => $purchase->purchase_date,
+                'reference_type' => 'Purchase',
+                'reference_id' => $purchase->id,
+                'party_type' => 'supplier',
+                'party_id' => $purchase->supplier_id,
+                'entry_type' => 'debit',
+                'account_type' => 'inventory',
+                'amount' => $purchase->grand_total,
+                'notes' => 'Demo inventory received for ' . $reference->reference_no,
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $purchase->purchase_date,
+                'reference_type' => 'Purchase',
+                'reference_id' => $purchase->id,
+                'party_type' => 'supplier',
+                'party_id' => $purchase->supplier_id,
+                'entry_type' => 'credit',
+                'account_type' => 'payable',
+                'amount' => $purchase->grand_total,
+                'notes' => 'Demo purchase bill ' . $reference->reference_no,
+                'created_by' => $adminId,
+            ]);
+
+            if ((float) $purchase->paid_amount > 0) {
+                $purchasePaymentMode = DropdownOption::query()->find($purchase->payment_mode_id);
+                $purchaseCashAccount = $purchasePaymentMode?->data === 'bank' ? 'bank' : 'cash';
+
+                record_account_transaction([
+                    'transaction_date' => $purchase->purchase_date,
+                    'reference_type' => 'Purchase',
+                    'reference_id' => $purchase->id,
+                    'party_type' => 'supplier',
+                    'party_id' => $purchase->supplier_id,
+                    'entry_type' => 'debit',
+                    'account_type' => 'payable',
+                    'amount' => $purchase->paid_amount,
+                    'notes' => 'Demo purchase payment adjusted for ' . $reference->reference_no,
+                    'created_by' => $adminId,
+                ]);
+
+                record_account_transaction([
+                    'transaction_date' => $purchase->purchase_date,
+                    'reference_type' => 'Purchase',
+                    'reference_id' => $purchase->id,
+                    'party_type' => 'supplier',
+                    'party_id' => $purchase->supplier_id,
+                    'entry_type' => 'credit',
+                    'account_type' => $purchaseCashAccount,
+                    'amount' => $purchase->paid_amount,
+                    'notes' => 'Demo money paid for purchase bill ' . $reference->reference_no,
+                    'created_by' => $adminId,
+                ]);
             }
         }
 
@@ -313,7 +397,7 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($briefBatchRows as $row) {
-            Batch::query()->create([
+            $batch = Batch::query()->create([
                 'product_id' => $productIds[$row['product']],
                 'supplier_id' => $supplierIds[$row['supplier']],
                 'batch_number' => $row['batch'],
@@ -324,6 +408,21 @@ class DemoDataSeeder extends Seeder
                 'purchase_price' => $row['price'],
                 'storage_location' => $row['storage'],
                 'is_active' => true,
+            ]);
+
+            record_stock_movement([
+                'movement_date' => now()->subDays(12)->toDateString(),
+                'product_id' => $productIds[$row['product']],
+                'batch_id' => $batch->id,
+                'movement_type' => 'purchase_in',
+                'quantity_in' => (int) $row['received'],
+                'source_type' => 'Supplier',
+                'source_id' => $supplierIds[$row['supplier']],
+                'destination_type' => 'Inventory',
+                'reference_type' => 'Batch',
+                'reference_id' => $batch->id,
+                'notes' => 'Demo opening stock received into inventory.',
+                'created_by' => $adminId,
             ]);
         }
 
@@ -510,17 +609,35 @@ class DemoDataSeeder extends Seeder
                 $batch->quantity_available = max(0, (float) $batch->quantity_available - (float) $saleQuantity);
                 $batch->save();
 
+                record_stock_movement([
+                    'movement_date' => $invoice->invoice_date,
+                    'product_id' => $item['product_id'],
+                    'batch_id' => $batch->id,
+                    'movement_type' => 'sales_out',
+                    'quantity_out' => (int) $saleQuantity,
+                    'source_type' => 'Inventory',
+                    'destination_type' => 'Customer',
+                    'destination_id' => $invoice->customer_id,
+                    'reference_type' => 'SalesInvoice',
+                    'reference_id' => $invoice->id,
+                    'notes' => 'Demo stock issued from sales invoice.',
+                    'created_by' => $adminId,
+                ]);
+
                 $subtotal += $lineBase;
                 $discountAmount += $lineDiscount;
                 $totalAmount += $lineTotal;
             }
+
+            $paidAmount = min((float) $row['paid_amount'], round((float) $totalAmount, 2));
 
             $invoice->update([
                 'subtotal' => round($subtotal, 2),
                 'discount_amount' => round($discountAmount, 2),
                 'total_discount' => round($discountAmount, 2),
                 'total_amount' => round($totalAmount, 2),
-                'payment_status' => SalesInvoice::resolvePaymentStatus($totalAmount, (float) $row['paid_amount']),
+                'paid_amount' => round($paidAmount, 2),
+                'payment_status' => SalesInvoice::resolvePaymentStatus($totalAmount, $paidAmount),
             ]);
 
             $customer = Customer::query()->find($row['customer_id']);
@@ -529,7 +646,7 @@ class DemoDataSeeder extends Seeder
                 $customer->save();
             }
 
-            if ((float) $row['paid_amount'] > 0) {
+            if ($paidAmount > 0) {
                 record_account_transaction([
                     'transaction_date' => $invoice->invoice_date,
                     'reference_type' => 'SalesInvoice',
@@ -538,7 +655,7 @@ class DemoDataSeeder extends Seeder
                     'party_id' => $invoice->customer_id,
                     'entry_type' => 'debit',
                     'account_type' => ($paymentMode?->data === 'cash') ? 'cash' : 'bank',
-                    'amount' => $row['paid_amount'],
+                    'amount' => $paidAmount,
                     'notes' => 'Demo sale payment for ' . $invoice->reference,
                     'created_by' => $adminId,
                 ]);
@@ -589,8 +706,6 @@ class DemoDataSeeder extends Seeder
                     : 0;
                 $discountAmount = round($returnQuantity * $perUnitDiscount, 2);
                 $refundAmount = round($returnQuantity * $discountedUnitRate, 2);
-                $refundStatus = 'paid';
-                $paymentModeId = $firstInvoice->payment_mode_id ?: $paymentModeIdFromLegacy('cash');
 
                 if ($firstItem->batch) {
                     $firstItem->batch->quantity_available = round((float) $firstItem->batch->quantity_available + $returnQuantity, 2);
@@ -601,29 +716,37 @@ class DemoDataSeeder extends Seeder
                 $customerBalance = round((float) ($customer?->current_balance ?? 0), 2);
                 $receivableAdjustedAmount = round(max(0, min($customerBalance, $refundAmount)), 2);
                 $remainingRefund = round(max(0, $refundAmount - $receivableAdjustedAmount), 2);
-                $cashRefundAmount = $refundStatus === 'paid' ? $remainingRefund : 0.0;
-                $pendingCreditAmount = $refundStatus === 'pending' ? $remainingRefund : 0.0;
+                $pendingCreditAmount = $remainingRefund;
 
                 $salesReturn = SalesReturn::create([
+                    'return_mode' => 'invoice',
+                    'sales_invoice_id' => $firstInvoice->id,
+                    'customer_id' => $firstInvoice->customer_id,
+                    'created_by' => $adminId,
+                    'return_date' => now()->subDay()->toDateString(),
+                    'total_quantity' => $returnQuantity,
+                    'gross_amount' => round($returnQuantity * (float) $firstItem->unit_price, 2),
+                    'discount_amount' => $discountAmount,
+                    'refund_amount' => $refundAmount,
+                    'refund_status' => $pendingCreditAmount > 0 ? 'credit' : 'adjusted',
+                    'receivable_adjusted_amount' => $receivableAdjustedAmount,
+                    'pending_credit_amount' => $pendingCreditAmount,
+                    'reason' => 'Demo return',
+                    'notes' => 'Customer returned one pack',
+                ]);
+
+                SalesReturnItem::create([
+                    'sales_return_id' => $salesReturn->id,
                     'sales_invoice_id' => $firstInvoice->id,
                     'sales_invoice_item_id' => $firstItem->id,
                     'product_id' => $firstItem->product_id,
                     'batch_id' => $firstItem->batch_id,
-                    'created_by' => $adminId,
-                    'return_date' => now()->subDay()->toDateString(),
                     'quantity' => $returnQuantity,
                     'unit_price' => round((float) $firstItem->unit_price, 2),
                     'discount_percent' => round((float) $firstItem->discount_percent, 2),
                     'discount_amount' => $discountAmount,
                     'net_unit_price' => $discountedUnitRate,
                     'refund_amount' => $refundAmount,
-                    'refund_status' => $refundStatus,
-                    'payment_mode_id' => $paymentModeId,
-                    'receivable_adjusted_amount' => $receivableAdjustedAmount,
-                    'cash_refund_amount' => $cashRefundAmount,
-                    'pending_credit_amount' => $pendingCreditAmount,
-                    'reason' => 'Demo return',
-                    'notes' => 'Customer returned one pack',
                 ]);
 
                 if ($customer) {
@@ -689,22 +812,6 @@ class DemoDataSeeder extends Seeder
                     ]);
                 }
 
-                if ($cashRefundAmount > 0) {
-                    $paymentAccount = DropdownOption::query()->find($paymentModeId)?->data === 'bank' ? 'bank' : 'cash';
-
-                    record_account_transaction([
-                        'transaction_date' => now()->subDay()->toDateString(),
-                        'reference_type' => 'SalesReturn',
-                        'reference_id' => $salesReturn->id,
-                        'party_type' => 'customer',
-                        'party_id' => $firstInvoice->customer_id,
-                        'entry_type' => 'credit',
-                        'account_type' => $paymentAccount,
-                        'amount' => $cashRefundAmount,
-                        'notes' => 'Demo refund for ' . $firstInvoice->reference,
-                        'created_by' => $adminId,
-                    ]);
-                }
             }
         }
 
@@ -845,7 +952,7 @@ class DemoDataSeeder extends Seeder
                 $subtotal = round($item['quantity'] * $item['unit_price'], 2);
                 $grandTotal += $subtotal;
 
-                PurchaseOrderItem::query()->create([
+                $orderItem = PurchaseOrderItem::query()->create([
                     'purchase_order_id' => $order->id,
                     'product_id' => $item['product_id'],
                     'quantity_ordered' => $item['quantity'],
@@ -855,12 +962,99 @@ class DemoDataSeeder extends Seeder
                     'expiry_date' => $orderRow['status'] === 'received' ? now()->addMonths(6)->toDateString() : null,
                     'subtotal' => $subtotal,
                 ]);
+
+                if ($orderRow['status'] === 'received') {
+                    $orderBatch = Batch::query()->create([
+                        'product_id' => $item['product_id'],
+                        'supplier_id' => $orderRow['supplier_id'],
+                        'purchase_order_item_id' => $orderItem->id,
+                        'batch_number' => $orderItem->batch_number ?: ('PO-BATCH-' . Str::upper(Str::random(4))),
+                        'manufacturing_date' => now()->subMonths(2)->toDateString(),
+                        'expiry_date' => $orderItem->expiry_date,
+                        'quantity_received' => $item['quantity'],
+                        'quantity_available' => $item['quantity'],
+                        'purchase_price' => $item['unit_price'],
+                        'storage_location' => 'Purchase Order Rack',
+                        'is_active' => true,
+                    ]);
+
+                    record_stock_movement([
+                        'movement_date' => $order->order_date,
+                        'product_id' => $item['product_id'],
+                        'batch_id' => $orderBatch->id,
+                        'movement_type' => 'purchase_in',
+                        'quantity_in' => $item['quantity'],
+                        'source_type' => 'Supplier',
+                        'source_id' => $orderRow['supplier_id'],
+                        'destination_type' => 'Inventory',
+                        'reference_type' => 'PurchaseOrder',
+                        'reference_id' => $order->id,
+                        'notes' => 'Demo stock received from purchase order.',
+                        'created_by' => $adminId,
+                    ]);
+                }
             }
 
             $order->update([
                 'total_amount' => $grandTotal,
                 'paid_amount' => $orderRow['paid_amount'],
             ]);
+
+            if ($orderRow['status'] === 'received') {
+                record_account_transaction([
+                    'transaction_date' => $order->order_date,
+                    'reference_type' => 'PurchaseOrder',
+                    'reference_id' => $order->id,
+                    'party_type' => 'supplier',
+                    'party_id' => $order->supplier_id,
+                    'entry_type' => 'debit',
+                    'account_type' => 'inventory',
+                    'amount' => $grandTotal,
+                    'notes' => 'Demo inventory received for ' . $order->reference,
+                    'created_by' => $adminId,
+                ]);
+
+                record_account_transaction([
+                    'transaction_date' => $order->order_date,
+                    'reference_type' => 'PurchaseOrder',
+                    'reference_id' => $order->id,
+                    'party_type' => 'supplier',
+                    'party_id' => $order->supplier_id,
+                    'entry_type' => 'credit',
+                    'account_type' => 'payable',
+                    'amount' => $grandTotal,
+                    'notes' => 'Demo purchase order payable for ' . $order->reference,
+                    'created_by' => $adminId,
+                ]);
+
+                if ((float) $order->paid_amount > 0) {
+                    record_account_transaction([
+                        'transaction_date' => $order->order_date,
+                        'reference_type' => 'PurchaseOrder',
+                        'reference_id' => $order->id,
+                        'party_type' => 'supplier',
+                        'party_id' => $order->supplier_id,
+                        'entry_type' => 'debit',
+                        'account_type' => 'payable',
+                        'amount' => $order->paid_amount,
+                        'notes' => 'Demo purchase order payment adjusted for ' . $order->reference,
+                        'created_by' => $adminId,
+                    ]);
+
+                    record_account_transaction([
+                        'transaction_date' => $order->order_date,
+                        'reference_type' => 'PurchaseOrder',
+                        'reference_id' => $order->id,
+                        'party_type' => 'supplier',
+                        'party_id' => $order->supplier_id,
+                        'entry_type' => 'credit',
+                        'account_type' => 'cash',
+                        'amount' => $order->paid_amount,
+                        'notes' => 'Demo cash paid for ' . $order->reference,
+                        'created_by' => $adminId,
+                    ]);
+                }
+            }
         }
 
         // Older finance and purchase history helps the reports feel real during viva/demo time.
@@ -899,7 +1093,7 @@ class DemoDataSeeder extends Seeder
                 'subtotal' => $historicalTotal,
             ]);
 
-            Batch::query()->create([
+            $historicalBatch = Batch::query()->create([
                 'product_id' => $productIds[$productIndex],
                 'supplier_id' => $supplierIds[$supplierIndex],
                 'purchase_order_item_id' => $historicalItem->id,
@@ -911,6 +1105,73 @@ class DemoDataSeeder extends Seeder
                 'purchase_price' => $unitPrice,
                 'storage_location' => 'Archive Rack ' . $yearOffset,
                 'is_active' => false,
+            ]);
+
+            record_stock_movement([
+                'movement_date' => $historicalOrder->order_date,
+                'product_id' => $productIds[$productIndex],
+                'batch_id' => $historicalBatch->id,
+                'movement_type' => 'purchase_in',
+                'quantity_in' => $quantity,
+                'source_type' => 'Supplier',
+                'source_id' => $supplierIds[$supplierIndex],
+                'destination_type' => 'Inventory',
+                'reference_type' => 'PurchaseOrder',
+                'reference_id' => $historicalOrder->id,
+                'notes' => 'Historical demo stock received from purchase order.',
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $historicalOrder->order_date,
+                'reference_type' => 'PurchaseOrder',
+                'reference_id' => $historicalOrder->id,
+                'party_type' => 'supplier',
+                'party_id' => $historicalOrder->supplier_id,
+                'entry_type' => 'debit',
+                'account_type' => 'inventory',
+                'amount' => $historicalTotal,
+                'notes' => 'Historical inventory received for ' . $historicalOrder->reference,
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $historicalOrder->order_date,
+                'reference_type' => 'PurchaseOrder',
+                'reference_id' => $historicalOrder->id,
+                'party_type' => 'supplier',
+                'party_id' => $historicalOrder->supplier_id,
+                'entry_type' => 'credit',
+                'account_type' => 'payable',
+                'amount' => $historicalTotal,
+                'notes' => 'Historical purchase order payable for ' . $historicalOrder->reference,
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $historicalOrder->order_date,
+                'reference_type' => 'PurchaseOrder',
+                'reference_id' => $historicalOrder->id,
+                'party_type' => 'supplier',
+                'party_id' => $historicalOrder->supplier_id,
+                'entry_type' => 'debit',
+                'account_type' => 'payable',
+                'amount' => $historicalTotal,
+                'notes' => 'Historical purchase order payment adjusted for ' . $historicalOrder->reference,
+                'created_by' => $adminId,
+            ]);
+
+            record_account_transaction([
+                'transaction_date' => $historicalOrder->order_date,
+                'reference_type' => 'PurchaseOrder',
+                'reference_id' => $historicalOrder->id,
+                'party_type' => 'supplier',
+                'party_id' => $historicalOrder->supplier_id,
+                'entry_type' => 'credit',
+                'account_type' => 'cash',
+                'amount' => $historicalTotal,
+                'notes' => 'Historical cash paid for ' . $historicalOrder->reference,
+                'created_by' => $adminId,
             ]);
 
             $historicalExpense = Expense::create([

@@ -15,14 +15,26 @@
                     <i class="fa fa-arrow-left"></i> Back
                 </a>
                 @if ($order->status === 'pending')
+                    <a href="{{ route('admin.purchase-orders.edit', $order) }}" class="btn btn-outline-warning">
+                        <i class="fa-solid fa-pen-to-square"></i> Edit
+                    </a>
                     <form action="{{ route('admin.purchase-orders.approve', $order) }}" method="POST">
                         @csrf
                         <button class="btn btn-warning">Approve</button>
                     </form>
                 @endif
                 @if ($order->status === 'approved')
+                    <a href="{{ route('admin.purchase-orders.edit', $order) }}" class="btn btn-outline-warning">
+                        <i class="fa-solid fa-pen-to-square"></i> Edit
+                    </a>
                     <a href="{{ route('admin.purchase-orders.receive', $order) }}" class="btn btn-success">Receive Goods</a>
                 @endif
+                <form action="{{ route('admin.purchase-orders.delete', $order) }}" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete purchase order?" data-confirm-text="Received stock will be removed only if it is still unused." data-confirm-button="Yes, delete it">
+                    @csrf
+                    <button type="submit" class="btn btn-outline-danger">
+                        <i class="fa-solid fa-trash"></i> Delete
+                    </button>
+                </form>
             </div>
         </div>
 

@@ -61,6 +61,11 @@ class SalesInvoice extends Model
         return $this->hasMany(SalesReturn::class, 'sales_invoice_id');
     }
 
+    public function returnItems()
+    {
+        return $this->hasMany(SalesReturnItem::class, 'sales_invoice_id');
+    }
+
     // Payment allocations help Payment In link money against one or more invoices.
     public function paymentAllocations()
     {

@@ -1,7 +1,22 @@
 @extends('layouts.main')
 
+@php
+    $isEdit = isset($invoice) && $invoice;
+    $salesRows = old('items', $itemRows ?? [[
+        'product_id' => '',
+        'batch_id' => '',
+        'batch_label' => '',
+        'quantity' => 1,
+        'free_qty' => 0,
+        'mrp' => 0,
+        'unit_price' => 0,
+        'cc_rate' => 0,
+        'discount_percent' => 0,
+    ]]);
+@endphp
+
 @section('title')
-    Sales Invoice Create
+    {{ $isEdit ? 'Edit Sales Invoice' : 'Sales Invoice Create' }}
 @endsection
 
 @section('body-class', 'workspace-form-page')
@@ -10,7 +25,7 @@
     <div class="admin-page-wrap">
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
-                <h5 class="page-title fs-21 mb-1">Create Sales Invoice</h5>
+                <h5 class="page-title fs-21 mb-1">{{ $isEdit ? 'Edit Sales Invoice' : 'Create Sales Invoice' }}</h5>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.sales.index') }}" class="btn btn-outline-secondary">
@@ -19,7 +34,7 @@
             </div>
         </div>
 
-        <form action="{{ route('admin.sales.store') }}" method="POST" id="salesForm">
+        <form action="{{ $isEdit ? route('admin.sales.update', $invoice) : route('admin.sales.store') }}" method="POST" id="salesForm">
             @csrf
             <div class="card custom-card mb-4">
                 <div class="card-header">
@@ -33,7 +48,7 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Invoice Date</label>
-                            <input type="date" name="invoice_date" class="form-control" value="{{ now()->toDateString() }}" required>
+                            <input type="date" name="invoice_date" class="form-control" value="{{ old('invoice_date', $invoice->invoice_date ?? now()->toDateString()) }}" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label d-flex justify-content-between align-items-center">
@@ -47,7 +62,7 @@
                             <select name="sale_type_id" id="salesTypeSelect" class="form-select js-select2" data-placeholder="Select sale type" data-dropdown-alias="sales_type" required>
                                 <option value="">Select sale type</option>
                                 @foreach ($saleTypes as $saleType)
-                                    <option value="{{ $saleType->id }}">{{ $saleType->name }}</option>
+                                    <option value="{{ $saleType->id }}" @selected(old('sale_type_id', $invoice->sale_type_id ?? '') == $saleType->id)>{{ $saleType->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -63,7 +78,7 @@
                             <select name="payment_mode_id" id="salesPaymentMode" class="form-select js-select2" data-placeholder="Select mode" data-dropdown-alias="payment_mode">
                                 <option value="">Select mode</option>
                                 @foreach ($paymentModes as $mode)
-                                    <option value="{{ $mode->id }}">{{ $mode->name }}</option>
+                                    <option value="{{ $mode->id }}" @selected(old('payment_mode_id', $invoice->payment_mode_id ?? '') == $mode->id)>{{ $mode->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -77,16 +92,20 @@
                                 @endcan
                             </label>
                             <select name="customer_id" id="salesCustomerSelect" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.sales.customer-options') }}" data-placeholder="Search party">
-                                <option value=""></option>
+                                @if ($isEdit && $invoice->customer)
+                                    <option value="{{ $invoice->customer->id }}" selected>{{ $invoice->customer->name }}</option>
+                                @else
+                                    <option value=""></option>
+                                @endif
                             </select>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Paid Amount</label>
-                            <input type="number" step="0.01" min="0" name="paid_amount" class="form-control" value="0">
+                            <input type="number" step="0.01" min="0" name="paid_amount" class="form-control" value="{{ old('paid_amount', $invoice->paid_amount ?? 0) }}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Notes</label>
-                            <input type="text" name="notes" class="form-control" placeholder="Short note for billing">
+                            <input type="text" name="notes" class="form-control" placeholder="Short note for billing" value="{{ old('notes', $invoice->notes ?? '') }}">
                         </div>
                     </div>
                 </div>
@@ -127,40 +146,48 @@
                                     <th style="width: 60px;">Action</th>
                                 </tr>
                             </thead>
-                            <tbody data-next-index="1">
-                                <tr>
-                                    <td class="sales-row-number">1</td>
-                                    <td>
-                                        <select name="items[0][product_id]" class="form-select js-select2-ajax sales-product-select" data-ajax-url="{{ route('admin.sales.product-options') }}" data-product-info-url="{{ route('admin.sales.product-info') }}" data-placeholder="Search product" required>
-                                            <option value=""></option>
-                                        </select>
-                                        <div class="d-flex justify-content-end align-items-center gap-2 mt-1">
-                                            @can('inventory.product')
-                                                <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickProductModal" data-quick-target-select="select.sales-product-select">
-                                                    <i class="fa-solid fa-plus"></i>
-                                                </button>
-                                            @endcan
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <select name="items[0][batch_id]" class="form-select sales-batch-select" required>
-                                            <option value="">Select batch</option>
-                                        </select>
-                                    </td>
-                                    <td><input type="number" min="1" step="1" name="items[0][quantity]" class="form-control sales-qty-input" value="1" required></td>
-                                    <td><input type="number" min="0" step="1" name="items[0][free_qty]" class="form-control sales-free-qty-input" value="0"></td>
-                                    <td><input type="number" min="0" step="0.01" name="items[0][mrp]" class="form-control sales-mrp-input" value="0" required></td>
-                                    <td><input type="number" min="0" step="0.01" name="items[0][unit_price]" class="form-control sales-price-input" value="0" required></td>
-                                    <td><input type="number" min="0" step="0.01" max="100" name="items[0][cc_rate]" class="form-control sales-cc-rate-input" value="0"></td>
-                                    <td><input type="number" min="0" step="0.01" name="items[0][discount_percent]" class="form-control sales-discount-input" value="0"></td>
-                                    <td><input type="text" class="form-control sales-free-value-input" value="0.00" readonly></td>
-                                    <td><input type="text" name="items[0][subtotal]" class="form-control sales-subtotal-input" value="0.00" readonly></td>
-                                    <td>
-                                        <button type="button" class="btn btn-sm btn-outline-danger removeSalesRow table-action-btn">
-                                            <i class="fa-solid fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
+                            <tbody data-next-index="{{ count($salesRows) }}">
+                                @foreach ($salesRows as $index => $row)
+                                    <tr>
+                                        <td class="sales-row-number">{{ $index + 1 }}</td>
+                                        <td>
+                                            <select name="items[{{ $index }}][product_id]" class="form-select js-select2-ajax sales-product-select" data-ajax-url="{{ route('admin.sales.product-options') }}" data-product-info-url="{{ route('admin.sales.product-info') }}" data-placeholder="Search product" required>
+                                                <option value=""></option>
+                                                @foreach ($products as $product)
+                                                    <option value="{{ $product->id }}" @selected(($row['product_id'] ?? '') == $product->id)>{{ $product->display_name }}</option>
+                                                @endforeach
+                                            </select>
+                                            <div class="d-flex justify-content-end align-items-center gap-2 mt-1">
+                                                @can('inventory.product')
+                                                    <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickProductModal" data-quick-target-select="select.sales-product-select">
+                                                        <i class="fa-solid fa-plus"></i>
+                                                    </button>
+                                                @endcan
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <select name="items[{{ $index }}][batch_id]" class="form-select sales-batch-select" required>
+                                                <option value="">Select batch</option>
+                                                @if (!empty($row['batch_id']))
+                                                    <option value="{{ $row['batch_id'] }}" selected>{{ $row['batch_label'] ?: ('Batch #' . $row['batch_id']) }}</option>
+                                                @endif
+                                            </select>
+                                        </td>
+                                        <td><input type="number" min="1" step="1" name="items[{{ $index }}][quantity]" class="form-control sales-qty-input" value="{{ $row['quantity'] ?? 1 }}" required></td>
+                                        <td><input type="number" min="0" step="1" name="items[{{ $index }}][free_qty]" class="form-control sales-free-qty-input" value="{{ $row['free_qty'] ?? 0 }}"></td>
+                                        <td><input type="number" min="0" step="0.01" name="items[{{ $index }}][mrp]" class="form-control sales-mrp-input" value="{{ $row['mrp'] ?? 0 }}" required></td>
+                                        <td><input type="number" min="0" step="0.01" name="items[{{ $index }}][unit_price]" class="form-control sales-price-input" value="{{ $row['unit_price'] ?? 0 }}" required></td>
+                                        <td><input type="number" min="0" step="0.01" max="100" name="items[{{ $index }}][cc_rate]" class="form-control sales-cc-rate-input" value="{{ $row['cc_rate'] ?? 0 }}"></td>
+                                        <td><input type="number" min="0" step="0.01" name="items[{{ $index }}][discount_percent]" class="form-control sales-discount-input" value="{{ $row['discount_percent'] ?? 0 }}"></td>
+                                        <td><input type="text" class="form-control sales-free-value-input" value="0.00" readonly></td>
+                                        <td><input type="text" name="items[{{ $index }}][subtotal]" class="form-control sales-subtotal-input" value="0.00" readonly></td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-danger removeSalesRow table-action-btn">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @endforeach
                             </tbody>
                             <tfoot>
                                 <tr>
@@ -197,7 +224,7 @@
                 </div>
                 <div class="card-footer text-end">
                     <button type="submit" class="btn btn-primary">
-                        <i class="fa fa-save"></i> Save Invoice
+                        <i class="fa fa-save"></i> {{ $isEdit ? 'Update Invoice' : 'Save Invoice' }}
                     </button>
                 </div>
             </div>

@@ -854,7 +854,9 @@
       }
     }
 
-    updatePurchaseRow($("#purchaseItemsTable tbody tr").first());
+    $("#purchaseItemsTable tbody tr").each(function () {
+      updatePurchaseRow(this);
+    });
     updatePurchaseTotal();
     syncPurchasePaymentModeState();
 
@@ -1095,7 +1097,9 @@
       $paymentModeSelect.prop("required", false);
     }
 
-    updateSalesRow($("#salesItemsTable tbody tr").first());
+    $("#salesItemsTable tbody tr").each(function () {
+      updateSalesRow(this);
+    });
     updateSalesTotal();
     syncSalesPaymentModeState();
 

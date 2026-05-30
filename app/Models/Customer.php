@@ -24,14 +24,7 @@ class Customer extends Model
     // One party can have many return records.
     public function salesReturns()
     {
-        return $this->hasManyThrough(
-            SalesReturn::class,
-            SalesInvoice::class,
-            'customer_id',
-            'sales_invoice_id',
-            'id',
-            'id'
-        );
+        return $this->hasMany(SalesReturn::class, 'customer_id');
     }
 
     // One party can have many accounting transactions.

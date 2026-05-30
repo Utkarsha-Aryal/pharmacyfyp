@@ -126,6 +126,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::get('/product-options', [PurchaseController::class, 'productOptions'])->name('purchase.product-options');
         Route::get('/product-info', [PurchaseController::class, 'productInfo'])->name('purchase.product-info');
         Route::post('/save', [PurchaseController::class, 'save'])->name('purchase.save');
+        Route::get('/{purchase}/edit', [PurchaseController::class, 'edit'])->name('purchase.edit');
+        Route::post('/{purchase}/update', [PurchaseController::class, 'update'])->name('purchase.update');
+        Route::post('/{purchase}/delete', [PurchaseController::class, 'destroy'])->name('purchase.delete');
     });
 
     Route::prefix('purchase/returns')->name('purchase-returns.')->group(function () {
@@ -150,6 +153,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         Route::post('/store', [PurchaseOrderController::class, 'store'])->name('store');
         Route::get('/supplier-options', [PurchaseOrderController::class, 'supplierOptions'])->name('supplier-options');
         Route::get('/product-options', [PurchaseOrderController::class, 'productOptions'])->name('product-options');
+        Route::get('/{purchaseOrder}/edit', [PurchaseOrderController::class, 'edit'])->name('edit');
+        Route::post('/{purchaseOrder}/update', [PurchaseOrderController::class, 'update'])->name('update');
+        Route::post('/{purchaseOrder}/delete', [PurchaseOrderController::class, 'destroy'])->name('delete');
         Route::get('/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('show');
         Route::post('/{purchaseOrder}/items/list', [PurchaseOrderController::class, 'itemsList'])->name('items.list');
         Route::post('/{purchaseOrder}/approve', [PurchaseOrderController::class, 'approve'])->middleware('permission:purchase.orders')->name('approve');
@@ -190,6 +196,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::post('/invoices/list', [SalesInvoiceController::class, 'list'])->name('list');
             Route::get('/invoices/create', [SalesInvoiceController::class, 'create'])->name('create');
             Route::post('/invoices/store', [SalesInvoiceController::class, 'store'])->name('store');
+            Route::get('/invoices/{salesInvoice}/edit', [SalesInvoiceController::class, 'edit'])->name('edit');
+            Route::post('/invoices/{salesInvoice}/update', [SalesInvoiceController::class, 'update'])->name('update');
+            Route::post('/invoices/{salesInvoice}/delete', [SalesInvoiceController::class, 'destroy'])->name('delete');
             Route::get('/invoices/{salesInvoice}', [SalesInvoiceController::class, 'show'])->name('show');
             Route::post('/invoices/{salesInvoice}/items/list', [SalesInvoiceController::class, 'invoiceItemsList'])->name('items.list');
             Route::post('/invoices/{salesInvoice}/returns/list', [SalesInvoiceController::class, 'invoiceReturnsList'])->name('returns.history.list');

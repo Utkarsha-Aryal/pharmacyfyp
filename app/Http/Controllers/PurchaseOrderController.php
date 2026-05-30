@@ -10,6 +10,7 @@ use App\Models\DropdownOption;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
+use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\SupplierType;
 use App\Models\Unit;
@@ -18,6 +19,7 @@ use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class PurchaseOrderController extends Controller
@@ -98,7 +100,7 @@ class PurchaseOrderController extends Controller
                 'status' => '<span class="badge ' . $statusClass . '">' . e($order->status_label) . '</span>',
                 'payment' => '<span class="badge ' . $paymentClass . '">' . e($order->payment_label) . '</span>',
                 'total' => money_value($order->total_amount),
-                'action' => '<a href="' . route('admin.purchase-orders.show', $order) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Order" aria-label="View Order"><i class="fa-solid fa-eye"></i></a>',
+                'action' => $this->orderActionHtml($order),
             ];
         }
 
@@ -115,6 +117,28 @@ class PurchaseOrderController extends Controller
     {
         return view('purchase-order.create', [
             'reference' => PurchaseOrder::makeReference(),
+            'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
+            'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
+            'companies' => Company::query()->orderBy('name')->get(),
+            'units' => Unit::query()->orderBy('unit_name')->get(),
+            'formulations' => DropdownOption::query()->forAlias('formulation')->active()->orderBy('name')->get(),
+            'supplierTypes' => SupplierType::query()->orderBy('name')->get(),
+        ]);
+    }
+
+    public function edit(PurchaseOrder $purchaseOrder)
+    {
+        if ($purchaseOrder->status === 'received') {
+            return redirect()->route('admin.purchase-orders.show', $purchaseOrder)
+                ->with('error', 'Received purchase orders cannot be edited. Delete and recreate only if the received stock is still unused.');
+        }
+
+        $purchaseOrder->load(['supplier', 'items.product']);
+
+        return view('purchase-order.create', [
+            'order' => $purchaseOrder,
+            'orderRows' => $this->purchaseOrderFormRows($purchaseOrder),
+            'reference' => $purchaseOrder->reference,
             'suppliers' => Supplier::query()->where('status', 'Y')->orderBy('supplier_name')->get(),
             'products' => Product::query()->where('status', 'Y')->orderBy('product_name')->get(),
             'companies' => Company::query()->orderBy('name')->get(),
@@ -180,34 +204,10 @@ class PurchaseOrderController extends Controller
     // Save one purchase order with item rows and payment snapshot.
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'reference' => ['required', 'string', 'max:255', 'unique:purchase_orders,reference'],
-            'supplier_id' => ['required', 'exists:suppliers,id'],
-            'order_date' => ['required', 'date'],
-            'expected_delivery_date' => ['nullable', 'date'],
-            'notes' => ['nullable', 'string'],
-            'paid_amount' => ['nullable', 'numeric', 'min:0'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
-            'items.*.quantity_ordered' => ['required', 'integer', 'min:1'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
-        ]);
+        $validated = $this->validatePurchaseOrderPayload($request);
 
         DB::transaction(function () use ($validated, $request) {
-            $total = 0;
-
-            foreach ($validated['items'] as $item) {
-                $total += round(((float) $item['quantity_ordered']) * ((float) $item['unit_price']), 2);
-            }
-
-            $paidAmount = (float) ($validated['paid_amount'] ?? 0);
-            $paymentStatus = 'unpaid';
-
-            if ($paidAmount > 0 && $paidAmount < $total) {
-                $paymentStatus = 'partial';
-            } elseif ($paidAmount >= $total && $total > 0) {
-                $paymentStatus = 'paid';
-            }
+            $totals = $this->calculatePurchaseOrderTotals($validated);
 
             $order = PurchaseOrder::create([
                 'reference' => $validated['reference'],
@@ -218,21 +218,13 @@ class PurchaseOrderController extends Controller
                 'order_date' => $validated['order_date'],
                 'expected_delivery_date' => $validated['expected_delivery_date'] ?? null,
                 'status' => 'pending',
-                'payment_status' => $paymentStatus,
+                'payment_status' => $totals['payment_status'],
                 'notes' => $validated['notes'] ?? null,
-                'total_amount' => $total,
-                'paid_amount' => $paidAmount,
+                'total_amount' => $totals['total'],
+                'paid_amount' => $totals['paid_amount'],
             ]);
 
-            foreach ($validated['items'] as $item) {
-                PurchaseOrderItem::create([
-                    'purchase_order_id' => $order->id,
-                    'product_id' => $item['product_id'],
-                    'quantity_ordered' => $item['quantity_ordered'],
-                    'unit_price' => $item['unit_price'],
-                    'subtotal' => round(((float) $item['quantity_ordered']) * ((float) $item['unit_price']), 2),
-                ]);
-            }
+            $this->replacePurchaseOrderItems($order, $validated['items']);
         });
 
         if ($request->expectsJson()) {
@@ -244,6 +236,73 @@ class PurchaseOrderController extends Controller
         }
 
         return redirect()->route('admin.purchase-orders.index')->with('success', 'Purchase order saved successfully.');
+    }
+
+    public function update(Request $request, PurchaseOrder $purchaseOrder)
+    {
+        if ($purchaseOrder->status === 'received') {
+            return back()->with('error', 'Received purchase orders cannot be edited after stock is created.');
+        }
+
+        $validated = $this->validatePurchaseOrderPayload($request, $purchaseOrder);
+
+        DB::transaction(function () use ($purchaseOrder, $validated, $request) {
+            $purchaseOrder = PurchaseOrder::query()->lockForUpdate()->findOrFail($purchaseOrder->id);
+            if ($purchaseOrder->status === 'received') {
+                throw ValidationException::withMessages([
+                    'order' => 'Received purchase orders cannot be edited after stock is created.',
+                ]);
+            }
+
+            $totals = $this->calculatePurchaseOrderTotals($validated);
+            $purchaseOrder->update([
+                'supplier_id' => $validated['supplier_id'],
+                'updated_by' => $request->user()->id,
+                'order_date' => $validated['order_date'],
+                'expected_delivery_date' => $validated['expected_delivery_date'] ?? null,
+                'payment_status' => $totals['payment_status'],
+                'notes' => $validated['notes'] ?? null,
+                'total_amount' => $totals['total'],
+                'paid_amount' => $totals['paid_amount'],
+            ]);
+
+            $this->replacePurchaseOrderItems($purchaseOrder, $validated['items']);
+            $this->syncPurchaseOrderAccounts($purchaseOrder->fresh(), $request->user()->id);
+        });
+
+        return redirect()->route('admin.purchase-orders.index')->with('success', 'Purchase order updated successfully.');
+    }
+
+    public function destroy(PurchaseOrder $purchaseOrder)
+    {
+        try {
+            DB::transaction(function () use ($purchaseOrder) {
+                $purchaseOrder = PurchaseOrder::query()->with('items')->lockForUpdate()->findOrFail($purchaseOrder->id);
+
+                if ($purchaseOrder->status === 'received') {
+                    $this->rollbackPurchaseOrderReceipt($purchaseOrder);
+                }
+
+                AccountTransaction::query()
+                    ->where('reference_type', 'PurchaseOrder')
+                    ->where('reference_id', $purchaseOrder->id)
+                    ->delete();
+
+                StockMovement::query()
+                    ->where('reference_type', 'PurchaseOrder')
+                    ->where('reference_id', $purchaseOrder->id)
+                    ->delete();
+
+                $purchaseOrder->items()->delete();
+                $purchaseOrder->delete();
+            });
+
+            return redirect()->route('admin.purchase-orders.index')->with('success', 'Purchase order deleted successfully.');
+        } catch (ValidationException $exception) {
+            return back()->with('error', collect($exception->errors())->flatten()->first() ?: 'Could not delete purchase order.');
+        } catch (\Throwable $throwable) {
+            return back()->with('error', $throwable->getMessage() ?: 'Could not delete purchase order.');
+        }
     }
 
     // Show one purchase order with items and current statuses.
@@ -377,7 +436,7 @@ class PurchaseOrderController extends Controller
                     'subtotal' => $subtotal,
                 ]);
 
-                Batch::create([
+                $batch = Batch::create([
                     'product_id' => $item->product_id,
                     'supplier_id' => $purchaseOrder->supplier_id,
                     'purchase_order_item_id' => $item->id,
@@ -389,6 +448,21 @@ class PurchaseOrderController extends Controller
                     'purchase_price' => $unitPrice,
                     'storage_location' => $receivedRow['storage_location'] ?? null,
                     'is_active' => true,
+                ]);
+
+                record_stock_movement([
+                    'movement_date' => $purchaseOrder->order_date,
+                    'product_id' => $item->product_id,
+                    'batch_id' => $batch->id,
+                    'movement_type' => 'purchase_in',
+                    'quantity_in' => $receivedQty,
+                    'source_type' => 'Supplier',
+                    'source_id' => $purchaseOrder->supplier_id,
+                    'destination_type' => 'Inventory',
+                    'reference_type' => 'PurchaseOrder',
+                    'reference_id' => $purchaseOrder->id,
+                    'notes' => 'Stock received from purchase order.',
+                    'created_by' => $request->user()->id,
                 ]);
             }
 
@@ -435,6 +509,132 @@ class PurchaseOrderController extends Controller
         return back()->with('success', 'Payment status updated successfully.');
     }
 
+    private function validatePurchaseOrderPayload(Request $request, ?PurchaseOrder $purchaseOrder = null): array
+    {
+        $referenceRule = $purchaseOrder
+            ? ['required', 'string', 'max:255', Rule::unique('purchase_orders', 'reference')->ignore($purchaseOrder->id)]
+            : ['required', 'string', 'max:255', 'unique:purchase_orders,reference'];
+
+        return $request->validate([
+            'reference' => $referenceRule,
+            'supplier_id' => ['required', 'exists:suppliers,id'],
+            'order_date' => ['required', 'date'],
+            'expected_delivery_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string'],
+            'paid_amount' => ['nullable', 'numeric', 'min:0'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.quantity_ordered' => ['required', 'integer', 'min:1'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+        ]);
+    }
+
+    private function calculatePurchaseOrderTotals(array $validated): array
+    {
+        $total = 0;
+
+        foreach ($validated['items'] as $item) {
+            $total += round(((float) $item['quantity_ordered']) * ((float) $item['unit_price']), 2);
+        }
+
+        $paidAmount = round((float) ($validated['paid_amount'] ?? 0), 2);
+
+        if ($paidAmount > $total) {
+            throw ValidationException::withMessages([
+                'paid_amount' => 'Paid amount cannot be greater than order total.',
+            ]);
+        }
+
+        $paymentStatus = 'unpaid';
+        if ($paidAmount > 0 && $paidAmount < $total) {
+            $paymentStatus = 'partial';
+        } elseif ($paidAmount >= $total && $total > 0) {
+            $paymentStatus = 'paid';
+        }
+
+        return [
+            'total' => round($total, 2),
+            'paid_amount' => $paidAmount,
+            'payment_status' => $paymentStatus,
+        ];
+    }
+
+    private function replacePurchaseOrderItems(PurchaseOrder $order, array $items): void
+    {
+        $order->items()->delete();
+
+        foreach ($items as $item) {
+            PurchaseOrderItem::create([
+                'purchase_order_id' => $order->id,
+                'product_id' => $item['product_id'],
+                'quantity_ordered' => $item['quantity_ordered'],
+                'unit_price' => $item['unit_price'],
+                'subtotal' => round(((float) $item['quantity_ordered']) * ((float) $item['unit_price']), 2),
+            ]);
+        }
+    }
+
+    private function rollbackPurchaseOrderReceipt(PurchaseOrder $purchaseOrder): void
+    {
+        $purchaseOrder->loadMissing('items');
+
+        foreach ($purchaseOrder->items as $item) {
+            $batches = Batch::query()
+                ->where('purchase_order_item_id', $item->id)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($batches as $batch) {
+                if (StockMovement::query()
+                    ->where('batch_id', $batch->id)
+                    ->where(function (Builder $query) use ($purchaseOrder) {
+                        $query->where('reference_type', '!=', 'PurchaseOrder')
+                            ->orWhere('reference_id', '!=', $purchaseOrder->id)
+                            ->orWhereNull('reference_type');
+                    })
+                    ->exists()) {
+                    throw ValidationException::withMessages([
+                        'purchase_order' => 'This received order cannot be deleted because this stock already has later inventory history.',
+                    ]);
+                }
+
+                if ((int) $batch->quantity_available < (int) $batch->quantity_received) {
+                    throw ValidationException::withMessages([
+                        'purchase_order' => 'This received order cannot be deleted because some stock has already moved out.',
+                    ]);
+                }
+
+                $batch->delete();
+            }
+        }
+    }
+
+    private function purchaseOrderFormRows(PurchaseOrder $purchaseOrder): array
+    {
+        return $purchaseOrder->items->map(fn (PurchaseOrderItem $item) => [
+            'product_id' => $item->product_id,
+            'quantity_ordered' => $item->quantity_ordered,
+            'unit_price' => $item->unit_price,
+        ])->values()->all();
+    }
+
+    private function orderActionHtml(PurchaseOrder $order): string
+    {
+        $action = '<div class="table-action-group">';
+        $action .= '<a href="' . route('admin.purchase-orders.show', $order) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Order" aria-label="View Order"><i class="fa-solid fa-eye"></i></a>';
+
+        if ($order->status !== 'received') {
+            $action .= '<a href="' . route('admin.purchase-orders.edit', $order) . '" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Order" aria-label="Edit Order"><i class="fa-solid fa-pen-to-square"></i></a>';
+        }
+
+        $action .= '<form action="' . route('admin.purchase-orders.delete', $order) . '" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete purchase order?" data-confirm-text="Received stock will be removed only if it is still unused." data-confirm-button="Yes, delete it">';
+        $action .= '<input type="hidden" name="_token" value="' . csrf_token() . '">';
+        $action .= '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Order" aria-label="Delete Order"><i class="fa-solid fa-trash"></i></button>';
+        $action .= '</form></div>';
+
+        return $action;
+    }
+
     // Keep the supplier bill and payment entries in one place so finance pages stay accurate.
     private function syncPurchaseOrderAccounts(PurchaseOrder $purchaseOrder, int $userId): void
     {
@@ -442,6 +642,19 @@ class PurchaseOrderController extends Controller
             ->where('reference_type', 'PurchaseOrder')
             ->where('reference_id', $purchaseOrder->id)
             ->delete();
+
+        record_account_transaction([
+            'transaction_date' => $purchaseOrder->order_date,
+            'reference_type' => 'PurchaseOrder',
+            'reference_id' => $purchaseOrder->id,
+            'party_type' => 'supplier',
+            'party_id' => $purchaseOrder->supplier_id,
+            'entry_type' => 'debit',
+            'account_type' => 'inventory',
+            'amount' => $purchaseOrder->total_amount,
+            'notes' => 'Inventory received for ' . $purchaseOrder->reference,
+            'created_by' => $userId,
+        ]);
 
         record_account_transaction([
             'transaction_date' => $purchaseOrder->order_date,

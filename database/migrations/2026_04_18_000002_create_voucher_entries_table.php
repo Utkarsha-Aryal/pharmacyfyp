@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('voucher_id')->constrained('vouchers')->cascadeOnDelete();
             $table->unsignedInteger('line_no')->default(1);
-            $table->enum('account_type', ['cash', 'bank', 'receivable', 'payable', 'expense', 'income']);
+            $table->enum('account_type', ['cash', 'bank', 'receivable', 'inventory', 'payable', 'capital', 'income', 'other_income', 'expense', 'purchase_return']);
             $table->enum('party_type', ['customer', 'supplier'])->nullable();
             $table->unsignedBigInteger('party_id')->nullable();
             $table->enum('entry_type', ['debit', 'credit']);

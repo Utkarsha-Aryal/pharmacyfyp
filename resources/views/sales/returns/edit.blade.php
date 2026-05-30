@@ -7,20 +7,25 @@
 @section('body-class', 'workspace-form-page')
 
 @php
-    $selectedRefundStatus = old('refund_status', $salesReturn?->refund_status ?? 'paid');
-    $selectedPaymentModeId = old('payment_mode_id', $salesReturn?->payment_mode_id ?? $selectedInvoice?->payment_mode_id ?? '');
     $selectedReturnMode = old('return_mode', $selectedReturnMode ?? 'invoice');
-    $selectedCustomer = $selectedInvoice?->customer;
-    $selectedProduct = $salesReturn?->product;
+    $selectedCustomer = $selectedCustomer ?? $salesReturn?->customer ?? $selectedInvoice?->customer;
     $itemOptionMap = collect($salesReturnItemOptions ?? [])->keyBy('id');
-    $returnRows = old('items', [[
-        'sales_invoice_item_id' => $salesReturn?->sales_invoice_item_id,
-        'quantity' => $salesReturn?->quantity,
-        'unit_price' => $salesReturn?->unit_price,
-        'discount_percent' => $salesReturn?->discount_percent,
-        'discount_amount' => $salesReturn?->discount_amount,
-        'net_unit_price' => $salesReturn?->net_unit_price,
-        'refund_amount' => $salesReturn?->refund_amount,
+    $returnRows = old('items', $salesReturn?->items->map(fn ($item) => [
+        'sales_invoice_item_id' => $item->sales_invoice_item_id,
+        'quantity' => $item->quantity,
+        'unit_price' => $item->unit_price,
+        'discount_percent' => $item->discount_percent,
+        'discount_amount' => $item->discount_amount,
+        'net_unit_price' => $item->net_unit_price,
+        'refund_amount' => $item->refund_amount,
+    ])->values()->all() ?: [[
+        'sales_invoice_item_id' => '',
+        'quantity' => '',
+        'unit_price' => '',
+        'discount_percent' => '',
+        'discount_amount' => '',
+        'net_unit_price' => '',
+        'refund_amount' => '',
     ]]);
 @endphp
 
@@ -55,7 +60,7 @@
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="return_mode" id="salesReturnModeCustomerProduct" value="customer_product" @checked($selectedReturnMode === 'customer_product')>
-                                    <label class="form-check-label" for="salesReturnModeCustomerProduct">By Customer / Product</label>
+                                    <label class="form-check-label" for="salesReturnModeCustomerProduct">By Customer</label>
                                 </div>
                             </div>
                         </div>
@@ -74,8 +79,6 @@
                                         data-reference="{{ $selectedInvoiceOption['reference'] }}"
                                         data-customer-name="{{ $selectedInvoiceOption['customer_name'] }}"
                                         data-invoice-date="{{ $selectedInvoiceOption['invoice_date'] }}"
-                                        data-payment-mode-id="{{ $selectedInvoiceOption['payment_mode_id'] }}"
-                                        data-payment-mode-name="{{ $selectedInvoiceOption['payment_mode_name'] }}"
                                         selected
                                     >
                                         {{ $selectedInvoiceOption['text'] }}
@@ -95,41 +98,15 @@
                                 @endif
                             </select>
                         </div>
-                        <div class="col-xl-4 d-none sales-return-customer-field">
-                            <label class="form-label">Product</label>
-                            <select name="product_id" id="salesReturnProductSelect" class="form-select" data-placeholder="All products">
-                                @if ($selectedProduct)
-                                    <option value="{{ $selectedProduct->id }}" selected>{{ $selectedProduct->display_name }}</option>
-                                @else
-                                    <option value=""></option>
-                                @endif
-                            </select>
-                        </div>
                         <div class="col-md-3">
                             <label class="form-label">Return Date</label>
                             <input type="date" name="return_date" class="form-control" value="{{ old('return_date', $salesReturn?->return_date ?? now()->toDateString()) }}" required>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Refund Status</label>
-                            <select name="refund_status" id="salesReturnStatusSelect" class="form-select js-select2" data-placeholder="Select refund status" required>
-                                <option value="paid" @selected($selectedRefundStatus === 'paid')>Paid</option>
-                                <option value="pending" @selected($selectedRefundStatus === 'pending')>Pending Credit</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Payment Mode</label>
-                            <select name="payment_mode_id" id="salesReturnPaymentModeSelect" class="form-select js-select2" data-placeholder="Select payment mode">
-                                <option value="">Select payment mode</option>
-                                @foreach ($paymentModes as $mode)
-                                    <option value="{{ $mode->id }}" @selected((int) $selectedPaymentModeId === (int) $mode->id)>{{ $mode->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-3">
                             <label class="form-label">Reason</label>
                             <input type="text" name="reason" class="form-control" value="{{ old('reason', $salesReturn?->reason ?? '') }}" placeholder="Customer return / damage / expiry">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-9">
                             <label class="form-label">Notes</label>
                             <input type="text" name="notes" class="form-control" value="{{ old('notes', $salesReturn?->notes ?? '') }}" placeholder="Short note for staff or audit">
                         </div>
@@ -326,9 +303,6 @@
             var $modeInputs = $('input[name="return_mode"]');
             var $invoiceSelect = $('#salesReturnInvoiceSelect');
             var $customerSelect = $('#salesReturnCustomerSelect');
-            var $productSelect = $('#salesReturnProductSelect');
-            var $statusSelect = $('#salesReturnStatusSelect');
-            var $paymentModeSelect = $('#salesReturnPaymentModeSelect');
             var $tableBody = $('#salesReturnItemsTable tbody');
             var $template = $('#salesReturnItemTemplate');
             var editingReturnId = '{{ $salesReturn->id }}';
@@ -358,19 +332,16 @@
                     id: $selected.val(),
                     reference: $selected.data('reference'),
                     customer_name: $selected.data('customerName'),
-                    invoice_date: $selected.data('invoiceDate'),
-                    payment_mode_id: $selected.data('paymentModeId'),
-                    payment_mode_name: $selected.data('paymentModeName')
+                    invoice_date: $selected.data('invoiceDate')
                 };
             }
 
             function updateInvoiceSummary(data) {
                 if (currentReturnMode() === 'customer_product') {
                     var customerName = $customerSelect.find('option:selected').text() || 'No customer selected';
-                    var productName = $productSelect.find('option:selected').text() || 'All products';
 
                     $('#salesReturnInvoiceSummary').text(customerName);
-                    $('#salesReturnInvoiceMeta').text('Return by customer/product | ' + productName);
+                    $('#salesReturnInvoiceMeta').text('Return by customer');
                     return;
                 }
 
@@ -397,32 +368,13 @@
                 $('.sales-return-customer-field').toggleClass('d-none', isInvoiceMode);
                 $invoiceSelect.prop('disabled', !isInvoiceMode).prop('required', isInvoiceMode);
                 $customerSelect.prop('disabled', isInvoiceMode).prop('required', !isInvoiceMode);
-                $productSelect.prop('disabled', isInvoiceMode);
-                $invoiceSelect.add($customerSelect).add($productSelect).trigger('change.select2');
+                $invoiceSelect.add($customerSelect).trigger('change.select2');
                 $('#loadSalesReturnItems, #addSalesReturnRow').prop('disabled', !sourceReady());
                 if (resetTable) {
                     resetRows();
                 }
 
                 updateInvoiceSummary(currentInvoiceData());
-            }
-
-            function syncRefundStatusState(prefillFromInvoice) {
-                var isPaid = ($statusSelect.val() || 'paid') === 'paid';
-
-                $paymentModeSelect.prop('disabled', !isPaid).trigger('change.select2');
-
-                if (!isPaid) {
-                    return;
-                }
-
-                if (prefillFromInvoice) {
-                    var invoiceData = currentInvoiceData();
-                    if (invoiceData && invoiceData.payment_mode_id && !$paymentModeSelect.val()) {
-                        $paymentModeSelect.val(String(invoiceData.payment_mode_id)).trigger('change');
-                    }
-                }
-
             }
 
             function updateRowNumbers() {
@@ -548,7 +500,6 @@
                                 q: params.term || '',
                                 sales_invoice_id: currentReturnMode() === 'invoice' ? ($invoiceSelect.val() || '') : '',
                                 customer_id: currentReturnMode() === 'customer_product' ? ($customerSelect.val() || '') : '',
-                                product_id: currentReturnMode() === 'customer_product' ? ($productSelect.val() || '') : '',
                                 sales_return_id: editingReturnId
                             };
                         },
@@ -706,25 +657,6 @@
                 }
             });
 
-            $productSelect.select2({
-                width: '100%',
-                placeholder: $productSelect.data('placeholder') || 'All products',
-                allowClear: true,
-                minimumInputLength: 0,
-                ajax: {
-                    url: '{{ route('admin.sales.product-options') }}',
-                    dataType: 'json',
-                    delay: 250,
-                    data: function (params) {
-                        return { q: params.term || '' };
-                    },
-                    processResults: function (data) {
-                        return data;
-                    },
-                    cache: true
-                }
-            });
-
             $tableBody.find('.sales-return-item-select').each(function () {
                 initItemSelect($(this));
                 hydrateRowFromSelection($(this).closest('tr'));
@@ -802,7 +734,6 @@
                 $.get(itemOptionsUrl, {
                     sales_invoice_id: currentReturnMode() === 'invoice' ? ($invoiceSelect.val() || '') : '',
                     customer_id: currentReturnMode() === 'customer_product' ? ($customerSelect.val() || '') : '',
-                    product_id: currentReturnMode() === 'customer_product' ? ($productSelect.val() || '') : '',
                     sales_return_id: editingReturnId
                 }, function (response) {
                     var existingIds = selectedItemIds();
@@ -836,7 +767,6 @@
 
             $invoiceSelect.on('select2:select', function (event) {
                 updateInvoiceSummary(event.params.data || null);
-                syncRefundStatusState(true);
                 resetRows();
                 updateModeState(false);
             });
@@ -847,7 +777,6 @@
                     resetRows();
                 }
 
-                syncRefundStatusState(true);
                 updateModeState(false);
             });
 
@@ -860,18 +789,8 @@
                 updateModeState(false);
             });
 
-            $productSelect.on('change select2:select select2:clear', function () {
-                resetRows();
-                updateModeState(false);
-            });
-
-            $statusSelect.on('change', function () {
-                syncRefundStatusState(true);
-            });
-
             updateModeState(false);
             updateInvoiceSummary(currentInvoiceData());
-            syncRefundStatusState(false);
             updateTotals();
         });
     </script>

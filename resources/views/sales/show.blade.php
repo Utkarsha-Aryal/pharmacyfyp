@@ -17,6 +17,9 @@
                 <a href="{{ route('admin.sales.returns.index') }}" class="btn btn-outline-dark">
                     <i class="fa-solid fa-rotate-left"></i> Sales Returns
                 </a>
+                <a href="{{ route('admin.sales.edit', $invoice) }}" class="btn btn-outline-warning">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                </a>
                 <a href="{{ route('admin.sales-invoices.print', $invoice) }}" target="_blank" class="btn btn-primary">
                     <i class="fa-solid fa-print"></i> Print / PDF
                 </a>
@@ -26,6 +29,12 @@
                 <a href="{{ route('admin.sales.returns.create', ['sales_invoice_id' => $invoice->id]) }}" class="btn btn-outline-danger">
                     <i class="fa-solid fa-rotate-left"></i> Create Return
                 </a>
+                <form action="{{ route('admin.sales.delete', $invoice) }}" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete sales invoice?" data-confirm-text="This will restore invoice stock and remove ledger rows if no returns/payments are linked." data-confirm-button="Yes, delete it">
+                    @csrf
+                    <button type="submit" class="btn btn-outline-danger">
+                        <i class="fa-solid fa-trash"></i> Delete
+                    </button>
+                </form>
             </div>
         </div>
 

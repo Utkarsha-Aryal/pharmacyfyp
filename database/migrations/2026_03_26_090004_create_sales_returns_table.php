@@ -11,28 +11,20 @@ return new class extends Migration
         Schema::create('sales_returns', function (Blueprint $table) {
             $table->id();
             $table->enum('return_mode', ['invoice', 'customer_product'])->default('invoice');
-            $table->foreignId('sales_invoice_id')->constrained('sales_invoices')->cascadeOnDelete();
-            $table->foreignId('sales_invoice_item_id')->nullable()->constrained('sales_invoice_items')->nullOnDelete();
-            $table->foreignId('product_id')->constrained('products')->restrictOnDelete();
-            $table->foreignId('batch_id')->nullable()->constrained('batches')->nullOnDelete();
+            $table->foreignId('sales_invoice_id')->nullable()->constrained('sales_invoices')->nullOnDelete();
+            $table->foreignId('customer_id')->nullable()->constrained('customers')->nullOnDelete();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->date('return_date');
-            $table->decimal('quantity', 10, 2);
-            $table->decimal('unit_price', 10, 2)->default(0);
-            $table->decimal('discount_percent', 10, 2)->default(0);
+            $table->decimal('total_quantity', 10, 2)->default(0);
+            $table->decimal('gross_amount', 10, 2)->default(0);
             $table->decimal('discount_amount', 10, 2)->default(0);
-            $table->decimal('net_unit_price', 10, 2)->default(0);
             $table->decimal('refund_amount', 10, 2)->default(0);
-            $table->enum('refund_status', ['pending', 'paid'])->default('paid');
-            $table->unsignedBigInteger('payment_mode_id')->nullable();
+            $table->enum('refund_status', ['adjusted', 'credit'])->default('adjusted');
             $table->decimal('receivable_adjusted_amount', 10, 2)->default(0);
-            $table->decimal('cash_refund_amount', 10, 2)->default(0);
             $table->decimal('pending_credit_amount', 10, 2)->default(0);
             $table->string('reason')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
-
-            $table->index('payment_mode_id', 'sales_returns_payment_mode_idx');
         });
     }
 

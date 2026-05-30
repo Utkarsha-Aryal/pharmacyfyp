@@ -29,6 +29,6 @@ class SalesInvoiceItem extends Model
     // Returns linked with this line help keep remaining quantity accurate.
     public function returns()
     {
-        return $this->hasMany(SalesReturn::class, 'sales_invoice_item_id');
+        return $this->hasMany(SalesReturnItem::class, 'sales_invoice_item_id');
     }
 }

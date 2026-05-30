@@ -6,15 +6,15 @@
 
 @section('main-content')
     @php
-        $invoiceLabel = $salesReturn->invoice?->reference ?: ($salesReturn->sales_invoice_id ? ('Invoice #' . $salesReturn->sales_invoice_id) : '-');
-        $customerLabel = $salesReturn->invoice?->customer?->name ?: 'Walk-in Customer';
+        $invoiceLabel = $salesReturn->invoice?->reference ?: ($salesReturn->sales_invoice_id ? ('Invoice #' . $salesReturn->sales_invoice_id) : 'Multiple / customer return');
+        $customerLabel = $salesReturn->customer?->name ?: $salesReturn->invoice?->customer?->name ?: 'Walk-in Customer';
         $quantity = (float) $salesReturn->quantity;
-        $grossRefund = $quantity * (float) $salesReturn->effective_unit_price;
+        $grossRefund = (float) ($salesReturn->gross_amount ?? 0);
         $discountTotal = (float) $salesReturn->effective_discount_amount;
         $netRefund = (float) $salesReturn->refund_amount;
-        $settlementLabel = (float) ($salesReturn->cash_refund_amount ?? 0) > 0
-            ? ($salesReturn->payment_mode_label ?: 'Paid')
-            : ((float) ($salesReturn->pending_credit_amount ?? 0) > 0 ? 'Pending Credit' : 'Adjusted');
+        $settlementLabel = (float) ($salesReturn->pending_credit_amount ?? 0) > 0
+            ? 'Customer Credit'
+            : 'Balance Adjusted';
     @endphp
 
     <div class="admin-page-wrap">
@@ -92,10 +92,6 @@
                         <div class="fw-semibold">{{ $salesReturn->return_date_show }}</div>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label text-muted">Payment Mode</label>
-                        <div class="fw-semibold">{{ $salesReturn->payment_mode_label }}</div>
-                    </div>
-                    <div class="col-md-3">
                         <label class="form-label text-muted">Created By</label>
                         <div class="fw-semibold">{{ $salesReturn->creator?->name ?? '-' }}</div>
                     </div>
@@ -113,7 +109,7 @@
 
         <div class="card custom-card">
             <div class="card-header">
-                <div class="card-title">Returned Item</div>
+                <div class="card-title">Returned Items</div>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -132,17 +128,19 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>{{ $salesReturn->product?->display_name ?? '-' }}</td>
-                                <td><span class="badge bg-light text-dark border">{{ $salesReturn->batch?->batch_number ?? '-' }}</span></td>
-                                <td><span class="badge bg-info text-dark">{{ number_format($quantity, 0) }}</span></td>
-                                <td>{{ money_value($salesReturn->effective_unit_price) }}</td>
-                                <td>{{ number_format((float) $salesReturn->effective_discount_percent, 2) }}%</td>
-                                <td>{{ money_value($discountTotal) }}</td>
-                                <td>{{ money_value($salesReturn->effective_net_unit_price) }}</td>
-                                <td>{{ money_value($netRefund) }}</td>
-                            </tr>
+                            @foreach ($salesReturn->items as $index => $item)
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $item->product?->display_name ?? '-' }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ $item->batch?->batch_number ?? '-' }}</span></td>
+                                    <td><span class="badge bg-info text-dark">{{ number_format((float) $item->quantity, 0) }}</span></td>
+                                    <td>{{ money_value($item->effective_unit_price) }}</td>
+                                    <td>{{ number_format((float) $item->effective_discount_percent, 2) }}%</td>
+                                    <td>{{ money_value($item->effective_discount_amount) }}</td>
+                                    <td>{{ money_value($item->effective_net_unit_price) }}</td>
+                                    <td>{{ money_value($item->refund_amount) }}</td>
+                                </tr>
+                            @endforeach
                         </tbody>
                         <tfoot>
                             <tr>
