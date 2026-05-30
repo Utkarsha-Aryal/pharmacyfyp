@@ -80,6 +80,14 @@ class AuthController extends Controller
 
         if ($user) {
             $otp = (string) random_int(100000, 999999);
+            $mailSettings = apply_runtime_mail_settings();
+            $missingFields = missing_smtp_mail_settings($mailSettings);
+
+            if (!empty($missingFields)) {
+                return back()
+                    ->withInput($request->only('email'))
+                    ->with('error', implode(', ', $missingFields) . ' required before sending password reset OTP.');
+            }
 
             try {
                 DB::table('password_reset_tokens')->updateOrInsert(

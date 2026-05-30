@@ -10,7 +10,7 @@ class TestMailCommand extends Command
 {
     protected $signature = 'mail:test {recipient? : Optional email address for the test mail}';
 
-    protected $description = 'Send one SMTP test mail using the current settings or env values.';
+    protected $description = 'Send one SMTP test mail using database settings first, then env fallback.';
 
     // This command helps us verify SMTP from terminal without opening the settings page.
     public function handle(): int
@@ -25,8 +25,10 @@ class TestMailCommand extends Command
 
         $mailSettings = apply_runtime_mail_settings();
 
-        if (empty($mailSettings['host']) || empty($mailSettings['port']) || empty($mailSettings['username']) || empty($mailSettings['password'])) {
-            $this->error('SMTP host, port, username and password are required before sending test mail.');
+        $missingFields = missing_smtp_mail_settings($mailSettings);
+
+        if (!empty($missingFields)) {
+            $this->error(implode(', ', $missingFields) . ' required before sending test mail.');
 
             return self::FAILURE;
         }

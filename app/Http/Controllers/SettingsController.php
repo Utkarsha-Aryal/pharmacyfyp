@@ -102,19 +102,20 @@ class SettingsController extends Controller
             'notification_email' => ['nullable', 'email'],
         ]);
 
+        $mailSettings = current_mail_settings($validated);
         $recipient = $validated['email']
-            ?? setting('notification_email')
-            ?? setting('mail_from_address')
-            ?? config('mail.from.address');
+            ?? $mailSettings['notification_email']
+            ?? $mailSettings['from_address'];
 
         if (empty($recipient)) {
             return $this->testMailResponse($request, false, 'Please add notification email or mail from address before testing.');
         }
 
         $mailSettings = apply_runtime_mail_settings($validated);
+        $missingFields = missing_smtp_mail_settings($mailSettings);
 
-        if (empty($mailSettings['host']) || empty($mailSettings['port']) || empty($mailSettings['username']) || empty($mailSettings['password'])) {
-            return $this->testMailResponse($request, false, 'SMTP host, port, username and password are required before sending test mail.');
+        if (!empty($missingFields)) {
+            return $this->testMailResponse($request, false, implode(', ', $missingFields) . ' required before sending test mail.');
         }
 
         try {

@@ -17,9 +17,15 @@ class Setting extends Model
 
     public static function setValue($key, $value)
     {
-        return static::updateOrCreate(
+        $setting = static::updateOrCreate(
             ['key' => $key],
             ['value' => $value]
         );
+
+        if (function_exists('settings_cache')) {
+            settings_cache(true);
+        }
+
+        return $setting;
     }
 }

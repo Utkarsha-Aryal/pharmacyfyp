@@ -20,9 +20,13 @@ use Illuminate\Mail\MailManager;
 use Spatie\Permission\Models\Role;
 
 if (!function_exists('settings_cache')) {
-    function settings_cache()
+    function settings_cache(bool $refresh = false)
     {
         static $settings = null;
+
+        if ($refresh) {
+            $settings = null;
+        }
 
         if ($settings !== null) {
             return $settings;
@@ -428,20 +432,79 @@ if (!function_exists('notification_email_recipients')) {
 if (!function_exists('current_mail_settings')) {
     function current_mail_settings(array $overrides = []): array
     {
-        $appName = setting('app_name', env('APP_NAME', 'Pharmacy Management System'));
+        $value = function (string $settingKey, ?string $envKey = null, mixed $default = null) use ($overrides) {
+            if (array_key_exists($settingKey, $overrides) && trim((string) $overrides[$settingKey]) !== '') {
+                return $overrides[$settingKey];
+            }
+
+            $settingValue = settings_cache()->get($settingKey);
+
+            if ($settingValue !== null && trim((string) $settingValue) !== '') {
+                return $settingValue;
+            }
+
+            if ($envKey !== null) {
+                $envValue = env($envKey);
+
+                if ($envValue !== null && trim((string) $envValue) !== '') {
+                    return $envValue;
+                }
+            }
+
+            return $default;
+        };
+
+        $hasDatabaseSmtp = collect(['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password'])
+            ->contains(function ($key) use ($overrides) {
+                if (array_key_exists($key, $overrides) && trim((string) $overrides[$key]) !== '') {
+                    return true;
+                }
+
+                $settingValue = settings_cache()->get($key);
+
+                return $settingValue !== null && trim((string) $settingValue) !== '';
+            });
+
+        $appName = $value('app_name', 'APP_NAME', 'Pharmacy Management System');
+        $mailer = $value('mail_mailer', null);
+        $host = $value('smtp_host', 'MAIL_HOST');
 
         return [
-            'mailer' => $overrides['mail_mailer'] ?? env('MAIL_MAILER', 'smtp'),
-            'host' => $overrides['smtp_host'] ?? setting('smtp_host', env('MAIL_HOST')),
-            'port' => $overrides['smtp_port'] ?? setting('smtp_port', env('MAIL_PORT')),
-            'username' => $overrides['smtp_username'] ?? setting('smtp_username', env('MAIL_USERNAME')),
-            'password' => $overrides['smtp_password'] ?? setting('smtp_password', env('MAIL_PASSWORD')),
-            'encryption' => $overrides['smtp_encryption'] ?? setting('smtp_encryption', env('MAIL_SCHEME')),
-            'from_address' => $overrides['mail_from_address'] ?? setting('mail_from_address', env('MAIL_FROM_ADDRESS')),
-            'from_name' => $overrides['mail_from_name'] ?? setting('mail_from_name', env('MAIL_FROM_NAME', $appName)),
-            'notification_email' => $overrides['notification_email'] ?? setting('notification_email', env('MAIL_FROM_ADDRESS')),
+            'mailer' => $mailer ?: ($hasDatabaseSmtp || $host ? 'smtp' : env('MAIL_MAILER', 'smtp')),
+            'host' => $host,
+            'port' => $value('smtp_port', 'MAIL_PORT'),
+            'username' => $value('smtp_username', 'MAIL_USERNAME'),
+            'password' => $value('smtp_password', 'MAIL_PASSWORD'),
+            'encryption' => $value('smtp_encryption', 'MAIL_SCHEME'),
+            'from_address' => $value('mail_from_address', 'MAIL_FROM_ADDRESS'),
+            'from_name' => $value('mail_from_name', 'MAIL_FROM_NAME', $appName),
+            'notification_email' => $value('notification_email', 'MAIL_FROM_ADDRESS'),
             'app_name' => $appName,
         ];
+    }
+}
+
+if (!function_exists('missing_smtp_mail_settings')) {
+    function missing_smtp_mail_settings(array $mailSettings): array
+    {
+        $mailer = strtolower((string) ($mailSettings['mailer'] ?? 'smtp'));
+
+        if (!in_array($mailer, ['smtp', 'smtps'], true)) {
+            return ['SMTP mailer'];
+        }
+
+        $requiredFields = [
+            'host' => 'SMTP host',
+            'port' => 'SMTP port',
+            'username' => 'SMTP username',
+            'password' => 'SMTP password',
+            'from_address' => 'mail from address',
+        ];
+
+        return collect($requiredFields)
+            ->filter(fn ($label, $key) => trim((string) ($mailSettings[$key] ?? '')) === '')
+            ->values()
+            ->all();
     }
 }
 

@@ -2,8 +2,6 @@
 
 namespace App\Providers;
 
-use App\Models\Setting;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,42 +19,31 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if (!Schema::hasTable('settings')) {
-            return;
-        }
-
-        $settings = Setting::query()->pluck('value', 'key');
-        $appName = $settings->get('app_name') ?: env('APP_NAME', 'Pharmacy Management System');
-        $mailFromAddress = $settings->get('mail_from_address') ?: env('MAIL_FROM_ADDRESS');
-        $mailFromName = $settings->get('mail_from_name') ?: env('MAIL_FROM_NAME', $appName);
-        $smtpHost = $settings->get('smtp_host') ?: env('MAIL_HOST');
-        $smtpPort = $settings->get('smtp_port') ?: env('MAIL_PORT');
-        $smtpUsername = $settings->get('smtp_username') ?: env('MAIL_USERNAME');
-        $smtpPassword = $settings->get('smtp_password') ?: env('MAIL_PASSWORD');
-        $rawSmtpScheme = $settings->get('smtp_encryption') ?: env('MAIL_SCHEME');
+        $mailSettings = current_mail_settings();
+        $rawSmtpScheme = $mailSettings['encryption'] ?? null;
         $smtpScheme = in_array(strtolower((string) $rawSmtpScheme), ['ssl', 'smtps'], true) ? 'smtps' : 'smtp';
 
         // Use DB values first, but keep env fallback so a fresh install works before settings are saved.
-        if (!empty($appName)) {
-            config(['app.name' => $appName]);
+        if (!empty($mailSettings['app_name'])) {
+            config(['app.name' => $mailSettings['app_name']]);
         }
 
-        if (!empty($mailFromAddress)) {
-            config(['mail.from.address' => $mailFromAddress]);
+        if (!empty($mailSettings['from_address'])) {
+            config(['mail.from.address' => $mailSettings['from_address']]);
         }
 
-        if (!empty($mailFromName)) {
-            config(['mail.from.name' => $mailFromName]);
+        if (!empty($mailSettings['from_name'])) {
+            config(['mail.from.name' => $mailSettings['from_name']]);
         }
 
         // Keep SMTP settings dynamic so admin can change them from settings without editing code.
-        if (!empty($smtpHost)) {
+        if (!empty($mailSettings['host'])) {
             config([
-                'mail.default' => 'smtp',
-                'mail.mailers.smtp.host' => $smtpHost,
-                'mail.mailers.smtp.port' => $smtpPort,
-                'mail.mailers.smtp.username' => $smtpUsername,
-                'mail.mailers.smtp.password' => $smtpPassword,
+                'mail.default' => $mailSettings['mailer'] ?: 'smtp',
+                'mail.mailers.smtp.host' => $mailSettings['host'],
+                'mail.mailers.smtp.port' => $mailSettings['port'],
+                'mail.mailers.smtp.username' => $mailSettings['username'],
+                'mail.mailers.smtp.password' => $mailSettings['password'],
                 'mail.mailers.smtp.scheme' => $smtpScheme ?: null,
             ]);
         }
