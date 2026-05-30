@@ -6,6 +6,10 @@
 
 @section('body-class', 'workspace-form-page')
 
+@php
+    $selectedReturnMode = old('return_mode', $selectedReturnMode ?? 'invoice');
+@endphp
+
 @section('main-content')
     <div class="admin-page-wrap">
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
@@ -32,11 +36,11 @@
                             <label class="form-label">Return Mode</label>
                             <div class="d-flex flex-wrap gap-3 pt-2">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="return_mode" id="salesReturnModeInvoice" value="invoice" checked>
+                                    <input class="form-check-input" type="radio" name="return_mode" id="salesReturnModeInvoice" value="invoice" @checked($selectedReturnMode === 'invoice')>
                                     <label class="form-check-label" for="salesReturnModeInvoice">By Invoice</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="return_mode" id="salesReturnModeCustomerProduct" value="customer_product">
+                                    <input class="form-check-input" type="radio" name="return_mode" id="salesReturnModeCustomerProduct" value="customer_product" @checked($selectedReturnMode === 'customer_product')>
                                     <label class="form-check-label" for="salesReturnModeCustomerProduct">By Customer / Product</label>
                                 </div>
                             </div>

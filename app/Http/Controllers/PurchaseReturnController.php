@@ -567,16 +567,7 @@ class PurchaseReturnController extends Controller
             $batchOptions = $isLinkedToPurchase
                 ? $this->buildReturnBatchOptions($purchaseReturn->purchase, $purchaseItem)
                 : $this->buildSupplierBatchOptions((int) $purchaseReturn->supplier_id, (int) $item->product_id);
-            if (!$isLinkedToPurchase && $item->batch && !collect($batchOptions)->contains(fn (array $batchOption) => (int) $batchOption['id'] === (int) $item->batch_id)) {
-                $batchOptions[] = [
-                    'id' => (int) $item->batch_id,
-                    'text' => trim(($item->batch->batch_number ?: '-') . ' | Exp: ' . ($item->batch->expiry_show ?: '-') . ' | Qty: ' . (int) $item->batch->quantity_available),
-                    'badge_class' => 'bg-warning text-dark',
-                    'badge_label' => 'Previously used batch',
-                    'disabled' => false,
-                    'quantity_available' => (int) $item->batch->quantity_available,
-                ];
-            }
+            $batchOptions = $this->withEditableReturnBatch($batchOptions, $item);
             $selectedBatchId = $this->selectedReturnBatchId($item->batch_id, $batchOptions);
             if (!$selectedBatchId && count($batchOptions) === 1) {
                 $selectedBatchId = (int) $batchOptions[0]['id'];
@@ -611,13 +602,55 @@ class PurchaseReturnController extends Controller
                 'return_amount' => round((float) ($item->return_amount ?? 0), 2),
                 'original_pricing_note' => $isLinkedToPurchase
                     ? ('Original bill: ' . number_format((float) $originalDiscountPercent, 2) . '% | Disc/unit ' . money_value((float) $originalUnitDiscount) . ' | Net ' . money_value((float) $originalNetRate))
-                    : 'Original bill discount is unavailable in product mode. Set the return pricing manually.',
+                    : '',
                 'batch_options' => $batchOptions,
                 'selected_batch_id' => $selectedBatchId,
                 'batch_badge_class' => $batchBadge['class'],
                 'batch_badge_label' => $batchBadge['label'],
             ];
         })->values()->all();
+    }
+
+    // Edit mode must allow the quantity that was already deducted by this return.
+    private function withEditableReturnBatch(array $batchOptions, PurchaseReturnItem $item): array
+    {
+        if (!$item->batch) {
+            return $batchOptions;
+        }
+
+        $batchId = (int) $item->batch_id;
+        $editableAvailable = (int) $item->batch->quantity_available + (int) $item->return_qty;
+        $batchText = trim(($item->batch->batch_number ?: '-') . ' | Exp: ' . ($item->batch->expiry_show ?: '-') . ' | Qty: ' . $editableAvailable);
+        $found = false;
+
+        foreach ($batchOptions as &$batchOption) {
+            if ((int) ($batchOption['id'] ?? 0) !== $batchId) {
+                continue;
+            }
+
+            $batchOption['text'] = $batchText;
+            $batchOption['quantity_available'] = $editableAvailable;
+            $batchOption['quantity_received'] = $batchOption['quantity_received'] ?? (int) $item->batch->quantity_received;
+            $batchOption['purchase_price'] = $batchOption['purchase_price'] ?? round((float) $item->rate, 2);
+            $found = true;
+            break;
+        }
+        unset($batchOption);
+
+        if (!$found) {
+            $batchOptions[] = [
+                'id' => $batchId,
+                'text' => $batchText,
+                'badge_class' => 'bg-warning text-dark',
+                'badge_label' => 'Selected batch',
+                'disabled' => false,
+                'quantity_available' => $editableAvailable,
+                'quantity_received' => (int) $item->batch->quantity_received,
+                'purchase_price' => round((float) $item->rate, 2),
+            ];
+        }
+
+        return array_values($batchOptions);
     }
 
     // Build batch choices so the return row shows a real dropdown instead of a hidden id.

@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('sales_returns', function (Blueprint $table) {
             $table->id();
+            $table->enum('return_mode', ['invoice', 'customer_product'])->default('invoice');
             $table->foreignId('sales_invoice_id')->constrained('sales_invoices')->cascadeOnDelete();
             $table->foreignId('sales_invoice_item_id')->nullable()->constrained('sales_invoice_items')->nullOnDelete();
             $table->foreignId('product_id')->constrained('products')->restrictOnDelete();

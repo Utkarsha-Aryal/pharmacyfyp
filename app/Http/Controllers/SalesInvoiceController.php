@@ -178,13 +178,19 @@ class SalesInvoiceController extends Controller
     // Save one sales return from the dedicated manager flow.
     public function returnsStore(Request $request)
     {
+        $returnMode = $request->input('return_mode') === 'customer_product' ? 'customer_product' : 'invoice';
+
         $validated = $request->validate([
             'return_mode' => ['nullable', Rule::in(['invoice', 'customer_product'])],
-            'sales_invoice_id' => ['nullable', 'exists:sales_invoices,id'],
+            'sales_invoice_id' => [
+                'nullable',
+                'exists:sales_invoices,id',
+                Rule::requiredIf(fn () => $returnMode === 'invoice'),
+            ],
             'customer_id' => [
                 'nullable',
                 'exists:customers,id',
-                Rule::requiredIf(fn () => !$request->filled('sales_invoice_id')),
+                Rule::requiredIf(fn () => $returnMode === 'customer_product'),
             ],
             'product_id' => ['nullable', 'exists:products,id'],
             'return_date' => ['required', 'date'],
@@ -218,6 +224,7 @@ class SalesInvoiceController extends Controller
         DB::transaction(function () use ($rows, $validated, $request) {
             foreach ($rows as $row) {
                 $this->saveSalesReturnValidated([
+                    'return_mode' => $validated['return_mode'] ?? 'invoice',
                     'sales_invoice_id' => $validated['sales_invoice_id'] ?? null,
                     'customer_id' => $validated['customer_id'] ?? null,
                     'sales_invoice_item_id' => $row['sales_invoice_item_id'],
@@ -261,13 +268,19 @@ class SalesInvoiceController extends Controller
     public function returnsUpdate(Request $request, SalesReturn $salesReturn)
     {
         if ($request->has('items')) {
+            $returnMode = $request->input('return_mode') === 'customer_product' ? 'customer_product' : 'invoice';
+
             $validated = $request->validate([
                 'return_mode' => ['nullable', Rule::in(['invoice', 'customer_product'])],
-                'sales_invoice_id' => ['nullable', 'exists:sales_invoices,id'],
+                'sales_invoice_id' => [
+                    'nullable',
+                    'exists:sales_invoices,id',
+                    Rule::requiredIf(fn () => $returnMode === 'invoice'),
+                ],
                 'customer_id' => [
                     'nullable',
                     'exists:customers,id',
-                    Rule::requiredIf(fn () => !$request->filled('sales_invoice_id')),
+                    Rule::requiredIf(fn () => $returnMode === 'customer_product'),
                 ],
                 'product_id' => ['nullable', 'exists:products,id'],
                 'return_date' => ['required', 'date'],
@@ -303,6 +316,7 @@ class SalesInvoiceController extends Controller
 
                 foreach ($rows as $row) {
                     $this->saveSalesReturnValidated([
+                        'return_mode' => $validated['return_mode'] ?? 'invoice',
                         'sales_invoice_id' => $validated['sales_invoice_id'] ?? null,
                         'customer_id' => $validated['customer_id'] ?? null,
                         'sales_invoice_item_id' => $row['sales_invoice_item_id'],
@@ -1281,6 +1295,7 @@ class SalesInvoiceController extends Controller
             }
 
             $payload = [
+                'return_mode' => ($validated['return_mode'] ?? 'invoice') === 'customer_product' ? 'customer_product' : 'invoice',
                 'sales_invoice_id' => $salesInvoice->id,
                 'sales_invoice_item_id' => $invoiceItem->id,
                 'product_id' => $invoiceItem->product_id,
@@ -1516,6 +1531,9 @@ class SalesInvoiceController extends Controller
     private function salesReturnFormData(?SalesReturn $salesReturn = null, ?SalesInvoice $prefillInvoice = null, ?Request $request = null): array
     {
         $request = $request ?: request();
+        $storedReturnMode = $salesReturn?->return_mode ?: 'invoice';
+        $selectedReturnMode = old('return_mode', $request->input('return_mode', $storedReturnMode));
+        $selectedReturnMode = $selectedReturnMode === 'customer_product' ? 'customer_product' : 'invoice';
         $selectedInvoiceId = old('sales_invoice_id', $prefillInvoice?->id ?: $request->input('sales_invoice_id'));
         $selectedInvoice = null;
 
@@ -1540,6 +1558,7 @@ class SalesInvoiceController extends Controller
             'selectedInvoice' => $selectedInvoice,
             'selectedInvoiceOption' => $selectedInvoiceOption,
             'selectedItemOption' => $selectedItemOption,
+            'selectedReturnMode' => $selectedReturnMode,
             'salesReturnItemOptions' => $salesReturnItemOptions,
             'paymentModes' => DropdownOption::query()->forAlias('payment_mode')->active()->orderBy('name')->get(),
         ];

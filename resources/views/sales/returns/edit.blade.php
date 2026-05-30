@@ -9,7 +9,7 @@
 @php
     $selectedRefundStatus = old('refund_status', $salesReturn?->refund_status ?? 'paid');
     $selectedPaymentModeId = old('payment_mode_id', $salesReturn?->payment_mode_id ?? $selectedInvoice?->payment_mode_id ?? '');
-    $selectedReturnMode = old('return_mode', 'invoice');
+    $selectedReturnMode = old('return_mode', $selectedReturnMode ?? 'invoice');
     $selectedCustomer = $selectedInvoice?->customer;
     $selectedProduct = $salesReturn?->product;
     $itemOptionMap = collect($salesReturnItemOptions ?? [])->keyBy('id');
