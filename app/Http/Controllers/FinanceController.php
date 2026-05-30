@@ -142,6 +142,7 @@ class FinanceController extends Controller
         return view('finance.day-book', [
             'filters' => $filters,
             'summary' => $summary,
+            'accountCatalog' => collect($this->accountCatalog())->keyBy('key'),
         ]);
     }
 
@@ -487,10 +488,12 @@ class FinanceController extends Controller
         $totalCredit = round((float) $transactions->where('entry_type', 'credit')->sum('amount'), 2);
 
         return [
+            'entry_count' => $transactions->count(),
             'opening_balance' => $openingBalance,
             'debit' => $totalDebit,
             'credit' => $totalCredit,
             'closing_balance' => round($openingBalance + $totalDebit - $totalCredit, 2),
+            'difference' => round(abs($totalDebit - $totalCredit), 2),
         ];
     }
 }

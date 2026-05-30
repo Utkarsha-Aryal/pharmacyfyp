@@ -9,7 +9,7 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Day Book</h5>
-                <p class="mb-0 text-muted">Review daily debit, credit, and running balance.</p>
+                <p class="mb-0 text-muted">Chronological accounting entries from sales, purchases, returns, payments, expenses and vouchers.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.finance.vouchers.create') }}" class="btn btn-primary">
@@ -22,9 +22,9 @@
             <div class="col-xl-3 col-md-6">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
-                        <p class="text-muted text-uppercase small mb-2">Opening</p>
-                        <h3 class="mb-1">{{ money_value($summary['opening_balance']) }}</h3>
-                        <span class="text-muted small">Balance before the selected range.</span>
+                        <p class="text-muted text-uppercase small mb-2">{{ empty($filters['account_type']) ? 'Entries' : 'Opening' }}</p>
+                        <h3 class="mb-1">{{ empty($filters['account_type']) ? number_format($summary['entry_count']) : money_value($summary['opening_balance']) }}</h3>
+                        <span class="text-muted small">{{ empty($filters['account_type']) ? 'Rows posted in the selected range.' : 'Balance before the selected range.' }}</span>
                     </div>
                 </div>
             </div>
@@ -49,9 +49,9 @@
             <div class="col-xl-3 col-md-6">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
-                        <p class="text-muted text-uppercase small mb-2">Closing</p>
-                        <h3 class="mb-1">{{ money_value($summary['closing_balance']) }}</h3>
-                        <span class="text-muted small">Opening + debit - credit.</span>
+                        <p class="text-muted text-uppercase small mb-2">{{ empty($filters['account_type']) ? 'Difference' : 'Closing' }}</p>
+                        <h3 class="mb-1">{{ empty($filters['account_type']) ? money_value($summary['difference']) : money_value($summary['closing_balance']) }}</h3>
+                        <span class="text-muted small">{{ empty($filters['account_type']) ? 'Debit minus credit; should be zero.' : 'Opening + debit - credit.' }}</span>
                     </div>
                 </div>
             </div>
@@ -64,12 +64,9 @@
                         <label class="form-label">Account Type</label>
                         <select name="account_type" class="form-select js-select2" data-placeholder="All accounts" data-allow-clear="1">
                             <option value="">All Accounts</option>
-                            <option value="cash" @selected(($filters['account_type'] ?? '') === 'cash')>Cash</option>
-                            <option value="bank" @selected(($filters['account_type'] ?? '') === 'bank')>Bank</option>
-                            <option value="receivable" @selected(($filters['account_type'] ?? '') === 'receivable')>Receivable</option>
-                            <option value="payable" @selected(($filters['account_type'] ?? '') === 'payable')>Payable</option>
-                            <option value="expense" @selected(($filters['account_type'] ?? '') === 'expense')>Expense</option>
-                            <option value="income" @selected(($filters['account_type'] ?? '') === 'income')>Income</option>
+                            @foreach ($accountCatalog as $account)
+                                <option value="{{ $account['key'] }}" @selected(($filters['account_type'] ?? '') === $account['key'])>{{ $account['name'] }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-3">
