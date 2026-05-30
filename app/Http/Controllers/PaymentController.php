@@ -363,12 +363,6 @@ class PaymentController extends Controller
                 $bill->paid_amount = round((float) $bill->paid_amount + $allocatedAmount, 2);
                 $bill->payment_status = $this->resolveBillPaymentStatus($bill, (string) $allocation['bill_type']);
                 $bill->save();
-
-                if ($partyType === 'customer' && $bill instanceof SalesInvoice && $bill->customer_id) {
-                    $customer = Customer::query()->lockForUpdate()->findOrFail($bill->customer_id);
-                    $customer->current_balance = round(max(0, (float) $customer->current_balance - $allocatedAmount), 2);
-                    $customer->save();
-                }
             }
 
             if ($allocatedTotal > (float) $payment->amount) {
@@ -381,6 +375,8 @@ class PaymentController extends Controller
             $cashAccount = $payment->paymentMode?->data === 'cash' ? 'cash' : 'bank';
 
             if ($type === 'in') {
+                $this->adjustCustomerBalance((int) $validated['party_id'], -round((float) $payment->amount, 2));
+
                 record_account_transaction([
                     'transaction_date' => $payment->payment_date,
                     'reference_type' => 'Payment',
@@ -407,6 +403,8 @@ class PaymentController extends Controller
                     'created_by' => $request->user()->id,
                 ]);
             } else {
+                Supplier::adjustCurrentBalance((int) $validated['party_id'], -round((float) $payment->amount, 2));
+
                 record_account_transaction([
                     'transaction_date' => $payment->payment_date,
                     'reference_type' => 'Payment',
@@ -443,6 +441,12 @@ class PaymentController extends Controller
     // Roll back the previous payment rows so an edit can rebuild the totals without double counting.
     private function reversePaymentEffects(Payment $payment): void
     {
+        if ($payment->party_type === 'customer') {
+            $this->adjustCustomerBalance((int) $payment->party_id, round((float) $payment->amount, 2));
+        } elseif ($payment->party_type === 'supplier') {
+            Supplier::adjustCurrentBalance((int) $payment->party_id, round((float) $payment->amount, 2));
+        }
+
         foreach ($payment->allocations as $allocation) {
             $bill = $this->resolveBill((string) $allocation->bill_type, (int) $allocation->bill_id, (int) $payment->party_id, (string) $payment->party_type);
             $allocatedAmount = round((float) $allocation->allocated_amount, 2);
@@ -450,15 +454,22 @@ class PaymentController extends Controller
             $bill->paid_amount = round(max(0, (float) $bill->paid_amount - $allocatedAmount), 2);
             $bill->payment_status = $this->resolveBillPaymentStatus($bill, (string) $allocation->bill_type);
             $bill->save();
-
-            if ($payment->party_type === 'customer' && $bill instanceof SalesInvoice && $bill->customer_id) {
-                $customer = Customer::query()->lockForUpdate()->find($bill->customer_id);
-                if ($customer) {
-                    $customer->current_balance = round((float) $customer->current_balance + $allocatedAmount, 2);
-                    $customer->save();
-                }
-            }
         }
+    }
+
+    private function adjustCustomerBalance(int $customerId, float $delta): void
+    {
+        if ($customerId <= 0 || round($delta, 2) == 0.0) {
+            return;
+        }
+
+        $customer = Customer::query()->lockForUpdate()->find($customerId);
+        if (!$customer) {
+            return;
+        }
+
+        $customer->current_balance = round((float) $customer->current_balance + $delta, 2);
+        $customer->save();
     }
 
     // Resolve the bill model and ensure it belongs to the selected party before allocation is saved.

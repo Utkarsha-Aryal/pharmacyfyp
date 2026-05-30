@@ -81,6 +81,7 @@ class DemoDataSeeder extends Seeder
             ['supplier_name' => 'Care Nepal Distributors', 'contact_person' => 'Pratik Thapa', 'phone_number' => '9812345678', 'email' => 'care@example.com', 'pan_number' => 'PAN-1003', 'opening_balance' => '6200.00', 'address' => 'Bhaktapur', 'type' => 'debit'],
         ] as $supplier) {
             $supplierIds[] = DB::table('suppliers')->insertGetId(array_merge($supplier, [
+                'current_balance' => $supplier['opening_balance'],
                 'status' => 'Y',
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -379,6 +380,10 @@ class DemoDataSeeder extends Seeder
                     'created_by' => $adminId,
                 ]);
             }
+
+            DB::table('suppliers')
+                ->where('id', $purchase->supplier_id)
+                ->increment('current_balance', round((float) $purchase->grand_total - (float) $purchase->paid_amount, 2));
         }
 
         $briefBatchRows = [
@@ -778,7 +783,7 @@ class DemoDataSeeder extends Seeder
                     'entry_type' => 'debit',
                     'account_type' => 'income',
                     'amount' => $refundAmount,
-                    'notes' => 'Demo sales return for ' . $firstInvoice->reference,
+                    'notes' => 'Demo credit note for ' . $firstInvoice->reference,
                     'created_by' => $adminId,
                 ]);
 
@@ -792,7 +797,7 @@ class DemoDataSeeder extends Seeder
                         'entry_type' => 'credit',
                         'account_type' => 'receivable',
                         'amount' => $receivableAdjustedAmount,
-                        'notes' => 'Demo sales return adjusted against receivable for ' . $firstInvoice->reference,
+                        'notes' => 'Demo credit note adjusted against receivable for ' . $firstInvoice->reference,
                         'created_by' => $adminId,
                     ]);
                 }
@@ -807,7 +812,7 @@ class DemoDataSeeder extends Seeder
                         'entry_type' => 'credit',
                         'account_type' => 'payable',
                         'amount' => $pendingCreditAmount,
-                        'notes' => 'Demo pending refund credit for ' . $firstInvoice->reference,
+                        'notes' => 'Demo credit note balance for ' . $firstInvoice->reference,
                         'created_by' => $adminId,
                     ]);
                 }
@@ -1054,6 +1059,10 @@ class DemoDataSeeder extends Seeder
                         'created_by' => $adminId,
                     ]);
                 }
+
+                DB::table('suppliers')
+                    ->where('id', $order->supplier_id)
+                    ->increment('current_balance', round((float) $order->total_amount - (float) $order->paid_amount, 2));
             }
         }
 
@@ -1173,6 +1182,10 @@ class DemoDataSeeder extends Seeder
                 'notes' => 'Historical cash paid for ' . $historicalOrder->reference,
                 'created_by' => $adminId,
             ]);
+
+            DB::table('suppliers')
+                ->where('id', $historicalOrder->supplier_id)
+                ->increment('current_balance', round((float) $historicalOrder->total_amount - (float) $historicalOrder->paid_amount, 2));
 
             $historicalExpense = Expense::create([
                 'expense_date' => $historyBaseDate->copy()->addMonths(2)->toDateString(),

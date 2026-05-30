@@ -283,6 +283,8 @@ class PurchaseOrderController extends Controller
                     $this->rollbackPurchaseOrderReceipt($purchaseOrder);
                 }
 
+                $this->reversePurchaseOrderPayableImpact($purchaseOrder);
+
                 AccountTransaction::query()
                     ->where('reference_type', 'PurchaseOrder')
                     ->where('reference_id', $purchaseOrder->id)
@@ -498,13 +500,24 @@ class PurchaseOrderController extends Controller
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $purchaseOrder->update([
-            'payment_status' => $validated['payment_status'],
-            'paid_amount' => $validated['paid_amount'] ?? 0,
-            'updated_by' => $request->user()->id,
-        ]);
+        DB::transaction(function () use ($purchaseOrder, $validated, $request) {
+            $purchaseOrder = PurchaseOrder::query()->lockForUpdate()->findOrFail($purchaseOrder->id);
+            $paidAmount = round((float) ($validated['paid_amount'] ?? 0), 2);
 
-        $this->syncPurchaseOrderAccounts($purchaseOrder, $request->user()->id);
+            if ($paidAmount > (float) $purchaseOrder->total_amount) {
+                throw ValidationException::withMessages([
+                    'paid_amount' => 'Paid amount cannot be greater than order total.',
+                ]);
+            }
+
+            $purchaseOrder->update([
+                'payment_status' => $validated['payment_status'],
+                'paid_amount' => $paidAmount,
+                'updated_by' => $request->user()->id,
+            ]);
+
+            $this->syncPurchaseOrderAccounts($purchaseOrder, $request->user()->id);
+        });
 
         return back()->with('success', 'Payment status updated successfully.');
     }
@@ -638,10 +651,16 @@ class PurchaseOrderController extends Controller
     // Keep the supplier bill and payment entries in one place so finance pages stay accurate.
     private function syncPurchaseOrderAccounts(PurchaseOrder $purchaseOrder, int $userId): void
     {
+        $this->reversePurchaseOrderPayableImpact($purchaseOrder);
+
         AccountTransaction::query()
             ->where('reference_type', 'PurchaseOrder')
             ->where('reference_id', $purchaseOrder->id)
             ->delete();
+
+        if ($purchaseOrder->status !== 'received') {
+            return;
+        }
 
         record_account_transaction([
             'transaction_date' => $purchaseOrder->order_date,
@@ -668,6 +687,8 @@ class PurchaseOrderController extends Controller
             'notes' => 'Purchase bill for ' . $purchaseOrder->reference,
             'created_by' => $userId,
         ]);
+
+        Supplier::adjustCurrentBalance($purchaseOrder->supplier_id, $this->purchaseOrderPayableImpact($purchaseOrder));
 
         if ((float) $purchaseOrder->paid_amount > 0) {
             record_account_transaction([
@@ -696,6 +717,30 @@ class PurchaseOrderController extends Controller
                 'created_by' => $userId,
             ]);
         }
+    }
+
+    private function reversePurchaseOrderPayableImpact(PurchaseOrder $purchaseOrder): void
+    {
+        $impact = $this->existingPayableImpact('PurchaseOrder', (int) $purchaseOrder->id);
+        Supplier::adjustCurrentBalance($purchaseOrder->supplier_id, -$impact);
+    }
+
+    private function purchaseOrderPayableImpact(PurchaseOrder $purchaseOrder): float
+    {
+        return round((float) $purchaseOrder->total_amount - (float) $purchaseOrder->paid_amount, 2);
+    }
+
+    private function existingPayableImpact(string $referenceType, int $referenceId): float
+    {
+        $baseQuery = AccountTransaction::query()
+            ->where('reference_type', $referenceType)
+            ->where('reference_id', $referenceId)
+            ->where('account_type', 'payable');
+
+        $credit = (clone $baseQuery)->where('entry_type', 'credit')->sum('amount');
+        $debit = (clone $baseQuery)->where('entry_type', 'debit')->sum('amount');
+
+        return round((float) $credit - (float) $debit, 2);
     }
 
     private function applyIndexFilters(Builder $query, array $filters): Builder

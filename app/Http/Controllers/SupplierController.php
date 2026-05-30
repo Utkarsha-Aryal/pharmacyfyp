@@ -90,7 +90,7 @@ class SupplierController extends Controller
                 $array[$i]["phone_number"] = $row->phone_number;
                 $array[$i]["email"] = $row->email;
                 $array[$i]["pan_number"] = $row->pan_number;
-                $array[$i]["opening_balance"] = $row->opening_balance;
+                $array[$i]["opening_balance"] = money_value($row->current_balance);
                 $array[$i]["added_date"] = Carbon::parse($row->created_at)->format('M j, Y');
                 $array[$i]["type"] = ucfirst($row->type);
 

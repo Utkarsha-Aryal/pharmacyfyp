@@ -191,22 +191,25 @@ class ImportController extends Controller
                 $validator->validate();
 
                 $supplier = $this->findImportSupplier($data);
+                $openingBalance = round((float) ($data['opening_balance'] ?? 0), 2);
                 $payload = [
                     'supplier_name' => $data['supplier_name'],
                     'contact_person' => $data['contact_person'] ?? null,
                     'phone_number' => $data['phone'] ?? null,
                     'email' => $data['email'] ?? null,
                     'pan_number' => $data['pan_number'] ?? null,
-                    'opening_balance' => $data['opening_balance'] ?? 0,
+                    'opening_balance' => $openingBalance,
                     'address' => $data['address'] ?? null,
                     'type' => $this->resolveSupplierType($data['type'] ?? null),
                     'status' => 'Y',
                 ];
 
                 if ($supplier) {
+                    $payload['current_balance'] = round((float) $supplier->current_balance + ($openingBalance - (float) $supplier->opening_balance), 2);
                     $supplier->update($payload);
                     $summary['updated']++;
                 } else {
+                    $payload['current_balance'] = $openingBalance;
                     Supplier::query()->create($payload);
                     $summary['imported']++;
                 }

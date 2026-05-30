@@ -11,6 +11,17 @@ class Supplier extends Model
 {
     protected $guarded = [];
 
+    protected $casts = [
+        'opening_balance' => 'float',
+        'current_balance' => 'float',
+    ];
+
+    // Keep supplier due readable like customer balance.
+    public function getBalanceAttribute(): float
+    {
+        return round((float) $this->current_balance, 2);
+    }
+
     // Direct purchase bills belong to one supplier.
     public function purchases()
     {
@@ -32,26 +43,32 @@ class Supplier extends Model
     public static function saveData($post)
     {
         try {
+            $openingBalance = round((float) ($post['opening_balance'] ?? 0), 2);
             $dataArray = [
-            'supplier_name'    => $post['supplier_name'],
-            'contact_person'   => $post['contact_person'],
-            'phone_number'     => $post['phone_number'],
-            'email'            => $post['email'],
-            'pan_number'       => $post['pan_number'],
-            'opening_balance'  => $post['opening_balance'],
-            'address'          => $post['address'],
-            'type'             => $post['type'],
+                'supplier_name' => $post['supplier_name'],
+                'contact_person' => $post['contact_person'] ?? null,
+                'phone_number' => $post['phone_number'] ?? null,
+                'email' => $post['email'] ?? null,
+                'pan_number' => $post['pan_number'] ?? null,
+                'opening_balance' => $openingBalance,
+                'address' => $post['address'] ?? null,
+                'type' => $post['type'] ?? 'credit',
             ];
             if (!empty($post['id'])) {
-            $dataArray['updated_at'] = now();
-            if (!Supplier::where('id', $post['id'])->update($dataArray)) {
-                throw new Exception("Couldn't update Records", 1);
-            }
+                $supplier = Supplier::query()->lockForUpdate()->findOrFail($post['id']);
+                $oldOpeningBalance = round((float) $supplier->opening_balance, 2);
+                $currentBalance = round((float) $supplier->current_balance, 2);
+                $dataArray['current_balance'] = round($currentBalance + ($openingBalance - $oldOpeningBalance), 2);
+                $dataArray['updated_at'] = now();
+                if (!$supplier->update($dataArray)) {
+                    throw new Exception("Couldn't update Records", 1);
+                }
             } else {
-            $dataArray['created_at'] = now();
-            if (!Supplier::insert($dataArray)) {
-                throw new Exception("Couldn't Save Records", 1);
-            }
+                $dataArray['current_balance'] = $openingBalance;
+                $dataArray['created_at'] = now();
+                if (!Supplier::insert($dataArray)) {
+                    throw new Exception("Couldn't Save Records", 1);
+                }
             }
             return true;
         } catch (Exception $e) {
@@ -71,7 +88,7 @@ class Supplier extends Model
                 0 => 'id',
                 1 => 'supplier_name',
                 2 => 'contact_person',
-                3 => 'opening_balance',
+                3 => 'current_balance',
                 4 => 'phone_number',
                 5 => 'created_at',
             ];
@@ -99,6 +116,7 @@ class Supplier extends Model
                     'email',
                     'pan_number',
                     'opening_balance',
+                    'current_balance',
                     'created_at',
                     'address',
                     'type',
@@ -137,6 +155,21 @@ class Supplier extends Model
     private static function searchValue(array $columns, int $index): string
     {
         return trim(strtolower((string) data_get($columns, $index . '.search.value', '')));
+    }
+
+    public static function adjustCurrentBalance(?int $supplierId, float $delta): void
+    {
+        if (!$supplierId || round($delta, 2) == 0.0) {
+            return;
+        }
+
+        $supplier = Supplier::query()->lockForUpdate()->find($supplierId);
+        if (!$supplier) {
+            return;
+        }
+
+        $supplier->current_balance = round((float) $supplier->current_balance + $delta, 2);
+        $supplier->save();
     }
 
     public static function restoreData($post)

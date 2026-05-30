@@ -18,7 +18,8 @@ return new class extends Migration
             $table->string('phone_number')->nullable();
             $table->string('email')->nullable();
             $table->string('pan_number')->nullable();
-            $table->string('opening_balance')->nullable();
+            $table->decimal('opening_balance', 12, 2)->default(0);
+            $table->decimal('current_balance', 12, 2)->default(0);
             $table->string('address')->nullable();
             $table->enum('type',['debit','credit'])->default('credit');
             $table->enum('status', ['Y', 'N'])->default('Y');

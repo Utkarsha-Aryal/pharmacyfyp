@@ -471,11 +471,14 @@ class PurchaseController extends Controller
         ProductBatch::query()->where('reference_id', $purchase->reference_id)->delete();
         PurchaseItem::query()->where('purchase_id', $purchase->id)->delete();
         StockMovement::query()->where('reference_type', 'Purchase')->where('reference_id', $purchase->id)->delete();
+        $this->reversePurchasePayableImpact($purchase);
         AccountTransaction::query()->where('reference_type', 'Purchase')->where('reference_id', $purchase->id)->delete();
     }
 
     private function syncPurchaseAccounts(Purchase $purchase, int $userId): void
     {
+        $this->reversePurchasePayableImpact($purchase);
+
         AccountTransaction::query()
             ->where('reference_type', 'Purchase')
             ->where('reference_id', $purchase->id)
@@ -506,6 +509,8 @@ class PurchaseController extends Controller
             'notes' => 'Purchase bill ' . ($purchase->reference?->reference_no ?: $purchase->id),
             'created_by' => $userId,
         ]);
+
+        Supplier::adjustCurrentBalance($purchase->supplier_id, $this->purchasePayableImpact($purchase));
 
         if ((float) $purchase->paid_amount <= 0) {
             return;
@@ -538,6 +543,30 @@ class PurchaseController extends Controller
             'notes' => 'Money paid for purchase bill ' . ($purchase->reference?->reference_no ?: $purchase->id),
             'created_by' => $userId,
         ]);
+    }
+
+    private function reversePurchasePayableImpact(Purchase $purchase): void
+    {
+        $impact = $this->existingPayableImpact('Purchase', (int) $purchase->id);
+        Supplier::adjustCurrentBalance($purchase->supplier_id, -$impact);
+    }
+
+    private function purchasePayableImpact(Purchase $purchase): float
+    {
+        return round((float) $purchase->grand_total - (float) $purchase->paid_amount, 2);
+    }
+
+    private function existingPayableImpact(string $referenceType, int $referenceId): float
+    {
+        $baseQuery = AccountTransaction::query()
+            ->where('reference_type', $referenceType)
+            ->where('reference_id', $referenceId)
+            ->where('account_type', 'payable');
+
+        $credit = (clone $baseQuery)->where('entry_type', 'credit')->sum('amount');
+        $debit = (clone $baseQuery)->where('entry_type', 'debit')->sum('amount');
+
+        return round((float) $credit - (float) $debit, 2);
     }
 
     private function purchaseFormRows(Purchase $purchase): array

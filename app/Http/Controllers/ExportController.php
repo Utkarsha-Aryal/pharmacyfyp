@@ -144,6 +144,7 @@ class ExportController extends Controller
                 'Phone' => $supplier->phone_number,
                 'Email' => $supplier->email,
                 'Opening Balance' => $supplier->opening_balance,
+                'Current Balance' => $supplier->current_balance,
                 'Type' => ucfirst((string) $supplier->type),
             ]);
 
@@ -162,7 +163,7 @@ class ExportController extends Controller
                 'Contact Person' => $supplier->contact_person ?: '-',
                 'Phone' => $supplier->phone_number ?: '-',
                 'Email' => $supplier->email ?: '-',
-                'Current Balance' => number_format((float) $supplier->opening_balance, 2),
+                'Current Balance' => number_format((float) $supplier->current_balance, 2),
                 'Type' => ucfirst((string) $supplier->type),
             ]);
 

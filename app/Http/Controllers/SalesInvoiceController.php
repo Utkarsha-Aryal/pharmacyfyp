@@ -1649,7 +1649,7 @@ class SalesInvoiceController extends Controller
                 'entry_type' => 'debit',
                 'account_type' => 'income',
                 'amount' => $refundAmount,
-                'notes' => 'Sales return #' . $salesReturn->id,
+                'notes' => 'Credit note issued for sales return #' . $salesReturn->id,
                 'created_by' => $request->user()->id,
             ]);
 
@@ -1663,7 +1663,7 @@ class SalesInvoiceController extends Controller
                     'entry_type' => 'credit',
                     'account_type' => 'receivable',
                     'amount' => $settlement['receivable_adjusted_amount'],
-                    'notes' => 'Sales return adjusted against customer due.',
+                    'notes' => 'Credit note adjusted against customer due.',
                     'created_by' => $request->user()->id,
                 ]);
             }
@@ -1678,7 +1678,7 @@ class SalesInvoiceController extends Controller
                     'entry_type' => 'credit',
                     'account_type' => 'payable',
                     'amount' => $settlement['pending_credit_amount'],
-                    'notes' => 'Pending customer refund credit.',
+                    'notes' => 'Credit note balance kept for customer.',
                     'created_by' => $request->user()->id,
                 ]);
             }

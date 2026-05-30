@@ -526,6 +526,8 @@ class PurchaseReturnController extends Controller
 
     private function syncPurchaseReturnAccounts(PurchaseReturn $purchaseReturn, float $returnTotal, int $userId): void
     {
+        $this->reversePurchaseReturnPayableImpact($purchaseReturn);
+
         AccountTransaction::query()
             ->where('reference_type', 'PurchaseReturn')
             ->where('reference_id', $purchaseReturn->id)
@@ -544,7 +546,7 @@ class PurchaseReturnController extends Controller
             'entry_type' => 'debit',
             'account_type' => 'payable',
             'amount' => round($returnTotal, 2),
-            'notes' => 'Purchase return reduced supplier payable.',
+            'notes' => 'Debit note reduced supplier payable.',
             'created_by' => $userId,
         ]);
 
@@ -557,13 +559,17 @@ class PurchaseReturnController extends Controller
             'entry_type' => 'credit',
             'account_type' => 'inventory',
             'amount' => round($returnTotal, 2),
-            'notes' => 'Inventory sent back to supplier.',
+            'notes' => 'Debit note inventory returned to supplier.',
             'created_by' => $userId,
         ]);
+
+        Supplier::adjustCurrentBalance($purchaseReturn->supplier_id, -round($returnTotal, 2));
     }
 
     private function deletePurchaseReturnRecords(PurchaseReturn $purchaseReturn): void
     {
+        $this->reversePurchaseReturnPayableImpact($purchaseReturn);
+
         \App\Models\StockMovement::query()
             ->where('reference_type', 'PurchaseReturn')
             ->where('reference_id', $purchaseReturn->id)
@@ -573,6 +579,25 @@ class PurchaseReturnController extends Controller
             ->where('reference_type', 'PurchaseReturn')
             ->where('reference_id', $purchaseReturn->id)
             ->delete();
+    }
+
+    private function reversePurchaseReturnPayableImpact(PurchaseReturn $purchaseReturn): void
+    {
+        $impact = $this->existingPayableImpact('PurchaseReturn', (int) $purchaseReturn->id);
+        Supplier::adjustCurrentBalance($purchaseReturn->supplier_id, -$impact);
+    }
+
+    private function existingPayableImpact(string $referenceType, int $referenceId): float
+    {
+        $baseQuery = AccountTransaction::query()
+            ->where('reference_type', $referenceType)
+            ->where('reference_id', $referenceId)
+            ->where('account_type', 'payable');
+
+        $credit = (clone $baseQuery)->where('entry_type', 'credit')->sum('amount');
+        $debit = (clone $baseQuery)->where('entry_type', 'debit')->sum('amount');
+
+        return round((float) $credit - (float) $debit, 2);
     }
 
     // Put the returned quantities back before an update so we can recalculate the new return cleanly.
