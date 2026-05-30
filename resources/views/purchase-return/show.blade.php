@@ -23,7 +23,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Purchase Return Details</h5>
-                <p class="mb-0 text-muted">Review returned rows, totals, and supplier details before printing or editing.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.purchase-returns.index') }}" class="btn btn-outline-secondary">
@@ -50,7 +49,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Supplier</p>
                         <h3 class="summary-card-value fs-18">{{ $purchaseReturn->supplier?->supplier_name ?? '-' }}</h3>
-                        <span class="summary-card-note">Return raised against supplier stock.</span>
                     </div>
                 </div>
             </div>
@@ -59,7 +57,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Return Mode</p>
                         <h3 class="summary-card-value fs-18"><span class="badge {{ $returnModeClass }}">{{ $returnModeLabel }}</span></h3>
-                        <span class="summary-card-note">Bill-linked or product-and-batch entry.</span>
                     </div>
                 </div>
             </div>
@@ -68,7 +65,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Items Returned</p>
                         <h3 class="summary-card-value">{{ number_format($totalQty, 0) }}</h3>
-                        <span class="summary-card-note">{{ $purchaseReturn->items->count() }} row(s) in this return.</span>
                     </div>
                 </div>
             </div>
@@ -77,7 +73,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Net Return</p>
                         <h3 class="summary-card-value">{{ money_value($netReturn) }}</h3>
-                        <span class="summary-card-note">Gross {{ money_value($grossReturn) }} less discount {{ money_value($discountTotal) }}.</span>
                     </div>
                 </div>
             </div>

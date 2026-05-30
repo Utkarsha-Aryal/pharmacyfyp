@@ -11,7 +11,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">New Purchase Bill</h5>
-                <p class="mb-0 text-muted">Save received supplier bill and create stock batch in the same step.</p>
             </div>
             <div class="d-flex my-xl-auto right-content">
                 <a href="{{ route('admin.purchase') }}" class="btn btn-outline-secondary">
@@ -80,7 +79,6 @@
                                     <option value="{{ $mode->id }}">{{ $mode->name }}</option>
                                 @endforeach
                             </select>
-                            <small class="text-muted d-block mt-1" id="purchasePaymentModeHelp">Optional until money is paid to the supplier.</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Remarks</label>
@@ -138,8 +136,7 @@
                                                 <option value="{{ $productItem->id }}">{{ $productItem->product_name }}</option>
                                             @endforeach
                                         </select>
-                                        <div class="d-flex justify-content-between align-items-center gap-2 mt-1">
-                                            <small class="text-muted d-block purchase-stock-note mb-0">Select product to auto fill MRP, CC rate and latest purchase rate.</small>
+                                        <div class="d-flex justify-content-end align-items-center gap-2 mt-1">
                                             @can('inventory.product')
                                                 <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickProductModal" data-quick-target-select="select.purchase-product-select">
                                                     <i class="fa-solid fa-plus"></i>
@@ -181,8 +178,7 @@
                                     <option value="{{ $productItem->id }}">{{ $productItem->product_name }}</option>
                                 @endforeach
                             </select>
-                                <div class="d-flex justify-content-between align-items-center gap-2 mt-1">
-                                    <small class="text-muted d-block purchase-stock-note mb-0">Select product to auto fill MRP, CC rate and latest purchase rate.</small>
+                                <div class="d-flex justify-content-end align-items-center gap-2 mt-1">
                                     @can('inventory.product')
                                         <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickProductModal" data-quick-target-select="select.purchase-product-select">
                                             <i class="fa-solid fa-plus"></i>

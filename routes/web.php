@@ -179,6 +179,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
             Route::post('/returns/store', [SalesInvoiceController::class, 'returnsStore'])->name('returns.store');
             Route::get('/returns/invoice-options', [SalesInvoiceController::class, 'returnInvoiceOptions'])->name('returns.invoice-options');
             Route::get('/returns/item-options', [SalesInvoiceController::class, 'returnItemOptions'])->name('returns.item-options');
+            Route::get('/returns/{salesReturn}', [SalesInvoiceController::class, 'returnsShow'])->name('returns.show');
             Route::get('/returns/{salesReturn}/edit', [SalesInvoiceController::class, 'returnsEdit'])->name('returns.edit');
             Route::post('/returns/{salesReturn}/update', [SalesInvoiceController::class, 'returnsUpdate'])->name('returns.update');
             Route::post('/returns/{salesReturn}/delete', [SalesInvoiceController::class, 'returnsDestroy'])->name('returns.delete');

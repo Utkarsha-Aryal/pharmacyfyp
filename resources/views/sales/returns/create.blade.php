@@ -11,7 +11,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Create Sales Return</h5>
-                <p class="mb-0 text-muted">Choose an invoice, add returned lines, and review refund totals before saving.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.sales.returns.index') }}" class="btn btn-outline-secondary">
@@ -29,7 +28,20 @@
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-xl-6">
+                        <div class="col-md-4">
+                            <label class="form-label">Return Mode</label>
+                            <div class="d-flex flex-wrap gap-3 pt-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="return_mode" id="salesReturnModeInvoice" value="invoice" checked>
+                                    <label class="form-check-label" for="salesReturnModeInvoice">By Invoice</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="return_mode" id="salesReturnModeCustomerProduct" value="customer_product">
+                                    <label class="form-check-label" for="salesReturnModeCustomerProduct">By Customer / Product</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-4 sales-return-invoice-field">
                             <label class="form-label">Sales Invoice</label>
                             <select
                                 name="sales_invoice_id"
@@ -53,6 +65,28 @@
                                 @else
                                     <option value=""></option>
                                 @endif
+                            </select>
+                        </div>
+                        <div class="col-xl-4 d-none sales-return-customer-field">
+                            <label class="form-label">Customer</label>
+                            <select
+                                name="customer_id"
+                                id="salesReturnCustomerSelect"
+                                class="form-select"
+                                data-placeholder="Search customer"
+                            >
+                                <option value=""></option>
+                            </select>
+                        </div>
+                        <div class="col-xl-4 d-none sales-return-customer-field">
+                            <label class="form-label">Product</label>
+                            <select
+                                name="product_id"
+                                id="salesReturnProductSelect"
+                                class="form-select"
+                                data-placeholder="All products"
+                            >
+                                <option value=""></option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -83,11 +117,6 @@
                             <label class="form-label">Notes</label>
                             <input type="text" name="notes" class="form-control" placeholder="Short note for staff or audit">
                         </div>
-                        <div class="col-12">
-                            <div class="alert alert-light border mb-0 small text-muted" id="salesReturnSettlementHelp">
-                                Stock is restored to inventory as soon as the return is saved. Paid refund uses the selected payment mode only for the part that must actually go out as cash or bank.
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -105,7 +134,7 @@
                                     @if ($selectedInvoice)
                                         {{ $selectedInvoice->customer?->name ?: 'Walk-in Customer' }} | {{ $selectedInvoice->invoice_date_show }}
                                     @else
-                                        Search an invoice to continue.
+                                        -
                                     @endif
                                 </div>
                             </div>
@@ -132,7 +161,6 @@
                 <div class="card-header justify-content-between">
                     <div>
                         <div class="card-title">Return Items</div>
-                        <small class="text-muted">Add invoice items row by row just like billing, then adjust discount or refund only where needed.</small>
                     </div>
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-outline-primary btn-sm" id="loadSalesReturnItems">
@@ -144,9 +172,6 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-light border return-pricing-note mb-3">
-                        <strong>Row pricing:</strong> Edit discount percent, discount amount, net rate, or refund amount. The rest of the row recalculates automatically.
-                    </div>
                     <div class="table-responsive">
                         <table class="table table-bordered align-middle purchase-item-table" id="salesReturnItemsTable">
                             <thead>
@@ -171,8 +196,8 @@
                                         <select name="items[0][sales_invoice_item_id]" class="form-select sales-return-item-select" data-placeholder="Search invoice item" required>
                                             <option value=""></option>
                                         </select>
-                                        <small class="text-muted d-block mt-1 sales-return-item-note">Search invoice item to fill batch, rate, discount and remaining quantity.</small>
-                                        <small class="text-muted d-block sales-return-pricing-note">Original invoice discount will appear here after item selection.</small>
+                                        <small class="text-muted d-block mt-1 sales-return-item-note"></small>
+                                        <small class="text-muted d-block sales-return-pricing-note"></small>
                                     </td>
                                     <td><span class="badge bg-light text-dark border sales-return-batch-label">-</span></td>
                                     <td><span class="badge bg-secondary sales-return-remaining-label">0</span></td>
@@ -216,8 +241,8 @@
                                 <select name="items[__INDEX__][sales_invoice_item_id]" class="form-select sales-return-item-select" data-placeholder="Search invoice item" required>
                                     <option value=""></option>
                                 </select>
-                                <small class="text-muted d-block mt-1 sales-return-item-note">Search invoice item to fill batch, rate, discount and remaining quantity.</small>
-                                <small class="text-muted d-block sales-return-pricing-note">Original invoice discount will appear here after item selection.</small>
+                                <small class="text-muted d-block mt-1 sales-return-item-note"></small>
+                                <small class="text-muted d-block sales-return-pricing-note"></small>
                             </td>
                             <td><span class="badge bg-light text-dark border sales-return-batch-label">-</span></td>
                             <td><span class="badge bg-secondary sales-return-remaining-label">0</span></td>
@@ -248,13 +273,19 @@
 @section('script')
     <script>
         $(function () {
+            var $modeInputs = $('input[name="return_mode"]');
             var $invoiceSelect = $('#salesReturnInvoiceSelect');
+            var $customerSelect = $('#salesReturnCustomerSelect');
+            var $productSelect = $('#salesReturnProductSelect');
             var $statusSelect = $('#salesReturnStatusSelect');
             var $paymentModeSelect = $('#salesReturnPaymentModeSelect');
-            var $settlementHelp = $('#salesReturnSettlementHelp');
             var $tableBody = $('#salesReturnItemsTable tbody');
             var $template = $('#salesReturnItemTemplate');
             var itemOptionsUrl = '{{ route('admin.sales.returns.item-options') }}';
+
+            function currentReturnMode() {
+                return $modeInputs.filter(':checked').val() || 'invoice';
+            }
 
             function currency(value) {
                 return '{{ currency_symbol() }} ' + (parseFloat(value || 0) || 0).toFixed(2);
@@ -283,14 +314,46 @@
             }
 
             function updateInvoiceSummary(data) {
+                if (currentReturnMode() === 'customer_product') {
+                    var customerName = $customerSelect.find('option:selected').text() || 'No customer selected';
+                    var productName = $productSelect.find('option:selected').text() || 'All products';
+
+                    $('#salesReturnInvoiceSummary').text(customerName);
+                    $('#salesReturnInvoiceMeta').text('Return by customer/product | ' + productName);
+                    return;
+                }
+
                 if (!data || !data.id) {
                     $('#salesReturnInvoiceSummary').text('No invoice selected');
-                    $('#salesReturnInvoiceMeta').text('Search an invoice to continue.');
+                    $('#salesReturnInvoiceMeta').text('-');
                     return;
                 }
 
                 $('#salesReturnInvoiceSummary').text(data.reference || 'Selected invoice');
                 $('#salesReturnInvoiceMeta').text((data.customer_name || 'Walk-in Customer') + ' | ' + (data.invoice_date || ''));
+            }
+
+            function sourceReady() {
+                return currentReturnMode() === 'invoice'
+                    ? Boolean($invoiceSelect.val())
+                    : Boolean($customerSelect.val());
+            }
+
+            function updateModeState(resetTable) {
+                var isInvoiceMode = currentReturnMode() === 'invoice';
+
+                $('.sales-return-invoice-field').toggleClass('d-none', !isInvoiceMode);
+                $('.sales-return-customer-field').toggleClass('d-none', isInvoiceMode);
+                $invoiceSelect.prop('disabled', !isInvoiceMode).prop('required', isInvoiceMode);
+                $customerSelect.prop('disabled', isInvoiceMode).prop('required', !isInvoiceMode);
+                $productSelect.prop('disabled', isInvoiceMode);
+                $invoiceSelect.add($customerSelect).add($productSelect).trigger('change.select2');
+                $('#loadSalesReturnItems, #addSalesReturnRow').prop('disabled', !sourceReady());
+                if (resetTable) {
+                    resetRows();
+                }
+
+                updateInvoiceSummary(currentInvoiceData());
             }
 
             function syncRefundStatusState(prefillFromInvoice) {
@@ -299,7 +362,6 @@
                 $paymentModeSelect.prop('disabled', !isPaid).trigger('change.select2');
 
                 if (!isPaid) {
-                    $settlementHelp.text('Stock is restored to inventory as soon as the return is saved. Pending credit keeps any remaining refund against the customer account without sending cash or bank money out now.');
                     return;
                 }
 
@@ -310,7 +372,6 @@
                     }
                 }
 
-                $settlementHelp.text('Stock is restored to inventory as soon as the return is saved. Paid refund uses the selected payment mode only for the part that must actually go out as cash or bank.');
             }
 
             function updateRowNumbers() {
@@ -346,8 +407,8 @@
                 $row.removeAttr('data-remaining-qty');
                 $row.find('.sales-return-batch-label').text('-');
                 $row.find('.sales-return-remaining-label').text('0');
-                $row.find('.sales-return-item-note').text('Search invoice item to fill batch, rate, discount and remaining quantity.');
-                $row.find('.sales-return-pricing-note').text('Original invoice discount will appear here after item selection.');
+                $row.find('.sales-return-item-note').text('');
+                $row.find('.sales-return-pricing-note').text('');
                 $row.find('.sales-return-qty-input, .sales-return-unit-price-input, .sales-return-discount-input, .sales-return-discount-amount-input, .sales-return-net-rate-input, .sales-return-refund-input').val('');
                 updateTotals();
             }
@@ -434,7 +495,9 @@
                         data: function (params) {
                             return {
                                 q: params.term || '',
-                                sales_invoice_id: $invoiceSelect.val() || ''
+                                sales_invoice_id: currentReturnMode() === 'invoice' ? ($invoiceSelect.val() || '') : '',
+                                customer_id: currentReturnMode() === 'customer_product' ? ($customerSelect.val() || '') : '',
+                                product_id: currentReturnMode() === 'customer_product' ? ($productSelect.val() || '') : ''
                             };
                         },
                         processResults: function (data) {
@@ -451,8 +514,8 @@
                 $row.attr('data-remaining-qty', remainingQty);
                 $row.find('.sales-return-batch-label').text(data.batch_number || '-');
                 $row.find('.sales-return-remaining-label').text(remainingQty.toFixed(0));
-                $row.find('.sales-return-item-note').text((data.product_name || 'Selected item') + ' | Batch ' + (data.batch_number || '-') + ' | Remaining ' + remainingQty.toFixed(0));
-                $row.find('.sales-return-pricing-note').text(data.original_pricing_note || 'Original invoice discount will appear here after item selection.');
+                $row.find('.sales-return-item-note').text((data.invoice_reference ? data.invoice_reference + ' | ' : '') + (data.product_name || 'Selected item') + ' | Batch ' + (data.batch_number || '-') + ' | Remaining ' + remainingQty.toFixed(0));
+                $row.find('.sales-return-pricing-note').text(data.original_pricing_note || '');
                 $row.find('.sales-return-qty-input').attr('max', remainingQty).val(remainingQty > 0 ? Math.min(1, remainingQty) : '');
                 $row.find('.sales-return-unit-price-input').val(safeNumber(data.unit_price || 0).toFixed(2));
                 $row.find('.sales-return-discount-input').val(safeNumber(data.discount_percent || 0).toFixed(2));
@@ -529,10 +592,48 @@
                 }
             });
 
+            $customerSelect.select2({
+                width: '100%',
+                placeholder: $customerSelect.data('placeholder') || 'Search customer',
+                allowClear: true,
+                minimumInputLength: 0,
+                ajax: {
+                    url: '{{ route('admin.sales.customer-options') }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return { q: params.term || '' };
+                    },
+                    processResults: function (data) {
+                        return data;
+                    },
+                    cache: true
+                }
+            });
+
+            $productSelect.select2({
+                width: '100%',
+                placeholder: $productSelect.data('placeholder') || 'All products',
+                allowClear: true,
+                minimumInputLength: 0,
+                ajax: {
+                    url: '{{ route('admin.sales.product-options') }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return { q: params.term || '' };
+                    },
+                    processResults: function (data) {
+                        return data;
+                    },
+                    cache: true
+                }
+            });
+
             initItemSelect($tableBody.find('.sales-return-item-select'));
 
             $(document).on('click', '#addSalesReturnRow', function () {
-                if (!$invoiceSelect.val()) {
+                if (!sourceReady()) {
                     return;
                 }
 
@@ -596,12 +697,14 @@
             });
 
             $(document).on('click', '#loadSalesReturnItems', function () {
-                if (!$invoiceSelect.val()) {
+                if (!sourceReady()) {
                     return;
                 }
 
                 $.get(itemOptionsUrl, {
-                    sales_invoice_id: $invoiceSelect.val()
+                    sales_invoice_id: currentReturnMode() === 'invoice' ? ($invoiceSelect.val() || '') : '',
+                    customer_id: currentReturnMode() === 'customer_product' ? ($customerSelect.val() || '') : '',
+                    product_id: currentReturnMode() === 'customer_product' ? ($productSelect.val() || '') : ''
                 }, function (response) {
                     var existingIds = selectedItemIds();
                     var availableItems = (response.results || []).filter(function (item) {
@@ -636,6 +739,7 @@
                 updateInvoiceSummary(event.params.data || null);
                 syncRefundStatusState(true);
                 resetRows();
+                updateModeState(false);
             });
 
             $invoiceSelect.on('change', function () {
@@ -645,12 +749,28 @@
                 }
 
                 syncRefundStatusState(true);
+                updateModeState(false);
+            });
+
+            $modeInputs.on('change', function () {
+                updateModeState(true);
+            });
+
+            $customerSelect.on('change select2:select select2:clear', function () {
+                resetRows();
+                updateModeState(false);
+            });
+
+            $productSelect.on('change select2:select select2:clear', function () {
+                resetRows();
+                updateModeState(false);
             });
 
             $statusSelect.on('change', function () {
                 syncRefundStatusState(true);
             });
 
+            updateModeState(false);
             updateInvoiceSummary(currentInvoiceData());
             syncRefundStatusState(false);
             updateTotals();

@@ -9,7 +9,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Purchase Bills</h5>
-                <p class="mb-0 text-muted">Direct supplier bills that create stock immediately after save.</p>
             </div>
             <div class="d-flex my-xl-auto right-content gap-2">
                 <a href="{{ route('admin.export.purchase', ['supplier_id' => $selectedSupplier, 'order_status' => $selectedOrderStatus]) }}" class="btn btn-outline-primary">
@@ -19,11 +18,6 @@
                     <i class="fa fa-plus"></i> New Bill Entry
                 </a>
             </div>
-        </div>
-
-        <div class="alert alert-primary border-0 soft-toolbar-btn mb-4">
-            <i class="fa-solid fa-circle-info me-2"></i>
-            Use <strong>Purchase Bills</strong> when stock is already received now. Use <strong>Purchase Orders</strong> when you want approval and receiving steps separately.
         </div>
 
         <form action="{{ route('admin.purchase') }}" method="GET" class="card custom-card filter-card mb-4">
@@ -125,7 +119,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Total Purchase</p>
                         <h3 class="summary-card-value">{{ $purchaseCount }}</h3>
-                        <span class="summary-card-note">Saved purchase bill count.</span>
                     </div>
                 </div>
             </div>
@@ -134,7 +127,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Grand Total</p>
                         <h3 class="summary-card-value">{{ number_format((float) $purchaseTotal, 2) }}</h3>
-                        <span class="summary-card-note">Total received amount.</span>
                     </div>
                 </div>
             </div>
@@ -143,7 +135,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Paid Amount</p>
                         <h3 class="summary-card-value">{{ number_format((float) $paidTotal, 2) }}</h3>
-                        <span class="summary-card-note">Payment already cleared.</span>
                     </div>
                 </div>
             </div>
@@ -152,7 +143,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Due Amount</p>
                         <h3 class="summary-card-value">{{ number_format((float) $dueTotal, 2) }}</h3>
-                        <span class="summary-card-note">Basic payable tracking.</span>
                     </div>
                 </div>
             </div>

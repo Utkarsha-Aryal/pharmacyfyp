@@ -3,7 +3,6 @@
         var $supplierSelect = $('#purchaseReturnSupplier');
         var $purchaseSelect = $('#purchaseReturnPurchase');
         var $modeInputs = $('input[name="return_mode"]');
-        var $modeHelp = $('#purchaseReturnModeHelp');
         var $itemsTbody = $('#purchaseReturnItemsTable tbody');
         var $loadBillButton = $('#purchaseReturnLoadBillItems');
         var $addManualButton = $('#purchaseReturnAddManualItem');
@@ -32,7 +31,7 @@
         function purchaseReturnPricingNote(row) {
             return row && row.original_pricing_note
                 ? row.original_pricing_note
-                : 'Original bill discount is unavailable in product mode. Set the return pricing manually.';
+                : '';
         }
 
         function hasDataRows() {
@@ -224,7 +223,6 @@
                     '<td class="purchase-return-row-number">' + (rowIndex + 1) + '</td>' +
                     '<td>' +
                         '<div class="fw-semibold">' + escapeHtml(row.product_name || '-') + '</div>' +
-                        '<small class="text-muted d-block">Loaded from the selected purchase bill.</small>' +
                         '<small class="text-muted d-block purchase-return-pricing-note">' + escapeHtml(purchaseReturnPricingNote(row)) + '</small>' +
                         '<input type="hidden" name="items[' + rowIndex + '][purchase_item_id]" value="' + escapeHtml(row.purchase_item_id || '') + '">' +
                         '<input type="hidden" name="items[' + rowIndex + '][product_id]" value="' + escapeHtml(row.product_id || '') + '">' +
@@ -278,7 +276,7 @@
 
             if (!(rows || []).length) {
                 $batchSelect.html('<option value="">No returnable batch found</option>').prop('disabled', true);
-                $row.find('.purchase-return-product-note').text(productName ? productName + ' has no returnable batch for this supplier.' : 'Choose product to load supplier batches for this row.');
+                $row.find('.purchase-return-product-note').text(productName ? productName + ' has no returnable batch for this supplier.' : '');
                 $row.find('.purchase-return-batch-badge').attr('class', 'badge purchase-return-batch-badge bg-danger').text('No valid batch found');
                 $row.find('.purchase-return-original-label').text('0');
                 $row.find('.purchase-return-returned-label').text('0');
@@ -295,7 +293,7 @@
                 $batchSelect.prop('selectedIndex', 1);
             }
 
-            $row.find('.purchase-return-product-note').text((productName || 'Selected product') + ' loaded with supplier batch options.');
+            $row.find('.purchase-return-product-note').text('');
             $row.find('.purchase-return-pricing-note').text(purchaseReturnPricingNote((rows || [])[0] || null));
             applyBatchState($row);
         }
@@ -333,13 +331,11 @@
                 $purchaseSelect.prop('disabled', true).prop('required', false);
                 $loadBillButton.prop('disabled', true);
                 $addManualButton.prop('disabled', false);
-                $modeHelp.text('Product mode is active. Add rows and choose product plus batch exactly like invoice entry.');
                 ensureManualModeHasRow();
             } else {
                 $purchaseSelect.prop('disabled', false);
                 $loadBillButton.prop('disabled', false);
                 $addManualButton.prop('disabled', true);
-                $modeHelp.text('Purchase bill mode is active. Choose one bill and load its returnable lines into the table.');
 
                 if (!hasDataRows()) {
                     resetItemsTable('Select a purchase bill to load returnable rows.');

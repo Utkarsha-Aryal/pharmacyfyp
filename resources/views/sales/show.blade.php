@@ -9,7 +9,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">{{ $invoice->reference }}</h5>
-                <p class="mb-0 text-muted">Review invoice details, payment status, and return history.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.sales.index') }}" class="btn btn-outline-secondary">
@@ -48,7 +47,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Total Amount</p>
                         <h3 class="summary-card-value">{{ money_value($invoice->total_amount) }}</h3>
-                        <span class="summary-card-note">Invoice total after line discount.</span>
                     </div>
                 </div>
             </div>
@@ -57,7 +55,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Paid Amount</p>
                         <h3 class="summary-card-value">{{ money_value($invoice->paid_amount) }}</h3>
-                        <span class="summary-card-note">Money already collected.</span>
                     </div>
                 </div>
             </div>
@@ -66,7 +63,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Due Amount</p>
                         <h3 class="summary-card-value">{{ money_value($invoice->due_amount) }}</h3>
-                        <span class="summary-card-note">Still pending from the party.</span>
                     </div>
                 </div>
             </div>
@@ -75,7 +71,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Payment</p>
                         <h3 class="summary-card-value">{{ $invoice->payment_label }}</h3>
-                        <span class="summary-card-note">{{ $invoice->sale_type_label }} sale with {{ $invoice->payment_method_label }} method.</span>
                     </div>
                 </div>
             </div>
@@ -192,7 +187,6 @@
                                             <option value="{{ $mode->id }}" @selected((int) $invoice->payment_mode_id === (int) $mode->id)>{{ $mode->name }}</option>
                                         @endforeach
                                     </select>
-                                    <small class="text-muted d-block mt-1">Required only when paid amount is more than zero.</small>
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label">Paid Amount</label>

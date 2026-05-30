@@ -12,7 +12,6 @@
     <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
         <div class="my-auto">
             <h5 class="page-title fs-21 mb-1">{{ $pageHeading }}</h5>
-            <p class="mb-0 text-muted">{{ $pageDescription }}</p>
         </div>
         <div class="d-flex gap-2 mt-3 mt-md-0">
             <a href="{{ route('admin.purchase-returns.index') }}" class="btn btn-outline-secondary">
@@ -75,21 +74,13 @@
                             @endif
                         </select>
                     </div>
-                    <div class="col-md-6">
-                        <div class="alert alert-light border mb-0 small text-muted h-100 d-flex align-items-center" id="purchaseReturnModeHelp">
-                            Purchase bill mode loads all returnable lines from one bill. Product mode lets you add rows one by one like invoice entry when the bill is not known.
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
 
         <div class="card custom-card">
             <div class="card-header justify-content-between">
-                <div>
-                    <div class="card-title">Return Items</div>
-                    <small class="text-muted">Bill mode loads purchase lines. Product mode adds rows the same way as invoice entry.</small>
-                </div>
+                <div class="card-title">Return Items</div>
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-primary btn-sm" id="purchaseReturnLoadBillItems">
                         <i class="fa-solid fa-file-invoice"></i> Load Bill Items
@@ -100,9 +91,6 @@
                 </div>
             </div>
             <div class="card-body">
-                <div class="alert alert-light border return-pricing-note mb-3">
-                    <strong>Row pricing:</strong> Edit discount percent, discount amount, or net rate. Return amount updates automatically for each row.
-                </div>
                 <div class="table-responsive">
                     <table class="table table-bordered align-middle purchase-item-table" id="purchaseReturnItemsTable">
                         <thead>
@@ -133,8 +121,7 @@
                                     <td>
                                         @if ($isBillRow)
                                             <div class="fw-semibold">{{ $row['product_name'] }}</div>
-                                            <small class="text-muted d-block">Loaded from the selected purchase bill.</small>
-                                            <small class="text-muted d-block purchase-return-pricing-note">{{ $row['original_pricing_note'] ?? 'Original bill pricing will appear here.' }}</small>
+                                            <small class="text-muted d-block purchase-return-pricing-note">{{ $row['original_pricing_note'] ?? '' }}</small>
                                             <input type="hidden" name="items[{{ $index }}][purchase_item_id]" value="{{ $row['purchase_item_id'] }}">
                                             <input type="hidden" name="items[{{ $index }}][product_id]" value="{{ $row['product_id'] }}">
                                         @else
@@ -142,8 +129,8 @@
                                             <select name="items[{{ $index }}][product_id]" class="form-select js-select2-ajax purchase-return-product-select" data-ajax-url="{{ route('admin.purchase.product-options') }}" data-placeholder="Search product" data-allow-clear="1">
                                                 <option value="{{ $row['product_id'] }}">{{ $row['product_name'] }}</option>
                                             </select>
-                                            <small class="text-muted d-block mt-1 purchase-return-product-note">Change product to refresh supplier batches for this row.</small>
-                                            <small class="text-muted d-block purchase-return-pricing-note">{{ $row['original_pricing_note'] ?? 'Original bill discount is unavailable in product mode. Set the return pricing manually.' }}</small>
+                                            <small class="text-muted d-block mt-1 purchase-return-product-note"></small>
+                                            <small class="text-muted d-block purchase-return-pricing-note">{{ $row['original_pricing_note'] ?? '' }}</small>
                                         @endif
                                     </td>
                                     <td>
@@ -221,8 +208,8 @@
                             <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax purchase-return-product-select" data-ajax-url="{{ route('admin.purchase.product-options') }}" data-placeholder="Search product" data-allow-clear="1">
                                 <option value=""></option>
                             </select>
-                            <small class="text-muted d-block mt-1 purchase-return-product-note">Choose product to load supplier batches for this row.</small>
-                            <small class="text-muted d-block purchase-return-pricing-note">Original bill discount is unavailable in product mode. Set the return pricing manually.</small>
+                            <small class="text-muted d-block mt-1 purchase-return-product-note"></small>
+                            <small class="text-muted d-block purchase-return-pricing-note"></small>
                         </td>
                         <td>
                             <div class="d-flex flex-column gap-1">

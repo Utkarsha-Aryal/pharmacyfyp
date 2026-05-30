@@ -9,7 +9,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">{{ $order->reference }}</h5>
-                <p class="mb-0 text-muted">Order detail, approval status and payment update.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.purchase-orders.index') }}" class="btn btn-outline-secondary">
@@ -33,7 +32,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Supplier</p>
                         <h3 class="summary-card-text">{{ $order->supplier?->supplier_name ?? '-' }}</h3>
-                        <span class="summary-card-note">Ordered by {{ $order->orderedBy?->name ?? '-' }}.</span>
                     </div>
                 </div>
             </div>
@@ -42,7 +40,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Status</p>
                         <h3 class="summary-card-text">{{ $order->status_label }}</h3>
-                        <span class="summary-card-note">Current workflow state.</span>
                     </div>
                 </div>
             </div>
@@ -51,7 +48,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Payment</p>
                         <h3 class="summary-card-text">{{ $order->payment_label }}</h3>
-                        <span class="summary-card-note">Paid amount {{ number_format((float) $order->paid_amount, 2) }}.</span>
                     </div>
                 </div>
             </div>
@@ -60,7 +56,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Due</p>
                         <h3 class="summary-card-text">{{ number_format((float) $order->outstanding_amount, 2) }}</h3>
-                        <span class="summary-card-note">Outstanding payable.</span>
                     </div>
                 </div>
             </div>

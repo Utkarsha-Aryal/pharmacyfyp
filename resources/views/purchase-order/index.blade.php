@@ -9,7 +9,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Purchase Orders</h5>
-                <p class="mb-0 text-muted">Pending, approved, received and payment tracking in one place.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.export.purchase-orders', request()->query()) }}" class="btn btn-outline-primary">
@@ -27,7 +26,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Pending Orders</p>
                         <h3 class="summary-card-value">{{ $summary['pending'] }}</h3>
-                        <span class="summary-card-note">Waiting for approval.</span>
                     </div>
                 </div>
             </div>
@@ -36,7 +34,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Approved Orders</p>
                         <h3 class="summary-card-value">{{ $summary['approved'] }}</h3>
-                        <span class="summary-card-note">Ready to receive goods.</span>
                     </div>
                 </div>
             </div>
@@ -45,7 +42,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Received Orders</p>
                         <h3 class="summary-card-value">{{ $summary['received'] }}</h3>
-                        <span class="summary-card-note">Already entered in stock.</span>
                     </div>
                 </div>
             </div>
@@ -54,7 +50,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">This Month Value</p>
                         <h3 class="summary-card-value">{{ number_format((float) $summary['this_month'], 2) }}</h3>
-                        <span class="summary-card-note">All time total is {{ number_format((float) $summary['all_time'], 2) }}.</span>
                     </div>
                 </div>
             </div>

@@ -9,12 +9,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Create Purchase Order</h5>
-                <p class="mb-0 text-muted">
-                    Add supplier items first and receive them later after approval.
-                    <span class="ms-2 text-muted">
-                        <i class="fa-solid fa-keyboard me-1"></i>Ctrl+Shift+A add row, Ctrl+Enter save
-                    </span>
-                </p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.purchase-orders.index') }}" class="btn btn-outline-secondary">

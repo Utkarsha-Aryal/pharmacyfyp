@@ -132,10 +132,7 @@ class SalesInvoiceController extends Controller
                 : ($return->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance');
             $action = '<div class="table-action-group">';
 
-            if (auth()->user()->can('sales.invoice')) {
-                $action .= '<a href="' . route('admin.sales.show', $return->sales_invoice_id) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="Open Invoice" aria-label="Open Invoice"><i class="fa-solid fa-eye"></i></a>';
-            }
-
+            $action .= '<a href="' . route('admin.sales.returns.show', $return) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Return" aria-label="View Return"><i class="fa-solid fa-eye"></i></a>';
             $action .= '<a href="' . route('admin.sales.returns.edit', $return) . '" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Return" aria-label="Edit Return"><i class="fa-solid fa-pen-to-square"></i></a>';
             $action .= '<form action="' . route('admin.sales.returns.delete', $return) . '" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete sales return?" data-confirm-text="This will remove the return and take the stock back out of inventory." data-confirm-button="Yes, delete it">';
             $action .= '<input type="hidden" name="_token" value="' . csrf_token() . '">';
@@ -182,7 +179,14 @@ class SalesInvoiceController extends Controller
     public function returnsStore(Request $request)
     {
         $validated = $request->validate([
-            'sales_invoice_id' => ['required', 'exists:sales_invoices,id'],
+            'return_mode' => ['nullable', Rule::in(['invoice', 'customer_product'])],
+            'sales_invoice_id' => ['nullable', 'exists:sales_invoices,id'],
+            'customer_id' => [
+                'nullable',
+                'exists:customers,id',
+                Rule::requiredIf(fn () => !$request->filled('sales_invoice_id')),
+            ],
+            'product_id' => ['nullable', 'exists:products,id'],
             'return_date' => ['required', 'date'],
             'refund_status' => ['required', Rule::in(['pending', 'paid'])],
             'payment_mode_id' => [
@@ -214,7 +218,8 @@ class SalesInvoiceController extends Controller
         DB::transaction(function () use ($rows, $validated, $request) {
             foreach ($rows as $row) {
                 $this->saveSalesReturnValidated([
-                    'sales_invoice_id' => $validated['sales_invoice_id'],
+                    'sales_invoice_id' => $validated['sales_invoice_id'] ?? null,
+                    'customer_id' => $validated['customer_id'] ?? null,
                     'sales_invoice_item_id' => $row['sales_invoice_item_id'],
                     'return_date' => $validated['return_date'],
                     'quantity' => $row['quantity'],
@@ -234,6 +239,16 @@ class SalesInvoiceController extends Controller
         return redirect()->route('admin.sales.returns.index')->with('success', 'Sales return saved successfully.');
     }
 
+    // Show one sales return with the same plain detail layout as purchase returns.
+    public function returnsShow(SalesReturn $salesReturn)
+    {
+        $salesReturn->load(['invoice.customer', 'invoiceItem', 'product', 'batch', 'creator', 'paymentMode']);
+
+        return view('sales.returns.show', [
+            'salesReturn' => $salesReturn,
+        ]);
+    }
+
     // Open the edit screen with the current return already selected.
     public function returnsEdit(SalesReturn $salesReturn)
     {
@@ -247,7 +262,14 @@ class SalesInvoiceController extends Controller
     {
         if ($request->has('items')) {
             $validated = $request->validate([
-                'sales_invoice_id' => ['required', 'exists:sales_invoices,id'],
+                'return_mode' => ['nullable', Rule::in(['invoice', 'customer_product'])],
+                'sales_invoice_id' => ['nullable', 'exists:sales_invoices,id'],
+                'customer_id' => [
+                    'nullable',
+                    'exists:customers,id',
+                    Rule::requiredIf(fn () => !$request->filled('sales_invoice_id')),
+                ],
+                'product_id' => ['nullable', 'exists:products,id'],
                 'return_date' => ['required', 'date'],
                 'refund_status' => ['required', Rule::in(['pending', 'paid'])],
                 'payment_mode_id' => [
@@ -281,7 +303,8 @@ class SalesInvoiceController extends Controller
 
                 foreach ($rows as $row) {
                     $this->saveSalesReturnValidated([
-                        'sales_invoice_id' => $validated['sales_invoice_id'],
+                        'sales_invoice_id' => $validated['sales_invoice_id'] ?? null,
+                        'customer_id' => $validated['customer_id'] ?? null,
                         'sales_invoice_item_id' => $row['sales_invoice_item_id'],
                         'return_date' => $validated['return_date'],
                         'quantity' => $row['quantity'],
@@ -358,28 +381,44 @@ class SalesInvoiceController extends Controller
     public function returnItemOptions(Request $request)
     {
         $validated = $request->validate([
-            'sales_invoice_id' => ['required', 'exists:sales_invoices,id'],
+            'sales_invoice_id' => ['nullable', 'exists:sales_invoices,id'],
+            'customer_id' => ['nullable', 'exists:customers,id'],
+            'product_id' => ['nullable', 'exists:products,id'],
             'sales_return_id' => ['nullable', 'exists:sales_returns,id'],
         ]);
 
-        $invoice = SalesInvoice::query()->findOrFail($validated['sales_invoice_id']);
         $editingReturn = !empty($validated['sales_return_id'])
             ? SalesReturn::query()->findOrFail($validated['sales_return_id'])
             : null;
 
-        if ($editingReturn && (int) $editingReturn->sales_invoice_id !== (int) $invoice->id) {
-            $editingReturn = null;
-        }
-
         $keyword = trim((string) $request->input('q'));
 
-        $items = collect($this->buildSalesReturnItemOptions($invoice, $editingReturn))
+        if (!empty($validated['sales_invoice_id'])) {
+            $invoice = SalesInvoice::query()->findOrFail($validated['sales_invoice_id']);
+
+            if ($editingReturn && (int) $editingReturn->sales_invoice_id !== (int) $invoice->id) {
+                $editingReturn = null;
+            }
+
+            $options = $this->buildSalesReturnItemOptions($invoice, $editingReturn);
+        } elseif (!empty($validated['customer_id'])) {
+            $options = $this->buildSalesReturnCustomerItemOptions(
+                (int) $validated['customer_id'],
+                !empty($validated['product_id']) ? (int) $validated['product_id'] : null,
+                $editingReturn
+            );
+        } else {
+            $options = [];
+        }
+
+        $items = collect($options)
             ->when($keyword !== '', function ($collection) use ($keyword) {
                 return $collection->filter(function (array $row) use ($keyword) {
                     $haystack = implode(' ', [
                         $row['text'] ?? '',
                         $row['product_name'] ?? '',
                         $row['batch_number'] ?? '',
+                        $row['invoice_reference'] ?? '',
                     ]);
 
                     return Str::contains(Str::lower($haystack), Str::lower($keyword));
@@ -915,6 +954,7 @@ class SalesInvoiceController extends Controller
                 ? ($returnItem->payment_mode_label ?: 'Paid out')
                 : ($returnItem->pending_credit_amount > 0 ? 'Pending customer credit' : 'Adjusted against balance');
             $action = '<div class="table-action-group">';
+            $action .= '<a href="' . route('admin.sales.returns.show', $returnItem) . '" class="btn btn-sm btn-outline-primary table-action-btn" title="View Return"><i class="fa-solid fa-eye"></i></a>';
             $action .= '<a href="' . route('admin.sales.returns.edit', $returnItem) . '" class="btn btn-sm btn-outline-warning table-action-btn" title="Edit Return"><i class="fa-solid fa-pen-to-square"></i></a>';
             $action .= '<form action="' . route('admin.sales.returns.delete', $returnItem) . '" method="POST" class="d-inline js-confirm-submit" data-confirm-title="Delete sales return?" data-confirm-text="This will remove the return and take the stock back out of inventory." data-confirm-button="Yes, delete it">';
             $action .= csrf_field();
@@ -1137,10 +1177,6 @@ class SalesInvoiceController extends Controller
 
     private function saveSalesReturnValidated(array $validated, Request $request, ?SalesReturn $existingReturn = null): SalesReturn
     {
-            $salesInvoice = SalesInvoice::query()
-                ->with('customer')
-                ->findOrFail($validated['sales_invoice_id']);
-
             if ($existingReturn) {
                 $existingReturn->load(['invoice.customer', 'invoiceItem.batch']);
                 $this->rollbackSalesReturnEffects($existingReturn);
@@ -1148,9 +1184,21 @@ class SalesInvoiceController extends Controller
             }
 
             $invoiceItem = SalesInvoiceItem::query()
-                ->with(['product', 'batch'])
-                ->where('sales_invoice_id', $salesInvoice->id)
+                ->with(['invoice.customer', 'product', 'batch'])
                 ->findOrFail($validated['sales_invoice_item_id']);
+            $salesInvoice = $invoiceItem->invoice;
+
+            if (!empty($validated['sales_invoice_id']) && (int) $validated['sales_invoice_id'] !== (int) $salesInvoice->id) {
+                throw ValidationException::withMessages([
+                    'sales_invoice_id' => 'Selected return item does not belong to the selected invoice.',
+                ]);
+            }
+
+            if (!empty($validated['customer_id']) && (int) $validated['customer_id'] !== (int) $salesInvoice->customer_id) {
+                throw ValidationException::withMessages([
+                    'customer_id' => 'Selected return item does not belong to the selected customer.',
+                ]);
+            }
 
             $returnQty = round((float) $validated['quantity'], 2);
             $alreadyReturnedQty = (float) SalesReturn::query()
@@ -1520,48 +1568,80 @@ class SalesInvoiceController extends Controller
         $invoice->loadMissing(['customer', 'items.product', 'items.batch']);
 
         return $invoice->items
-            ->map(function (SalesInvoiceItem $item) use ($invoice, $editingReturn) {
-                $alreadyReturnedQty = (float) SalesReturn::query()
-                    ->where('sales_invoice_item_id', $item->id)
-                    ->when($editingReturn, function (Builder $query) use ($editingReturn) {
-                        $query->where('id', '!=', $editingReturn->id);
-                    })
-                    ->sum('quantity');
-                $remainingQty = max(0, round((float) $item->quantity - $alreadyReturnedQty, 2));
-                $netRate = (float) $item->quantity > 0
-                    ? round((float) $item->subtotal / (float) $item->quantity, 2)
-                    : round((float) $item->unit_price, 2);
-                $perUnitDiscount = (float) $item->quantity > 0
-                    ? round((float) $item->discount_amount / (float) $item->quantity, 4)
-                    : 0;
-                $isSelectedItem = $editingReturn && (int) $editingReturn->sales_invoice_item_id === (int) $item->id;
-
-                if ($isSelectedItem) {
-                    $remainingQty = round($remainingQty + (float) $editingReturn->quantity, 2);
-                }
-
-                return [
-                    'id' => $item->id,
-                    'text' => ($item->product?->display_name ?? '-') . ' | Batch ' . ($item->batch?->batch_number ?: '-') . ' | Remaining ' . number_format($remainingQty, 0),
-                    'product_name' => $item->product?->display_name ?? '-',
-                    'batch_number' => $item->batch?->batch_number ?: '-',
-                    'remaining_qty' => $remainingQty,
-                    'discount_percent' => round((float) $item->discount_percent, 2),
-                    'unit_price' => round((float) $item->unit_price, 2),
-                    'net_rate' => $netRate,
-                    'per_unit_discount' => round($perUnitDiscount, 2),
-                    'original_pricing_note' => 'Original invoice: ' . number_format((float) $item->discount_percent, 2) . '% | Disc/unit ' . money_value((float) round($perUnitDiscount, 2)) . ' | Net ' . money_value($netRate),
-                    'invoice_reference' => $invoice->reference,
-                    'customer_name' => $invoice->customer?->name ?: 'Walk-in Customer',
-                    'invoice_date' => $invoice->invoice_date_show,
-                ];
-            })
+            ->map(fn (SalesInvoiceItem $item) => $this->formatSalesReturnItemOption($item, $item->invoice ?: $invoice, $editingReturn))
             ->filter(function (array $row) use ($editingReturn) {
                 return $row['remaining_qty'] > 0
                     || ($editingReturn && (int) $editingReturn->sales_invoice_item_id === (int) $row['id']);
             })
             ->values()
             ->all();
+    }
+
+    // Let staff find returnable rows by customer/product when the invoice number is unknown.
+    private function buildSalesReturnCustomerItemOptions(int $customerId, ?int $productId = null, ?SalesReturn $editingReturn = null): array
+    {
+        return SalesInvoiceItem::query()
+            ->with(['invoice.customer', 'product', 'batch'])
+            ->whereHas('invoice', function (Builder $query) use ($customerId) {
+                $query->where('customer_id', $customerId)
+                    ->where('status', 'confirmed');
+            })
+            ->when($productId, function (Builder $query) use ($productId) {
+                $query->where('product_id', $productId);
+            })
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->map(fn (SalesInvoiceItem $item) => $this->formatSalesReturnItemOption($item, $item->invoice, $editingReturn, true))
+            ->filter(function (array $row) use ($editingReturn) {
+                return $row['remaining_qty'] > 0
+                    || ($editingReturn && (int) $editingReturn->sales_invoice_item_id === (int) $row['id']);
+            })
+            ->values()
+            ->all();
+    }
+
+    private function formatSalesReturnItemOption(SalesInvoiceItem $item, SalesInvoice $invoice, ?SalesReturn $editingReturn = null, bool $includeInvoiceInText = false): array
+    {
+        $alreadyReturnedQty = (float) SalesReturn::query()
+            ->where('sales_invoice_item_id', $item->id)
+            ->when($editingReturn, function (Builder $query) use ($editingReturn) {
+                $query->where('id', '!=', $editingReturn->id);
+            })
+            ->sum('quantity');
+        $remainingQty = max(0, round((float) $item->quantity - $alreadyReturnedQty, 2));
+        $netRate = (float) $item->quantity > 0
+            ? round((float) $item->subtotal / (float) $item->quantity, 2)
+            : round((float) $item->unit_price, 2);
+        $perUnitDiscount = (float) $item->quantity > 0
+            ? round((float) $item->discount_amount / (float) $item->quantity, 4)
+            : 0;
+        $isSelectedItem = $editingReturn && (int) $editingReturn->sales_invoice_item_id === (int) $item->id;
+
+        if ($isSelectedItem) {
+            $remainingQty = round($remainingQty + (float) $editingReturn->quantity, 2);
+        }
+
+        $productName = $item->product?->display_name ?? '-';
+        $batchNumber = $item->batch?->batch_number ?: '-';
+        $prefix = $includeInvoiceInText ? ($invoice->reference . ' | ') : '';
+
+        return [
+            'id' => $item->id,
+            'sales_invoice_id' => $invoice->id,
+            'text' => $prefix . $productName . ' | Batch ' . $batchNumber . ' | Remaining ' . number_format($remainingQty, 0),
+            'product_name' => $productName,
+            'batch_number' => $batchNumber,
+            'remaining_qty' => $remainingQty,
+            'discount_percent' => round((float) $item->discount_percent, 2),
+            'unit_price' => round((float) $item->unit_price, 2),
+            'net_rate' => $netRate,
+            'per_unit_discount' => round($perUnitDiscount, 2),
+            'original_pricing_note' => 'Original invoice ' . $invoice->reference . ': ' . number_format((float) $item->discount_percent, 2) . '% | Disc/unit ' . money_value((float) round($perUnitDiscount, 2)) . ' | Net ' . money_value($netRate),
+            'invoice_reference' => $invoice->reference,
+            'customer_name' => $invoice->customer?->name ?: 'Walk-in Customer',
+            'invoice_date' => $invoice->invoice_date_show,
+        ];
     }
 
     // Read basic company details from settings so invoice copy still looks proper with fallback values.

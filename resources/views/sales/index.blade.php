@@ -9,7 +9,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Sales Invoice</h5>
-                <p class="mb-0 text-muted">Retail billing, wholesale, credit sales and return tracking.</p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.sales.create') }}" class="btn btn-primary">
@@ -24,7 +23,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">This Month</p>
                         <h3 class="summary-card-value">{{ money_value($summary['this_month']) }}</h3>
-                        <span class="summary-card-note">Invoice value for this month.</span>
                     </div>
                 </div>
             </div>
@@ -33,7 +31,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">All Time</p>
                         <h3 class="summary-card-value">{{ money_value($summary['all_time']) }}</h3>
-                        <span class="summary-card-note">Complete sales value together.</span>
                     </div>
                 </div>
             </div>
@@ -42,7 +39,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Receivable</p>
                         <h3 class="summary-card-value">{{ money_value($summary['receivable']) }}</h3>
-                        <span class="summary-card-note">Still pending from customers.</span>
                     </div>
                 </div>
             </div>
@@ -51,7 +47,6 @@
                     <div class="card-body">
                         <p class="summary-card-label">Credit Sales</p>
                         <h3 class="summary-card-value">{{ $summary['credit'] }}</h3>
-                        <span class="summary-card-note">Invoices created on credit.</span>
                     </div>
                 </div>
             </div>

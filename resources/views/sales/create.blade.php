@@ -11,12 +11,6 @@
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div class="my-auto">
                 <h5 class="page-title fs-21 mb-1">Create Sales Invoice</h5>
-                <p class="mb-0 text-muted">
-                    One invoice can handle retail, wholesale and credit sales from the same form.
-                    <span class="ms-2 text-muted">
-                        <i class="fa-solid fa-keyboard me-1"></i>Ctrl+Shift+A add row, Ctrl+Enter save
-                    </span>
-                </p>
             </div>
             <div class="d-flex gap-2 mt-3 mt-md-0">
                 <a href="{{ route('admin.sales.index') }}" class="btn btn-outline-secondary">
@@ -72,7 +66,6 @@
                                     <option value="{{ $mode->id }}">{{ $mode->name }}</option>
                                 @endforeach
                             </select>
-                            <small class="text-muted d-block mt-1" id="salesPaymentModeHelp">Optional until money is received. Leave blank for credit or unpaid invoices.</small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label d-flex justify-content-between align-items-center">
@@ -103,7 +96,6 @@
                 <div class="card-header justify-content-between">
                     <div>
                         <div class="card-title">Billing Items</div>
-                        <small class="text-muted">Free goods use product CC rate. Net payable is subtotal minus discount only.</small>
                     </div>
                     <div class="d-flex gap-2">
                         @can('inventory.product')
@@ -142,8 +134,7 @@
                                         <select name="items[0][product_id]" class="form-select js-select2-ajax sales-product-select" data-ajax-url="{{ route('admin.sales.product-options') }}" data-product-info-url="{{ route('admin.sales.product-info') }}" data-placeholder="Search product" required>
                                             <option value=""></option>
                                         </select>
-                                        <div class="d-flex justify-content-between align-items-center gap-2 mt-1">
-                                            <small class="text-muted d-block sales-stock-note mb-0">Select product to auto fill price, MRP, CC and stock.</small>
+                                        <div class="d-flex justify-content-end align-items-center gap-2 mt-1">
                                             @can('inventory.product')
                                                 <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickProductModal" data-quick-target-select="select.sales-product-select">
                                                     <i class="fa-solid fa-plus"></i>
@@ -219,8 +210,7 @@
                     <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax sales-product-select" data-ajax-url="{{ route('admin.sales.product-options') }}" data-product-info-url="{{ route('admin.sales.product-info') }}" data-placeholder="Search product" required>
                         <option value=""></option>
                     </select>
-                    <div class="d-flex justify-content-between align-items-center gap-2 mt-1">
-                        <small class="text-muted d-block sales-stock-note mb-0">Select product to auto fill price, MRP, CC and stock.</small>
+                    <div class="d-flex justify-content-end align-items-center gap-2 mt-1">
                         @can('inventory.product')
                             <button type="button" class="btn btn-sm btn-outline-primary quick-add-inline-btn js-open-quick-create" data-quick-modal="#quickProductModal" data-quick-target-select="select.sales-product-select">
                                 <i class="fa-solid fa-plus"></i>
