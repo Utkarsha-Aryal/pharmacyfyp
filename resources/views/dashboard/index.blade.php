@@ -5,25 +5,54 @@
 @endsection
 
 @section('main-content')
+<!-- roles and perssion to check if current user can access  -->
     @php
+        // Get the authenticated user
         $currentUser = auth()->user();
+        
+        // Check inventory-related permissions (inventory.view, inventory.product, inventory.batch, inventory.adjustment)
         $canInventoryView = $currentUser?->can('inventory.view') || $currentUser?->can('inventory.product') || $currentUser?->can('inventory.batch') || $currentUser?->can('inventory.adjustment');
+        
+        // Check purchase-related permissions (purchase.orders, purchase.entry, purchase.supplier)
         $canPurchaseView = $currentUser?->can('purchase.orders') || $currentUser?->can('purchase.entry') || $currentUser?->can('purchase.supplier');
+        
+        // Check sales-related permissions (sales.invoice, sales.payment, sales.return)
         $canSalesView = $currentUser?->can('sales.invoice') || $currentUser?->can('sales.payment') || $currentUser?->can('sales.return');
+        
+        // Check report-related permissions (report.low_stock, report.expiry, report.purchases, report.suppliers)
         $canReportView = $currentUser?->can('report.low_stock') || $currentUser?->can('report.expiry') || $currentUser?->can('report.purchases') || $currentUser?->can('report.suppliers');
+        
+        // Check user management permission
         $canUserManage = $currentUser?->can('user.manage');
+        
+        // Show analytics tab if user has sales permissions
         $showAnalyticsTab = $canSalesView;
+        
+        // Show alerts tab if user has inventory or report permissions
         $showAlertsTab = $canInventoryView || $canReportView;
+        
+        // Show revenue toggle if user has both purchase and sales permissions
         $showHeroRevenueToggle = $canPurchaseView && $canSalesView;
+        
+        // Define dashboard card data with labels, values, notes, icons, and action URLs
         $dashboardCards = [
+            // Card 1: Today's Sales total
             ['label' => "Today's Sales", 'value' => money_value($todaySales), 'note' => 'Confirmed invoice total for today.', 'icon' => 'fa-cash-register', 'url' => route('admin.sales.index')],
+            // Card 2: Monthly Sales total
             ['label' => 'This Month Sales', 'value' => money_value($monthSales), 'note' => 'Sales total for the current month.', 'icon' => 'fa-chart-line', 'url' => route('admin.sales.index')],
+            // Card 3: Monthly Purchase total
             ['label' => 'This Month Purchase', 'value' => money_value($monthPurchase), 'note' => 'Received purchase total for this month.', 'icon' => 'fa-file-invoice-dollar', 'url' => route('admin.purchase')],
+            // Card 4: Outstanding customer receivables
             ['label' => 'Outstanding Receivables', 'value' => money_value($outstandingReceivables), 'note' => 'Customer balances still pending.', 'icon' => 'fa-hand-holding-dollar', 'url' => route('admin.payments.in.create')],
+            // Card 5: Outstanding supplier payables
             ['label' => 'Outstanding Payables', 'value' => money_value($outstandingPayables), 'note' => 'Supplier balances still unpaid.', 'icon' => 'fa-money-bill-transfer', 'url' => route('admin.payments.out.create')],
+            // Card 6: Products below reorder level
             ['label' => 'Low Stock Items', 'value' => $lowStockCount, 'note' => 'Products at or below reorder level.', 'icon' => 'fa-triangle-exclamation', 'url' => route('admin.report.lowstock')],
+            // Card 7: Products expiring in 3 months
             ['label' => 'Expiring in 3 Months', 'value' => $expiringSoonCount, 'note' => 'Batches reaching expiry soon.', 'icon' => 'fa-hourglass-half', 'url' => route('admin.report.expiry', ['window' => '3m'])],
+            // Card 8: Total product count
             ['label' => 'Total Products', 'value' => $totalProducts, 'note' => 'Unified product records in catalog.', 'icon' => 'fa-capsules', 'url' => route('admin.product')],
+            // Card 9: Total supplier count
             ['label' => 'Total Suppliers', 'value' => $totalSuppliers, 'note' => 'Supplier parties available for billing.', 'icon' => 'fa-truck-field', 'url' => route('admin.supplier')],
         ];
     @endphp
