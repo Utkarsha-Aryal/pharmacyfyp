@@ -56,13 +56,12 @@
             </div>
           </div>
           <h2>Create a new password</h2>
-          <p class="text-muted mb-0">Use the OTP from your email. It is valid for 15 minutes.</p>
         </div>
 
         <form action="{{ route('password.reset.update') }}" method="POST" class="login-form">
           @csrf
 
-          <div class="login-form-group">
+          <div class="login-form-group d-none">
             <label for="email">Email address</label>
             <div class="login-input-wrap">
               <i class="fa-regular fa-envelope"></i>
