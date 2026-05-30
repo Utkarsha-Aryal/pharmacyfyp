@@ -1,4 +1,4 @@
-notes,Required columns: supplier_name phone. Optional columns: contact_person email pan_number opening_balance address type
-supplier_name,contact_person,phone,email,pan_number,opening_balance,address,type
-Northwind Traders,Bikash Rai,9801234567,northwind@example.com,123456789,0,Kathmandu,credit
-Metro Distributors,Rohan Thapa,9812345678,metro@example.com,987654321,5000,Bhaktapur,credit
+notes,Required: supplier name. Optional: contact, phone, email, pan number, opening balance, address and type. Existing suppliers update by phone, email or name.
+Supplier Name,Contact Person,Phone,Email,PAN Number,Opening Balance,Address,Type
+Northwind Traders,Bikash Rai,9801234567,northwind@example.com,123456789,0,Kathmandu,Credit
+Metro Distributors,Rohan Thapa,9812345678,metro@example.com,987654321,5000,Bhaktapur,Credit

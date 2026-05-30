@@ -1,4 +1,4 @@
-notes,Required columns: product_code product_name. Optional columns: company_name generic_name mrp cc_rate reorder_level purchase_price unit manufacturer description
-product_code,product_name,company_name,generic_name,mrp,cc_rate,reorder_level,purchase_price,unit,manufacturer,description
-PRD-001,Ibuprofen 400mg,Himalaya Labs,Ibuprofen,110,7.5,12,78,Strip,Himalaya Labs,Sample product for import testing
-PRD-002,Amoxicillin 500mg,ABC Pharma Imports,Amoxicillin,145,8.25,18,102,Strip,ABC Pharma Imports,Sample imported antibiotic product
+notes,Required: product name. Optional: product code, company name, unit and rates. Missing companies and units are created by name.
+Product Code,Product Name,Company Name,Company Type,Company CC Rate,Generic Name,MRP,CC Rate,Reorder Level,Purchase Price,Unit,Manufacturer,Description
+PRD-001,Ibuprofen 400mg,Himalaya Labs,Domestic,5.50,Ibuprofen,110,7.5,12,78,Strip,Himalaya Labs,Sample product for import testing
+PRD-002,Amoxicillin 500mg,ABC Pharma Imports,Foreign,8.25,Amoxicillin,145,,18,102,Strip,ABC Pharma Imports,Sample imported antibiotic product
