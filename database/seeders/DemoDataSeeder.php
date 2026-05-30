@@ -561,6 +561,7 @@ class DemoDataSeeder extends Seeder
             $subtotal = 0;
             $discountAmount = 0;
             $totalAmount = 0;
+            $inventoryCostTotal = 0;
             $saleTypeName = ucfirst(strtolower((string) $row['sale_type']));
             $paymentModeId = $paymentModeIdFromLegacy($row['payment_method']);
             $paymentMode = $paymentModeId ? DropdownOption::query()->find($paymentModeId) : null;
@@ -595,6 +596,8 @@ class DemoDataSeeder extends Seeder
                 $lineDiscount = round(($lineBase * $item['discount_percent']) / 100, 2);
                 $lineTotal = round($lineBase - $lineDiscount, 2);
                 $freeGoodsValue = round((float) ($item['free_qty'] ?? 0) * (((float) ($product->mrp ?? 0) * (float) ($product->cc_rate ?? 0)) / 100), 2);
+                $costRate = round((float) $batch->purchase_price, 2);
+                $costAmount = round((float) $saleQuantity * $costRate, 2);
 
                 SalesInvoiceItem::create([
                     'sales_invoice_id' => $invoice->id,
@@ -608,6 +611,8 @@ class DemoDataSeeder extends Seeder
                     'discount_percent' => $item['discount_percent'],
                     'discount_amount' => $lineDiscount,
                     'free_goods_value' => $freeGoodsValue,
+                    'cost_rate' => $costRate,
+                    'cost_amount' => $costAmount,
                     'subtotal' => $lineTotal,
                 ]);
 
@@ -632,6 +637,7 @@ class DemoDataSeeder extends Seeder
                 $subtotal += $lineBase;
                 $discountAmount += $lineDiscount;
                 $totalAmount += $lineTotal;
+                $inventoryCostTotal += $costAmount;
             }
 
             $paidAmount = min((float) $row['paid_amount'], round((float) $totalAmount, 2));
@@ -694,6 +700,34 @@ class DemoDataSeeder extends Seeder
                 'created_by' => $adminId,
             ]);
 
+            if ($inventoryCostTotal > 0) {
+                record_account_transaction([
+                    'transaction_date' => $invoice->invoice_date,
+                    'reference_type' => 'SalesInvoice',
+                    'reference_id' => $invoice->id,
+                    'party_type' => 'customer',
+                    'party_id' => $invoice->customer_id,
+                    'entry_type' => 'debit',
+                    'account_type' => 'expense',
+                    'amount' => round($inventoryCostTotal, 2),
+                    'notes' => 'Demo cost of stock issued for ' . $invoice->reference,
+                    'created_by' => $adminId,
+                ]);
+
+                record_account_transaction([
+                    'transaction_date' => $invoice->invoice_date,
+                    'reference_type' => 'SalesInvoice',
+                    'reference_id' => $invoice->id,
+                    'party_type' => 'customer',
+                    'party_id' => $invoice->customer_id,
+                    'entry_type' => 'credit',
+                    'account_type' => 'inventory',
+                    'amount' => round($inventoryCostTotal, 2),
+                    'notes' => 'Demo inventory cost issued for ' . $invoice->reference,
+                    'created_by' => $adminId,
+                ]);
+            }
+
             $createdSalesInvoices[] = $invoice;
         }
 
@@ -711,6 +745,7 @@ class DemoDataSeeder extends Seeder
                     : 0;
                 $discountAmount = round($returnQuantity * $perUnitDiscount, 2);
                 $refundAmount = round($returnQuantity * $discountedUnitRate, 2);
+                $returnCostAmount = round($returnQuantity * (float) ($firstItem->cost_rate ?? $firstItem->batch?->purchase_price ?? 0), 2);
 
                 if ($firstItem->batch) {
                     $firstItem->batch->quantity_available = round((float) $firstItem->batch->quantity_available + $returnQuantity, 2);
@@ -813,6 +848,34 @@ class DemoDataSeeder extends Seeder
                         'account_type' => 'payable',
                         'amount' => $pendingCreditAmount,
                         'notes' => 'Demo credit note balance for ' . $firstInvoice->reference,
+                        'created_by' => $adminId,
+                    ]);
+                }
+
+                if ($returnCostAmount > 0) {
+                    record_account_transaction([
+                        'transaction_date' => now()->subDay()->toDateString(),
+                        'reference_type' => 'SalesReturn',
+                        'reference_id' => $salesReturn->id,
+                        'party_type' => 'customer',
+                        'party_id' => $firstInvoice->customer_id,
+                        'entry_type' => 'debit',
+                        'account_type' => 'inventory',
+                        'amount' => $returnCostAmount,
+                        'notes' => 'Demo inventory restored from credit note for ' . $firstInvoice->reference,
+                        'created_by' => $adminId,
+                    ]);
+
+                    record_account_transaction([
+                        'transaction_date' => now()->subDay()->toDateString(),
+                        'reference_type' => 'SalesReturn',
+                        'reference_id' => $salesReturn->id,
+                        'party_type' => 'customer',
+                        'party_id' => $firstInvoice->customer_id,
+                        'entry_type' => 'credit',
+                        'account_type' => 'expense',
+                        'amount' => $returnCostAmount,
+                        'notes' => 'Demo cost reversed from credit note for ' . $firstInvoice->reference,
                         'created_by' => $adminId,
                     ]);
                 }

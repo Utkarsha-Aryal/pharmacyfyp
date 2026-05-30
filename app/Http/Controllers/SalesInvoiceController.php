@@ -643,6 +643,7 @@ class SalesInvoiceController extends Controller
                 $subtotal = 0;
                 $discountAmount = 0;
                 $invoiceTotal = 0;
+                $inventoryCostTotal = 0;
                 $saleType = DropdownOption::query()->forAlias('sales_type')->findOrFail($validated['sale_type_id']);
                 $paidAmount = round((float) ($validated['paid_amount'] ?? 0), 2);
                 $paymentMode = $paidAmount > 0 && !empty($validated['payment_mode_id'])
@@ -688,6 +689,8 @@ class SalesInvoiceController extends Controller
                     $lineDiscount = round(($lineBase * $discountPercent) / 100, 2);
                     $lineTotal = round($lineBase - $lineDiscount, 2);
                     $freeGoodsValue = round($freeQuantity * ($mrp * $ccRate / 100), 2);
+                    $costRate = round((float) $batch->purchase_price, 2);
+                    $costAmount = round($stockQuantity * $costRate, 2);
 
                     // Free qty also leaves the store, so stock must move for bill qty + free qty together.
                     $batch->quantity_available = max(0, (float) $batch->quantity_available - $stockQuantity);
@@ -705,6 +708,8 @@ class SalesInvoiceController extends Controller
                         'discount_percent' => $discountPercent,
                         'discount_amount' => $lineDiscount,
                         'free_goods_value' => $freeGoodsValue,
+                        'cost_rate' => $costRate,
+                        'cost_amount' => $costAmount,
                         'subtotal' => $lineTotal,
                     ]);
 
@@ -726,6 +731,7 @@ class SalesInvoiceController extends Controller
                     $subtotal += $lineBase;
                     $discountAmount += $lineDiscount;
                     $invoiceTotal += $lineTotal;
+                    $inventoryCostTotal += $costAmount;
                 }
 
                 if ($paidAmount > round($invoiceTotal, 2)) {
@@ -796,6 +802,8 @@ class SalesInvoiceController extends Controller
                     'notes' => 'Sales income for ' . $invoice->reference,
                     'created_by' => $request->user()->id,
                 ]);
+
+                $this->recordSalesInventoryCost($invoice, $inventoryCostTotal, $request->user()->id);
 
                 return $invoice->load(['customer', 'items.product', 'items.batch']);
             });
@@ -1191,7 +1199,7 @@ class SalesInvoiceController extends Controller
         if ($salesInvoice->customer_id && $salesInvoice->due_amount > 0) {
             $customer = Customer::query()->lockForUpdate()->find($salesInvoice->customer_id);
             if ($customer) {
-                $customer->current_balance = round(max(0, (float) $customer->current_balance - $salesInvoice->due_amount), 2);
+                $customer->current_balance = round((float) $customer->current_balance - $salesInvoice->due_amount, 2);
                 $customer->save();
             }
         }
@@ -1214,6 +1222,7 @@ class SalesInvoiceController extends Controller
         $subtotal = 0;
         $discountAmount = 0;
         $invoiceTotal = 0;
+        $inventoryCostTotal = 0;
         $saleType = DropdownOption::query()->forAlias('sales_type')->findOrFail($validated['sale_type_id']);
         $paidAmount = round((float) ($validated['paid_amount'] ?? 0), 2);
         $paymentMode = $paidAmount > 0 && !empty($validated['payment_mode_id'])
@@ -1254,6 +1263,8 @@ class SalesInvoiceController extends Controller
             $lineDiscount = round(($lineBase * $discountPercent) / 100, 2);
             $lineTotal = round($lineBase - $lineDiscount, 2);
             $freeGoodsValue = round($freeQuantity * ($mrp * $ccRate / 100), 2);
+            $costRate = round((float) $batch->purchase_price, 2);
+            $costAmount = round($stockQuantity * $costRate, 2);
 
             $batch->quantity_available = max(0, (float) $batch->quantity_available - $stockQuantity);
             $batch->save();
@@ -1270,6 +1281,8 @@ class SalesInvoiceController extends Controller
                 'discount_percent' => $discountPercent,
                 'discount_amount' => $lineDiscount,
                 'free_goods_value' => $freeGoodsValue,
+                'cost_rate' => $costRate,
+                'cost_amount' => $costAmount,
                 'subtotal' => $lineTotal,
             ]);
 
@@ -1291,6 +1304,7 @@ class SalesInvoiceController extends Controller
             $subtotal += $lineBase;
             $discountAmount += $lineDiscount;
             $invoiceTotal += $lineTotal;
+            $inventoryCostTotal += $costAmount;
         }
 
         if ($paidAmount > round($invoiceTotal, 2)) {
@@ -1357,6 +1371,42 @@ class SalesInvoiceController extends Controller
             'amount' => $invoice->total_amount,
             'notes' => 'Sales income for ' . $invoice->reference,
             'created_by' => $request->user()->id,
+        ]);
+
+        $this->recordSalesInventoryCost($invoice, $inventoryCostTotal, $request->user()->id);
+    }
+
+    private function recordSalesInventoryCost(SalesInvoice $invoice, float $costAmount, int $userId): void
+    {
+        $costAmount = round($costAmount, 2);
+        if ($costAmount <= 0) {
+            return;
+        }
+
+        record_account_transaction([
+            'transaction_date' => $invoice->invoice_date,
+            'reference_type' => 'SalesInvoice',
+            'reference_id' => $invoice->id,
+            'party_type' => $invoice->customer_id ? 'customer' : null,
+            'party_id' => $invoice->customer_id,
+            'entry_type' => 'debit',
+            'account_type' => 'expense',
+            'amount' => $costAmount,
+            'notes' => 'Cost of stock issued for ' . $invoice->reference,
+            'created_by' => $userId,
+        ]);
+
+        record_account_transaction([
+            'transaction_date' => $invoice->invoice_date,
+            'reference_type' => 'SalesInvoice',
+            'reference_id' => $invoice->id,
+            'party_type' => $invoice->customer_id ? 'customer' : null,
+            'party_id' => $invoice->customer_id,
+            'entry_type' => 'credit',
+            'account_type' => 'inventory',
+            'amount' => $costAmount,
+            'notes' => 'Inventory cost issued for ' . $invoice->reference,
+            'created_by' => $userId,
         ]);
     }
 
@@ -1528,11 +1578,14 @@ class SalesInvoiceController extends Controller
                 }
 
                 $pricing = $this->calculateSalesReturnRowPricing($row, $invoiceItem, $returnQty);
+                $costRate = round((float) ($invoiceItem->cost_rate ?? $invoiceItem->batch?->purchase_price ?? 0), 2);
+                $costAmount = round($returnQty * $costRate, 2);
 
                 return array_merge($pricing, [
                     'invoice_item' => $invoiceItem,
                     'sales_invoice' => $salesInvoice,
                     'quantity' => $returnQty,
+                    'cost_amount' => $costAmount,
                 ]);
             })->values();
 
@@ -1576,6 +1629,7 @@ class SalesInvoiceController extends Controller
             $grossAmount = 0;
             $discountAmount = 0;
             $refundAmount = 0;
+            $returnCostAmount = 0;
 
             foreach ($preparedRows as $row) {
                 $invoiceItem = $row['invoice_item'];
@@ -1620,6 +1674,7 @@ class SalesInvoiceController extends Controller
                 $grossAmount += (float) $row['quantity'] * (float) $row['unit_price'];
                 $discountAmount += (float) $row['discount_amount'];
                 $refundAmount += (float) $row['refund_amount'];
+                $returnCostAmount += (float) $row['cost_amount'];
             }
 
             $customer = $customerId ? Customer::query()->lockForUpdate()->find($customerId) : null;
@@ -1683,8 +1738,44 @@ class SalesInvoiceController extends Controller
                 ]);
             }
 
+            $this->recordSalesReturnInventoryCost($salesReturn, $returnCostAmount, $customerId ?: null, $request->user()->id);
+
             return $salesReturn->fresh()->load(['invoice.customer', 'customer', 'items.invoice', 'items.invoiceItem.product', 'items.invoiceItem.batch', 'items.product', 'items.batch']);
         });
+    }
+
+    private function recordSalesReturnInventoryCost(SalesReturn $salesReturn, float $costAmount, ?int $customerId, int $userId): void
+    {
+        $costAmount = round($costAmount, 2);
+        if ($costAmount <= 0) {
+            return;
+        }
+
+        record_account_transaction([
+            'transaction_date' => $salesReturn->return_date,
+            'reference_type' => 'SalesReturn',
+            'reference_id' => $salesReturn->id,
+            'party_type' => $customerId ? 'customer' : null,
+            'party_id' => $customerId,
+            'entry_type' => 'debit',
+            'account_type' => 'inventory',
+            'amount' => $costAmount,
+            'notes' => 'Inventory cost restored from credit note #' . $salesReturn->id,
+            'created_by' => $userId,
+        ]);
+
+        record_account_transaction([
+            'transaction_date' => $salesReturn->return_date,
+            'reference_type' => 'SalesReturn',
+            'reference_id' => $salesReturn->id,
+            'party_type' => $customerId ? 'customer' : null,
+            'party_id' => $customerId,
+            'entry_type' => 'credit',
+            'account_type' => 'expense',
+            'amount' => $costAmount,
+            'notes' => 'Cost reversed from credit note #' . $salesReturn->id,
+            'created_by' => $userId,
+        ]);
     }
 
     private function calculateSalesReturnRowPricing(array $row, SalesInvoiceItem $invoiceItem, float $returnQty): array
