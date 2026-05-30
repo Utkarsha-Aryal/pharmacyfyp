@@ -309,6 +309,17 @@
     margin: 0;
 }
 
+.login-page .forget-password-link {
+    color: #0f5f87 !important;
+    font-size: 14px;
+}
+
+.login-page .forget-password-link:hover,
+.login-page .forget-password-link:focus {
+    color: #0f7a5f !important;
+    text-decoration: underline !important;
+}
+
 .login-demo-box {
     margin-top: 16px;
     padding: 14px;

@@ -3,14 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{{ setting('app_name', 'Pharmacy Management System') }} | Admin Login</title>
+  <title>{{ setting('app_name', 'Pharmacy Management System') }} | Forgot Password</title>
 
   @php
     $frontendCustomCssVersion = file_exists(public_path('assets/css/custom.css'))
         ? filemtime(public_path('assets/css/custom.css'))
-        : time();
-    $frontendCustomJsVersion = file_exists(public_path('assets/js/custom-login.js'))
-        ? filemtime(public_path('assets/js/custom-login.js'))
         : time();
   @endphp
 
@@ -51,48 +48,34 @@
           <div class="login-brand login-brand-compact">
             <img src="{{ app_logo_url() }}" alt="App Logo">
             <div>
-              <span class="login-brand-label">Pharmacy Admin Panel</span>
+              <span class="login-brand-label">Account recovery</span>
               <h1>{{ setting('app_name', 'Pharmacy Management System') }}</h1>
             </div>
           </div>
-          <h2>Sign in to continue</h2>
+          <h2>Reset your password</h2>
+          <p class="text-muted mb-0">Enter your admin email. We will send a 6 digit OTP to verify the reset.</p>
         </div>
 
-        <form action="{{ route('login.submit') }}" method="POST" class="login-form">
+        <form action="{{ route('password.otp.send') }}" method="POST" class="login-form">
           @csrf
 
           <div class="login-form-group">
             <label for="email">Email address</label>
             <div class="login-input-wrap">
               <i class="fa-regular fa-envelope"></i>
-              <input type="email" name="email" id="email" value="{{ old('email') }}" placeholder="Enter email" required>
+              <input type="email" name="email" id="email" value="{{ old('email') }}" placeholder="Enter email" required autofocus>
             </div>
           </div>
 
-          <div class="login-form-group">
-            <label for="password">Password</label>
-            <div class="login-input-wrap password-wrap">
-              <i class="fa-solid fa-lock"></i>
-              <input type="password" name="password" id="password" placeholder="Enter password" required>
-              <button type="button" class="password-toggle" data-password-toggle="#password" aria-label="Show password">
-                <i class="fa-regular fa-eye"></i>
-              </button>
-            </div>
-          </div>
+          <button type="submit" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold">
+            <i class="fa-regular fa-paper-plane me-1"></i> Send OTP
+          </button>
 
-          <div class="remember-row">
-            <input type="checkbox" name="remember" id="remember" value="1">
-            <label for="remember" class="remember-label">Keep me logged in on this browser</label>
-          </div>
-
-          <div class="forget-password-row text-end mb-3">
-            <a href="{{ route('password.request') }}" class="forget-password-link d-inline-flex align-items-center gap-1 text-decoration-none fw-semibold">
-              <i class="fa-regular fa-circle-question"></i>
-              Forgot your password?
+          <div class="text-center mt-3">
+            <a href="{{ route('login') }}" class="btn btn-link text-decoration-none">
+              <i class="fa-solid fa-arrow-left me-1"></i> Back to login
             </a>
           </div>
-
-          <button type="submit" class="btn-login">Login to Dashboard</button>
         </form>
       </div>
     </main>
@@ -102,32 +85,6 @@
     integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="{{ asset('backpanel/assets/libs/toastr/toastr.min.js') }}"></script>
-  <script>
-    // Login page also uses toastr now, so auth messages behave same like the admin area.
-    toastr.options = {
-      closeButton: true,
-      progressBar: true,
-      newestOnTop: true,
-      positionClass: 'toast-top-right',
-      timeOut: 3200,
-      extendedTimeOut: 900,
-      preventDuplicates: true,
-      showDuration: 180,
-      hideDuration: 180
-    };
-
-    @if (session('success'))
-      toastr.success(@json(session('success')));
-    @endif
-
-    @if (session('error'))
-      toastr.error(@json(session('error')));
-    @endif
-
-    @if ($errors->any())
-      toastr.error(@json($errors->first()));
-    @endif
-  </script>
-  <script src="{{ asset('assets/js/custom-login.js') }}?v={{ $frontendCustomJsVersion }}"></script>
+  @include('auth.partials.toastr')
 </body>
 </html>
