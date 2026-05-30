@@ -100,13 +100,13 @@
             </div>
           </div>
 
-          <button type="submit" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold">
+          <button type="submit" class="btn-login">
             <i class="fa-solid fa-check me-1"></i> Reset Password
           </button>
 
           <div class="d-flex justify-content-between align-items-center gap-2 mt-3">
-            <a href="{{ route('password.request') }}" class="btn btn-link text-decoration-none px-0">Send OTP again</a>
-            <a href="{{ route('login') }}" class="btn btn-link text-decoration-none px-0">Back to login</a>
+            <a href="{{ route('password.request') }}" class="auth-secondary-link text-decoration-none">Send OTP again</a>
+            <a href="{{ route('login') }}" class="auth-secondary-link text-decoration-none">Back to login</a>
           </div>
         </form>
       </div>
