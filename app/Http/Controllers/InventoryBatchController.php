@@ -8,8 +8,11 @@ use App\Models\Product;
 use App\Models\Supplier;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 
 class InventoryBatchController extends Controller
@@ -105,7 +108,7 @@ class InventoryBatchController extends Controller
 
             $deleteForm = '<form action="' . route('admin.inventory.batches.delete', $batch) . '" method="POST" class="d-inline js-confirm-submit"'
                 . ' data-confirm-title="Delete this batch?"'
-                . ' data-confirm-text="This batch will be hidden from the active list."'
+                . ' data-confirm-text="Batches with stock or history are kept safely for reports."'
                 . ' data-confirm-button="Yes, delete batch">'
                 . csrf_field()
                 . '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Batch" aria-label="Delete Batch"><i class="fa-solid fa-trash"></i></button>'
@@ -215,11 +218,44 @@ class InventoryBatchController extends Controller
 
     public function destroy(Batch $batch)
     {
-        $batch->update([
-            'is_active' => false,
-        ]);
+        try {
+            $message = 'Batch removed successfully.';
 
-        return back()->with('success', 'Batch removed successfully.');
+            DB::transaction(function () use ($batch, &$message) {
+                $batch = Batch::query()->lockForUpdate()->findOrFail($batch->id);
+
+                if ((int) $batch->quantity_available > 0) {
+                    throw ValidationException::withMessages([
+                        'batch' => 'This batch still has available stock. Use stock adjustment, sales, or return flow before deleting it.',
+                    ]);
+                }
+
+                $blockers = $batch->permanentDeleteBlockers();
+                if (!empty($blockers)) {
+                    $batch->update([
+                        'is_active' => false,
+                    ]);
+
+                    $message = 'Batch hidden from active list. Existing purchase, sales, return, and stock history is kept safely.';
+
+                    return;
+                }
+
+                $batch->delete();
+            });
+
+            return back()->with('success', $message);
+        } catch (ValidationException $exception) {
+            return back()->with('error', collect($exception->errors())->flatten()->first() ?: 'Could not delete batch.');
+        } catch (QueryException $exception) {
+            $message = $exception->getCode() === '23000'
+                ? 'This batch is linked with purchase, sales, return, or stock history. Keep it inactive instead of deleting it permanently.'
+                : 'Could not delete batch.';
+
+            return back()->with('error', $message);
+        } catch (\Throwable $exception) {
+            return back()->with('error', $exception->getMessage() ?: 'Could not delete batch.');
+        }
     }
 
     private function applyFilters(Builder $query, array $filters): Builder

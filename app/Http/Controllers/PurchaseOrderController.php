@@ -617,6 +617,21 @@ class PurchaseOrderController extends Controller
                     ]);
                 }
 
+                $blockers = $batch->permanentDeleteBlockers([
+                    'stock_movements' => function ($query) use ($purchaseOrder) {
+                        $query->where(function ($movementQuery) use ($purchaseOrder) {
+                            $movementQuery->where('reference_type', '!=', 'PurchaseOrder')
+                                ->orWhere('reference_id', '!=', $purchaseOrder->id)
+                                ->orWhereNull('reference_type');
+                        });
+                    },
+                ]);
+                if (!empty($blockers)) {
+                    throw ValidationException::withMessages([
+                        'purchase_order' => 'This received order cannot be deleted because its batch has linked history: ' . implode(', ', $blockers) . '.',
+                    ]);
+                }
+
                 $batch->delete();
             }
         }

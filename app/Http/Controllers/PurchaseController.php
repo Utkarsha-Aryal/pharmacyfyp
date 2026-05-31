@@ -459,6 +459,24 @@ class PurchaseController extends Controller
                 ]);
             }
 
+            $blockers = $batch->permanentDeleteBlockers([
+                'purchase_items' => function ($query) use ($purchase) {
+                    $query->where('purchase_id', '!=', $purchase->id);
+                },
+                'stock_movements' => function ($query) use ($purchase) {
+                    $query->where(function ($movementQuery) use ($purchase) {
+                        $movementQuery->where('reference_type', '!=', 'Purchase')
+                            ->orWhere('reference_id', '!=', $purchase->id)
+                            ->orWhereNull('reference_type');
+                    });
+                },
+            ]);
+            if (!empty($blockers)) {
+                throw ValidationException::withMessages([
+                    'purchase' => 'This bill cannot be changed because its batch has linked history: ' . implode(', ', $blockers) . '.',
+                ]);
+            }
+
             $batch->quantity_received = max(0, (int) $batch->quantity_received - $physicalQuantity);
             $batch->quantity_available = max(0, (int) $batch->quantity_available - $physicalQuantity);
             if ((int) $batch->quantity_received === 0 && (int) $batch->quantity_available === 0) {

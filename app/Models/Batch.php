@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Batch extends Model
 {
@@ -34,6 +35,35 @@ class Batch extends Model
     public function purchaseReturnItems()
     {
         return $this->hasMany(PurchaseReturnItem::class, 'batch_id');
+    }
+
+    public function permanentDeleteBlockers(array $except = []): array
+    {
+        $tables = [
+            'purchase_items' => 'purchase bill items',
+            'purchase_return_items' => 'purchase return items',
+            'sales_invoice_items' => 'sales invoice items',
+            'sales_return_items' => 'sales return items',
+            'stock_adjustments' => 'stock adjustments',
+            'stock_movements' => 'stock movement records',
+        ];
+
+        $blockers = [];
+
+        foreach ($tables as $table => $label) {
+            $query = DB::table($table)->where('batch_id', $this->id);
+
+            if (isset($except[$table]) && is_callable($except[$table])) {
+                $except[$table]($query);
+            }
+
+            $count = $query->count();
+            if ($count > 0) {
+                $blockers[] = $label . ' (' . $count . ')';
+            }
+        }
+
+        return $blockers;
     }
 
     public static function makeExpiryDate(?string $value): ?Carbon
