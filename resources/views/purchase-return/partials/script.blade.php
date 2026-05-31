@@ -293,7 +293,10 @@
                 $batchSelect.prop('selectedIndex', 1);
             }
 
-            $row.find('.purchase-return-product-note').text('');
+            var returnableTotal = (rows || []).reduce(function (total, row) {
+                return total + safeNumber(row.max_returnable || row.quantity_available);
+            }, 0);
+            $row.find('.purchase-return-product-note').text('Returnable stock: ' + returnableTotal.toFixed(0) + ' across ' + rows.length + ' batch(es).');
             $row.find('.purchase-return-pricing-note').text(purchaseReturnPricingNote((rows || [])[0] || null));
             applyBatchState($row);
         }

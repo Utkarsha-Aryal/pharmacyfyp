@@ -974,7 +974,7 @@
         }
 
         var infoText = response.name
-          ? response.name + " | MRP: " + parseFloat(response.mrp || 0).toFixed(2) + " | CC: " + parseFloat(response.cc_rate || 0).toFixed(2) + "%"
+          ? response.name + " | Stock: " + (response.stock || 0) + " | MRP: " + parseFloat(response.mrp || 0).toFixed(2) + " | CC: " + parseFloat(response.cc_rate || 0).toFixed(2) + "%"
           : "Select product to auto fill latest purchase rate.";
         $row.find(".purchase-stock-note").text(infoText);
 

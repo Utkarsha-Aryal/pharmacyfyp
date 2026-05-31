@@ -99,12 +99,13 @@
                                         <td>
                                             <div class="d-flex gap-2 align-items-start">
                                                 <div class="flex-grow-1">
-                                                    <select name="items[{{ $index }}][product_id]" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.purchase-orders.product-options') }}" data-placeholder="Search product" data-allow-clear="1" required>
+                                                    <select name="items[{{ $index }}][product_id]" class="form-select js-select2-ajax purchase-product-select" data-ajax-url="{{ route('admin.purchase-orders.product-options') }}" data-product-info-url="{{ route('admin.purchase.product-info') }}" data-placeholder="Search product" data-allow-clear="1" required>
                                                         <option value="">Select Product</option>
                                                         @foreach ($products as $product)
                                                             <option value="{{ $product->id }}" @selected(($row['product_id'] ?? '') == $product->id)>{{ $product->display_name }}</option>
                                                         @endforeach
                                                     </select>
+                                                    <small class="text-muted d-block mt-1 purchase-stock-note"></small>
                                                 </div>
                                                 <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create mt-1" data-bs-toggle="tooltip" title="Quick add product" data-quick-modal="#quickProductModal" data-quick-target-select="select[name='items[{{ $index }}][product_id]']">
                                                     <i class="fa-solid fa-plus"></i>
@@ -131,12 +132,13 @@
                             <td>
                                 <div class="d-flex gap-2 align-items-start">
                                     <div class="flex-grow-1">
-                                        <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax" data-ajax-url="{{ route('admin.purchase-orders.product-options') }}" data-placeholder="Search product" data-allow-clear="1" required>
+                                        <select name="items[__INDEX__][product_id]" class="form-select js-select2-ajax purchase-product-select" data-ajax-url="{{ route('admin.purchase-orders.product-options') }}" data-product-info-url="{{ route('admin.purchase.product-info') }}" data-placeholder="Search product" data-allow-clear="1" required>
                                             <option value="">Select Product</option>
                                             @foreach ($products as $product)
                                                 <option value="{{ $product->id }}">{{ $product->display_name }}</option>
                                             @endforeach
                                         </select>
+                                        <small class="text-muted d-block mt-1 purchase-stock-note"></small>
                                     </div>
                                     <button type="button" class="btn btn-success btn-sm quick-add-inline-btn js-open-quick-create mt-1" data-bs-toggle="tooltip" title="Quick add product" data-quick-modal="#quickProductModal" data-quick-target-select="select[name='items[__INDEX__][product_id]']">
                                         <i class="fa-solid fa-plus"></i>

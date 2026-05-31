@@ -159,6 +159,7 @@
                                                     </button>
                                                 @endcan
                                             </div>
+                                            <small class="text-muted d-block mt-1 purchase-stock-note"></small>
                                         </td>
                                         <td><input type="text" name="items[{{ $index }}][batch_no]" class="form-control" placeholder="Batch no" value="{{ $row['batch_no'] ?? '' }}"></td>
                                         <td><input type="date" name="items[{{ $index }}][expiry_date]" class="form-control" value="{{ $row['expiry_date'] ?? '' }}" required></td>
@@ -202,6 +203,7 @@
                                         </button>
                                     @endcan
                                 </div>
+                                <small class="text-muted d-block mt-1 purchase-stock-note"></small>
                             </td>
                             <td><input type="text" name="items[__INDEX__][batch_no]" class="form-control" placeholder="Batch no"></td>
                             <td><input type="date" name="items[__INDEX__][expiry_date]" class="form-control" required></td>

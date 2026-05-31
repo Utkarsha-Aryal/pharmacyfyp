@@ -164,6 +164,7 @@
                                                     </button>
                                                 @endcan
                                             </div>
+                                            <small class="text-muted d-block mt-1 sales-stock-note"></small>
                                         </td>
                                         <td>
                                             <select name="items[{{ $index }}][batch_id]" class="form-select sales-batch-select" required>
@@ -244,6 +245,7 @@
                             </button>
                         @endcan
                     </div>
+                    <small class="text-muted d-block mt-1 sales-stock-note"></small>
                 </td>
                 <td>
                     <select name="items[__INDEX__][batch_id]" class="form-select sales-batch-select" required>

@@ -201,7 +201,11 @@ class PurchaseController extends Controller
             'product_id' => ['required', 'exists:products,id'],
         ]);
 
-        $product = Product::query()->findOrFail($validated['product_id']);
+        $product = Product::query()
+            ->with(['batches' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->findOrFail($validated['product_id']);
 
         return response()->json([
             'id' => $product->id,
@@ -209,6 +213,7 @@ class PurchaseController extends Controller
             'mrp' => round((float) ($product->mrp ?? 0), 2),
             'cc_rate' => round((float) ($product->effective_cc_rate ?? 0), 2),
             'purchase_price' => round((float) ($product->purchase_price ?? 0), 2),
+            'stock' => (int) $product->batches->sum('quantity_available'),
         ]);
     }
 
