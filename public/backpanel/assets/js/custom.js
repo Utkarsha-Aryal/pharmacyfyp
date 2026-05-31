@@ -485,6 +485,45 @@
       return;
     }
 
+    function submitAjaxConfirmForm(form) {
+      var $form = $(form);
+      var $submitButtons = $form.find('[type="submit"]');
+      var method = ($form.attr("method") || "POST").toUpperCase();
+      var tableSelector = form.dataset.ajaxTable || "";
+
+      $submitButtons.prop("disabled", true);
+      showLoader();
+
+      $.ajax({
+        url: $form.attr("action"),
+        type: method,
+        data: new FormData(form),
+        processData: false,
+        contentType: false,
+        headers: {
+          Accept: "application/json",
+        },
+      })
+        .done(function (response) {
+          var type = response && response.type ? response.type : "success";
+          var message = response && response.message ? response.message : "Action completed.";
+
+          showNotification(message, type);
+
+          var tableElement = tableSelector ? document.querySelector(tableSelector) : null;
+          if (tableElement && $.fn.DataTable && $.fn.DataTable.isDataTable(tableElement)) {
+            $(tableElement).DataTable().ajax.reload(null, false);
+          }
+        })
+        .fail(function (xhr) {
+          showNotification(getAjaxErrorMessage(xhr, "Could not complete this action."), "error");
+        })
+        .always(function () {
+          $submitButtons.prop("disabled", false);
+          hideLoader();
+        });
+    }
+
     $(document).off("submit.confirm", ".js-confirm-submit");
     $(document).on("submit.confirm", ".js-confirm-submit", function (event) {
       event.preventDefault();
@@ -504,6 +543,11 @@
         confirmButtonText: buttonText,
       }).then(function (result) {
         if (result.isConfirmed) {
+          if (form.dataset.ajaxSubmit === "true") {
+            submitAjaxConfirmForm(form);
+            return;
+          }
+
           form.submit();
         }
       });

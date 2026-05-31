@@ -109,7 +109,9 @@ class InventoryBatchController extends Controller
             $deleteForm = '<form action="' . route('admin.inventory.batches.delete', $batch) . '" method="POST" class="d-inline js-confirm-submit"'
                 . ' data-confirm-title="Delete this batch?"'
                 . ' data-confirm-text="Batches with stock or history are kept safely for reports."'
-                . ' data-confirm-button="Yes, delete batch">'
+                . ' data-confirm-button="Yes, delete batch"'
+                . ' data-ajax-submit="true"'
+                . ' data-ajax-table="#inventoryBatchTable">'
                 . csrf_field()
                 . '<button type="submit" class="btn btn-sm btn-outline-danger table-action-btn" title="Delete Batch" aria-label="Delete Batch"><i class="fa-solid fa-trash"></i></button>'
                 . '</form>';
@@ -216,7 +218,7 @@ class InventoryBatchController extends Controller
         return back()->with('success', 'Batch added successfully.');
     }
 
-    public function destroy(Batch $batch)
+    public function destroy(Request $request, Batch $batch)
     {
         try {
             $message = 'Batch removed successfully.';
@@ -244,17 +246,47 @@ class InventoryBatchController extends Controller
                 $batch->delete();
             });
 
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'type' => 'success',
+                    'message' => $message,
+                ]);
+            }
+
             return back()->with('success', $message);
         } catch (ValidationException $exception) {
-            return back()->with('error', collect($exception->errors())->flatten()->first() ?: 'Could not delete batch.');
+            $message = collect($exception->errors())->flatten()->first() ?: 'Could not delete batch.';
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'type' => 'error',
+                    'message' => $message,
+                ], 422);
+            }
+
+            return back()->with('error', $message);
         } catch (QueryException $exception) {
             $message = $exception->getCode() === '23000'
                 ? 'This batch is linked with purchase, sales, return, or stock history. Keep it inactive instead of deleting it permanently.'
                 : 'Could not delete batch.';
 
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'type' => 'error',
+                    'message' => $message,
+                ], 422);
+            }
+
             return back()->with('error', $message);
         } catch (\Throwable $exception) {
-            return back()->with('error', $exception->getMessage() ?: 'Could not delete batch.');
+            $message = $exception->getMessage() ?: 'Could not delete batch.';
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'type' => 'error',
+                    'message' => $message,
+                ], 500);
+            }
+
+            return back()->with('error', $message);
         }
     }
 
