@@ -127,7 +127,7 @@ class CompanyController extends Controller
         } catch (QueryException $e) {
             DB::rollBack();
             $type = 'error';
-            $message = $this->queryMessage;
+            $message = 'This compoany is already connected to a product';
         } catch (Exception $e) {
             DB::rollBack();
             $type = 'error';
