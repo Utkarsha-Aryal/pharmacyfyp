@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Company;
 use Illuminate\Support\Facades\Validator;
-use App\Models\Common;
 use App\Models\DropdownOption;
 use App\Models\Product;
 use App\Models\Unit;
@@ -341,26 +340,86 @@ public function globalSearch(Request $request)
     {
         try {
             $type = 'success';
-            $message = 'Record deleted successfully';
+            $message = 'Product moved to deleted list successfully.';
             $post = $request->all();
-            $class = new Product();
-            $directory = public_path('storage/product');
+
+            $request->validate([
+                'id' => ['required', 'integer', 'exists:products,id'],
+                'type' => ['required', 'string'],
+            ]);
+
             DB::beginTransaction();
-            $result = Common::deleteSingleData($post, $class, $directory);
-            if (!$result) {
-                throw new Exception("Couldn't delete record", 1);
+
+            $product = Product::query()->lockForUpdate()->findOrFail($post['id']);
+
+            if (($post['type'] ?? '') === 'trashed') {
+                $blockers = $this->productPermanentDeleteBlockers($product);
+                if (!empty($blockers)) {
+                    throw ValidationException::withMessages([
+                        'product' => 'This product cannot be permanently deleted because it already has stock or transaction history: ' . implode(', ', $blockers) . '. Keep it in deleted list instead.',
+                    ]);
+                }
+
+                if (!empty($product->image)) {
+                    $imagePath = public_path('storage/product/' . $product->image);
+                    if (is_file($imagePath)) {
+                        @unlink($imagePath);
+                    }
+                }
+
+                $product->delete();
+                $message = 'Product permanently deleted successfully.';
+            } else {
+                $product->update([
+                    'status' => 'N',
+                    'is_active' => false,
+                    'updated_at' => now(),
+                ]);
             }
+
             DB::commit();
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            $type = 'error';
+            $message = collect($e->errors())->flatten()->first() ?: $e->getMessage();
         } catch (QueryException $e) {
             DB::rollBack();
             $type = 'error';
-            $message = $this->queryMessage;
+            $message = $e->getCode() === '23000'
+                ? 'This product is linked with stock, purchase, sales, or return history. Keep it in deleted list instead of deleting permanently.'
+                : $this->queryMessage;
         } catch (Exception $e) {
             DB::rollBack();
             $type = 'error';
             $message = $e->getMessage();
         }
         return response()->json(['type' => $type, 'message' => $message]);
+    }
+
+    private function productPermanentDeleteBlockers(Product $product): array
+    {
+        $tables = [
+            'batches' => 'inventory batches',
+            'product_batches' => 'legacy purchase batches',
+            'purchase_items' => 'purchase bill items',
+            'purchase_order_items' => 'purchase order items',
+            'sales_invoice_items' => 'sales invoice items',
+            'purchase_return_items' => 'purchase return items',
+            'sales_return_items' => 'sales return items',
+            'stock_adjustments' => 'stock adjustments',
+            'stock_movements' => 'stock movement records',
+        ];
+
+        $blockers = [];
+
+        foreach ($tables as $table => $label) {
+            $count = DB::table($table)->where('product_id', $product->id)->count();
+            if ($count > 0) {
+                $blockers[] = $label . ' (' . $count . ')';
+            }
+        }
+
+        return $blockers;
     }
 
     //function to restore
